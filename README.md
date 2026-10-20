@@ -36,3 +36,16 @@ This section documents the use of generative AI tools during the development of 
 - **Extent of Use:** Minimal assistance to help with formatting/ alignment of a few icons during the design process.
 
 Additional AI usage will be documented under the relevant project part and deliverables as the project progresses.
+
+
+**Contributor:** Khoi Nguyen (`khuivagorou`)  
+**AI Provider:** OpenAI
+**Tool:** ChatGPT   
+**Date Used:** October 2026
+
+#### CRC card descriptions 
+
+- **Purpose:** Used ChatGPT to refine the wording of some CRC card descriptions for better cohesion and readability.
+- **Extent of Use:** Minimal assistance with rephrasing.
+
+Additional AI usage will be documented under the relevant project part and deliverables as the project progresses.
