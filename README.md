@@ -34,6 +34,9 @@ This section documents the use of generative AI tools during the development of 
 
 - **Purpose:** Used Figma's AI bot to assist with minor formatting issues during the UI design.
 - **Extent of Use:** Minimal assistance to help with formatting/ alignment of a few icons during the design process.
+- **Prompts**:
+- 1- "For the selected icon, change its border to white and make the background black"
+- 2- "Replace the selected icon with the "inbox icon" that I have on the inbox screen"
 
 Additional AI usage will be documented under the relevant project part and deliverables as the project progresses.
 
