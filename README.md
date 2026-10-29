@@ -38,8 +38,6 @@ This section documents the use of generative AI tools during the development of 
 - 1- "For the selected icon, change its border to white and make the background black"
 - 2- "Replace the selected icon with the "inbox icon" that I have on the inbox screen"
 
-Additional AI usage will be documented under the relevant project part and deliverables as the project progresses.
-
 
 **Contributor:** Khoi Nguyen (`khuivagorou`)  
 **AI Provider:** OpenAI
