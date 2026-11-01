@@ -7,5 +7,7 @@ package com.example.camply.user.model
  * actions, such as registering campsites and managing lotteries.
  */
 interface CampsiteOwner {
-
+    fun registerCampsite(campsite: Campsite): Boolean
+    fun removeCampsite(campsite: Campsite)
+    fun updateExistingCampsite(campsite: Campsite, edit: Campsite): Boolean
 }
