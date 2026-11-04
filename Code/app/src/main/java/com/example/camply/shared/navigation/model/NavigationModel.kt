@@ -5,6 +5,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.camply.R
 
+
+/**
+ * Defines the available navigation destinations in Camply.
+ */
+enum class Screen {
+    BACK,
+    BROWSE,
+    LOTTERIES
+}
+
 /**
  * Stores and manages the navigation state of Camply.
  *
@@ -13,13 +23,14 @@ import com.example.camply.R
  */
 class NavigationModel {
 
-    private var selectedScreen by mutableStateOf("browse")
+    private var selectedScreen by mutableStateOf(Screen.BROWSE)
     private var isNavBarVisible by mutableStateOf(true)
 
     // TODO: Implement navigation history for the Back button.
     private val entrantNavBarItems = listOf(
-        NavBarItem("back", "Back", R.drawable.back_arrow),
-        NavBarItem("browse", "Browse Campsites", R.drawable.campsite_icon)
+        NavBarItem(Screen.BACK, "Back", R.drawable.back_arrow_icon),
+        NavBarItem(Screen.BROWSE, "Browse Campsites", R.drawable.campsite_icon),
+        NavBarItem(Screen.LOTTERIES, "My Lotteries", R.drawable.lottery_icon)
     )
 
     private val ownerNavBarItems = emptyList<NavBarItem>()
@@ -52,19 +63,19 @@ class NavigationModel {
     /**
      * Returns the currently selected screen.
      *
-     * @return the identifier of the current screen
+     * @return The current navigation destination.
      */
-    fun getCurrentScreen(): String {
+    fun getCurrentScreen(): Screen {
         return selectedScreen
     }
 
     /**
      * Updates the current screen and navbar visibility.
      *
-     * @param screen the identifier of the screen to display
-     * @param showBar whether the navbar should be visible
+     * @param screen The destination screen.
+     * @param showBar Whether the navbar should be visible.
      */
-    fun navigateTo(screen: String, showBar: Boolean = true) {
+    fun navigateTo(screen: Screen, showBar: Boolean = true) {
         selectedScreen = screen
         isNavBarVisible = showBar
     }

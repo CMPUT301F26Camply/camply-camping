@@ -1,6 +1,7 @@
 package com.example.camply.shared.navigation.controller
 
 import com.example.camply.shared.navigation.model.NavigationModel
+import com.example.camply.shared.navigation.model.Screen
 
 /**
  * Handles navigation requests from the application's Views.
@@ -10,28 +11,26 @@ import com.example.camply.shared.navigation.model.NavigationModel
 class NavigationController(
     private val navigationModel: NavigationModel
 ) {
-
     /**
      * Navigates to the specified screen.
      *
-     * @param screen the identifier of the destination screen
-     * @param showBar whether the bottom navbar should be displayed
+     * @param screen The destination screen.
+     * @param showBar Whether the navbar should be visible.
      */
-    fun navigateTo(screen: String, showBar: Boolean = true) {
+    fun navigateTo(screen: Screen, showBar: Boolean = true) {
         navigationModel.navigateTo(screen, showBar)
     }
 
     /**
      * Handles clicks on bottom navigation bar items.
      *
-     * @param itemId the identifier of the selected navbar item
+     * @param itemId The selected navigation destination.
      */
-    fun onNavItemClick(itemId: String) {
+    fun onNavItemClick(itemId: Screen) {
         when (itemId) {
-            "back" -> {
+            Screen.BACK -> {
                 // TODO: Implement navigation history and Back functionality.
             }
-
             else -> {
                 navigateTo(itemId)
             }
