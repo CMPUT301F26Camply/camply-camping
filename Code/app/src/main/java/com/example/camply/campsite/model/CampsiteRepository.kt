@@ -12,6 +12,13 @@ import kotlinx.coroutines.tasks.await
 interface CampsiteRepository {
     suspend fun getCampsites(): List<Campsite>
     suspend fun getCampsite(id: String): Campsite?
+    /**
+    * Returns the campsites registered by one owner.
+    *
+    * @param ownerId the Firebase uid of the owner
+    * @return that owner's campsites, or an empty list when they have none
+    */
+    suspend fun getCampsitesByOwner(ownerId: String): List<Campsite>
 }
 
 /** Firestore-backed implementation. Collection: "campsites". */
@@ -26,4 +33,12 @@ class FirestoreCampsiteRepository(
 
     override suspend fun getCampsite(id: String): Campsite? =
         campsites.document(id).get().await().toObject(Campsite::class.java)
+    /**
+    * Reads campsites whose ownerId field equals [ownerId].
+    *
+    * @param ownerId the Firebase uid to match
+    * @return the matching campsite documents
+    */
+    override suspend fun getCampsitesByOwner(ownerId: String): List<Campsite> =
+        campsites.whereEqualTo("ownerId", ownerId).get().await().toObjects(Campsite::class.java)
 }
