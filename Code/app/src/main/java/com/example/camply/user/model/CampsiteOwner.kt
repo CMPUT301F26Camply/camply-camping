@@ -1,4 +1,5 @@
 package com.example.camply.user.model
+import com.example.camply.campsite.model.Campsite
 
 /**
  * Represents the campsite owner role in Camply.
