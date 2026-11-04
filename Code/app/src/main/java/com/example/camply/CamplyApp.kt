@@ -2,6 +2,7 @@ package com.example.camply
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -15,16 +16,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.camply.campsite.controller.CampsiteBrowseController
 import com.example.camply.campsite.controller.CampsiteDetailController
+import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteBrowseModel
 import com.example.camply.campsite.model.CampsiteDetailModel
+import com.example.camply.campsite.model.DateRange
 import com.example.camply.campsite.model.FirestoreCampsiteRepository
 import com.example.camply.campsite.view.CampsiteBrowseView
 import com.example.camply.campsite.view.CampsiteDetailView
+import com.example.camply.lottery.model.EntrantLotteryModel
+import com.example.camply.lottery.view.EntrantLotteryView
+import com.example.camply.reservations.controller.ReservationBookingController
+import com.example.camply.reservations.model.ReservationBookingModel
+import com.example.camply.reservations.repository.FirestoreReservationRepository
+import com.example.camply.reservations.service.BookingService
+import com.example.camply.reservations.view.ReservationBookingView
 import com.example.camply.shared.navigation.controller.NavigationController
 import com.example.camply.shared.navigation.model.NavigationModel
+import com.example.camply.shared.navigation.model.Screen
 import com.example.camply.shared.navigation.view.CamplyBottomNavBar
 import com.example.camply.shared.view.ErrorView
 import com.example.camply.shared.view.LoadingView
+import com.example.camply.shared.view.PrimaryButton
 import com.example.camply.user.controller.UserController
 import com.example.camply.user.model.UserModel
 import com.example.camply.user.view.UserSignUpView
@@ -61,6 +73,18 @@ fun CamplyApp() {
     // Id of the campsite currently open from the browse screen (null = show the list).
     var selectedCampsiteId by remember { mutableStateOf<String?>(null) }
 
+    // Entrant lottery management
+    val entrantLotteryModel = remember { EntrantLotteryModel() }
+    val entrantLotteryView = remember(entrantLotteryModel) { EntrantLotteryView(entrantLotteryModel) }
+
+    // Entrant reservation booking
+    val reservationBookingModel = remember { ReservationBookingModel() }
+    val reservationRepository = remember { FirestoreReservationRepository() }
+    val bookingService = remember { BookingService() }
+    val reservationBookingController = remember { ReservationBookingController(bookingService, reservationRepository, reservationBookingModel) }
+    val reservationBookingView = remember { ReservationBookingView(reservationBookingModel, reservationBookingController) }
+    var selectedBookingCampsite by remember { mutableStateOf<Campsite?>(null) }
+
     // Check for an existing Firebase user or sign in anonymously
     LaunchedEffect(Unit) {
         userModel.initializeUser()
@@ -95,7 +119,7 @@ fun CamplyApp() {
                             .padding(innerPadding)
                     ) {
                         when (navigationModel.getCurrentScreen()) {
-                            "browse" -> {
+                            Screen.BROWSE -> {
                                 val openId = selectedCampsiteId
                                 if (openId == null) {
                                     campsiteBrowseView.Display(onCampsiteClick = { selectedCampsiteId = it })
@@ -107,6 +131,42 @@ fun CamplyApp() {
                                     )
                                 }
                             }
+
+                            Screen.LOTTERIES -> {
+                                val campsite = selectedBookingCampsite
+
+                                if (campsite == null) {
+                                    // TEMPORARY: Booking screen preview. Will remove after proper lottery integration.
+                                    Column {
+                                        PrimaryButton(
+                                            text = "Preview Booking Screen",
+                                            onClick = {
+                                                selectedBookingCampsite = Campsite(
+                                                    id = "preview",
+                                                    name = "Preview Campsite",
+                                                    availability = listOf(
+                                                        DateRange(
+                                                            "2027-06-01",
+                                                            "2027-06-10"
+                                                        )
+                                                    ),
+                                                    rules = "Quiet hours are from 10 PM to 7 AM."
+                                                )
+                                            }
+                                        )
+
+                                        entrantLotteryView.Display()
+                                    }
+                                } else {
+                                    BackHandler { selectedBookingCampsite = null }
+
+                                    reservationBookingView.Display(
+                                        campsite = campsite,
+                                        onBack = { selectedBookingCampsite = null }
+                                    )
+                                }
+                            }
+
                             else -> Text("Screen still needs to be implemented...")
                         }
                     }
