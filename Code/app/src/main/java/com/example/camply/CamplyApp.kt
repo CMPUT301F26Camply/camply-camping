@@ -44,6 +44,10 @@ import com.example.camply.shared.view.PrimaryButton
 import com.example.camply.user.controller.UserController
 import com.example.camply.user.model.UserModel
 import com.example.camply.user.view.UserSignUpView
+import com.example.camply.lottery.controller.LotteryCreateController
+import com.example.camply.lottery.model.LotteryCreateModel
+import com.example.camply.lottery.repository.FirestoreLotteryRepository
+import com.example.camply.lottery.view.LotteryCreateView
 
 /**
  * Displays the Camply application and manages its startup screens
@@ -74,7 +78,15 @@ fun CamplyApp() {
     val campsiteDetailModel = remember { CampsiteDetailModel() }
     val campsiteDetailController = remember { CampsiteDetailController(campsiteDetailModel, campsiteRepository) }
     val campsiteDetailView = remember { CampsiteDetailView(campsiteDetailModel, campsiteDetailController) }
-
+    // Owner lottery registration. US 02.04.01, 02.04.03, 02.04.04, 02.04.05.
+    val lotteryCreateModel = remember { LotteryCreateModel() }
+    val lotteryRepository = remember { FirestoreLotteryRepository() }
+    val lotteryCreateController = remember {
+        LotteryCreateController(lotteryCreateModel, lotteryRepository, campsiteRepository)
+    }
+    val lotteryCreateView = remember {
+        LotteryCreateView(lotteryCreateModel, lotteryCreateController)
+    }
     // Id of the campsite currently open from the browse screen (null = show the list).
     var selectedCampsiteId by remember { mutableStateOf<String?>(null) }
 
@@ -123,7 +135,9 @@ fun CamplyApp() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        when (navigationModel.getCurrentScreen()) {
+                        if (currentUser.getRole() == "owner") {
+                            lotteryCreateView.Display(currentUser.getUid())
+                        } else when (navigationModel.getCurrentScreen()) {
                             Screen.BROWSE -> {
                                 val openId = selectedCampsiteId
                                 if (openId == null) {

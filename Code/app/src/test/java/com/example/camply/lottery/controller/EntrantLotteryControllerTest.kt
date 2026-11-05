@@ -100,5 +100,6 @@ class EntrantLotteryControllerTest {
             }
             return null
         }
+        override suspend fun create(lottery: Lottery): String = error("not used by these tests.")
     }
 }
