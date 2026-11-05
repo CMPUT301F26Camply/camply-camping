@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.painterResource
 import com.example.camply.shared.navigation.controller.NavigationController
 import com.example.camply.shared.navigation.model.NavigationModel
+import com.example.camply.shared.navigation.model.Screen
 
 /**
  * Displays the shared bottom navigation bar for Camply.
@@ -61,7 +62,7 @@ class CamplyBottomNavBar(
                     label = {
                         Text(item.label)
                     },
-                    enabled = item.id != "back"
+                    enabled = item.id != Screen.BACK
                 )
             }
         }
