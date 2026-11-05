@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.DateRange
 import com.example.camply.reservations.controller.ReservationBookingController
+import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationBookingModel
 import com.example.camply.shared.view.CamplyPalette
 import com.example.camply.shared.view.CamplyScreen
@@ -31,10 +32,10 @@ import com.example.camply.shared.view.camplyTextFieldColors
 import kotlinx.coroutines.launch
 
 /**
- * Displays the campsite reservation date selection screen.
+ * Displays the campsite reservation booking screen.
  *
  * @param model The model containing the booking screen state.
- * @param controller The controller used to validate reservation dates.
+ * @param controller The controller used to validate dates and confirm reservations.
  */
 class ReservationBookingView(
     private val model: ReservationBookingModel,
@@ -42,7 +43,8 @@ class ReservationBookingView(
 ) {
 
     /**
-     * Allows an entrant to select reservation dates from a campsite's availability.
+     * Allows an entrant to select reservation dates from a campsite's availability,
+     * acknowledge its rules and policies, and confirm the reservation.
      *
      * @param campsite The campsite being reserved.
      * @param onBack Returns to the previous screen.
@@ -160,6 +162,23 @@ class ReservationBookingView(
                         color = CamplyPalette.Ink
                     )
                 }
+
+                Spacer(Modifier.height(8.dp))
+
+                PrimaryButton(
+                    text = "Confirm Reservation",
+                    onClick = {
+                        // Need US 01.04.01 supplying entrantId and lotteryId.
+                        val reservation = Reservation(
+                            campsiteId = campsite.id,
+                            dates = selectedDates,
+                            rulesAcknowledged = rulesAcknowledged
+                        )
+                        scope.launch { controller.confirmReservation(campsite, reservation) }
+                    },
+                    // The button is enabled only when all 4 of these are true.
+                    enabled = !model.isLoading && showingResult && model.datesValid && rulesAcknowledged
+                )
 
                 Spacer(Modifier.height(8.dp))
 
