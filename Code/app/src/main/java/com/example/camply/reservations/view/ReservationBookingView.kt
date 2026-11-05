@@ -103,7 +103,7 @@ class ReservationBookingView(
                 Spacer(Modifier.height(16.dp))
 
                 OrangeCard {
-                    Text("Campsite Rules", color = CamplyPalette.Ink)
+                    Text("Campsite Rules & Policies", color = CamplyPalette.Ink)
                     Spacer(Modifier.height(8.dp))
 
                     if (campsite.rules.isNotBlank()) {
@@ -111,6 +111,10 @@ class ReservationBookingView(
                     } else {
                         Text("Campsite rules are not available.", color = CamplyPalette.Ink)
                     }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(campsite.cancellationPolicy, color = CamplyPalette.Ink)
 
                     Spacer(Modifier.height(8.dp))
 
@@ -122,7 +126,7 @@ class ReservationBookingView(
                         )
 
                         Text(
-                            "I have read and agree to the campsite rules.",
+                            "I have read and agree to the campsite rules and policies.",
                             color = CamplyPalette.Ink
                         )
                     }
