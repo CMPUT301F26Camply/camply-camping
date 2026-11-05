@@ -1,12 +1,10 @@
 package com.example.camply.lottery.controller
-import com.example.camply.campsite.model.CampsiteRepository
-import com.example.camply.campsite.model.DateRange
+import com.example.camply.lottery.repository.LotteryRepository
 import com.example.camply.lottery.model.Lottery
 import com.example.camply.lottery.model.LotteryCreateModel
-import com.example.camply.lottery.model.LotteryRepository
-import com.google.firebase.Timestamp
-import java.util.Calendar
 import kotlin.coroutines.cancellation.CancellationException
+import com.example.camply.lottery.model.LotteryStatus
+import com.example.camply.campsite.model.CampsiteRepository
 
 /**
  * Turns the create-lottery form into one saved lottery.
@@ -63,26 +61,22 @@ class LotteryCreateController(
      */
     suspend fun createLottery(ownerId: String) {
         val campsiteId = model.selectedCampsiteId
-        val registrationStart = parseDate(model.registrationStart)
-        val registrationEnd = parseDate(model.registrationEnd)
-        val bookingStart = parseDate(model.bookingStart)
-        val bookingEnd = parseDate(model.bookingEnd)
-        val stayFrom = model.stayFrom.trim()
-        val stayTo = model.stayTo.trim()
+        val registrationStart = model.registrationStart.trim()
+        val registrationEnd = model.registrationEnd.trim()
+        val bookingStart = model.bookingStart.trim()
+        val bookingEnd = model.bookingEnd.trim()
         val winners = model.winnerCount.toIntOrNull()
+
         val error = when {
             campsiteId == null -> "Select one of your campsites."
-            registrationStart == null || registrationEnd == null ->
+            !isDateText(registrationStart) || !isDateText(registrationEnd) ->
                 "Enter the registration period as YYYY-MM-DD."
-            registrationEnd.seconds < registrationStart.seconds ->
+            registrationEnd < registrationStart ->
                 "Registration end must be on or after the start."
-            bookingStart == null || bookingEnd == null ->
+            !isDateText(bookingStart) || !isDateText(bookingEnd) ->
                 "Enter the booking period as YYYY-MM-DD."
-            bookingEnd.seconds < bookingStart.seconds ->
+            bookingEnd < bookingStart ->
                 "Booking end must be on or after the start."
-            !isDateText(stayFrom) || !isDateText(stayTo) ->
-                "Enter the stay dates as YYYY-MM-DD."
-            stayFrom > stayTo -> "Stay end must be on or after the start."
             winners == null || winners < 1 -> "Winner count must be at least 1."
             else -> null
         }
@@ -90,37 +84,25 @@ class LotteryCreateController(
             model.showError(error)
             return
         }
-        val lottery = Lottery(  
+
+        val lottery = Lottery(
             ownerId = ownerId,
-            campsiteIds = listOf(campsiteId),
+            campsiteIds = listOf(campsiteId!!),
             registrationStart = registrationStart,
             registrationEnd = registrationEnd,
             bookingStart = bookingStart,
             bookingEnd = bookingEnd,
-            availableStayRanges = listOf(DateRange(stayFrom, stayTo)),
-            winnerCount = winners
+            numberOfWinners = winners!!,
+            status = LotteryStatus.OPEN
         )
-        try{
+
+        try {
             model.showSaved(lotteryRepository.create(lottery))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             model.showError(e.message ?: "Could not save the lottery.")
         }
-    }
-    /**
-     * Turns a YYYY-MM-DD string into a timestamp at midnight.
-     *
-     * @param text the date typed in the form
-     * @return the timestamp, or null when the text is not a real date
-     */
-    private fun parseDate(text: String): Timestamp? {
-        if (!isDateText(text.trim())) return null
-        val parts = text.trim().split("-")
-        val calendar = Calendar.getInstance()
-        calendar.set(parts[0].toInt(), parts[1].toInt() - 1, parts[2].toInt(), 0, 0, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        return Timestamp(calendar.time)
     }
     /**
      * Checks that the text looks like YYYY-MM-DD.
