@@ -18,23 +18,15 @@ class EntrantLotteryController(
     private val repository: LotteryRepository
 ) {
     /**
-     * Loads the lotteries associated with the provided lottery IDs.
+     * Loads the lotteries joined by the specified entrant.
      *
-     * @param lotteryIds The IDs of lotteries joined by the entrant.
+     * @param entrantId The entrant's Firebase user ID
      */
-    suspend fun loadLotteries(lotteryIds: List<String>) {
+    suspend fun loadLotteries(entrantId: String) {
         model.showLoading()
 
         try {
-            val lotteries = mutableListOf<Lottery>()
-
-            for (id in lotteryIds) {
-                val lottery = repository.getLottery(id)
-                if (lottery != null) {
-                    lotteries.add(lottery)
-                }
-            }
-
+            val lotteries = repository.getJoinedLotteries(entrantId)
             model.showLotteries(lotteries)
         } catch (e: CancellationException) {
             throw e

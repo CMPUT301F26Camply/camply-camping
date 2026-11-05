@@ -23,7 +23,7 @@ object CamplyPalette {
     val Orange = Color(0xFFF29A4B)
     val Cream = Color(0xFFFCF1DD)
     val Black = Color(0xFF0B0B0B)
-    val Danger = Color(0xFF9B5446)
+    val Danger = Color(0xFF8B1E1E)
     val GradientTop = Color(0xFFA67C52)
     val GradientBottom = Color(0xFF6F6A33)
     val Ink = Color(0xFF2A1A0B)
@@ -124,3 +124,16 @@ fun camplyTextFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = CamplyPalette.Black, unfocusedBorderColor = Color.Transparent,
     cursorColor = CamplyPalette.Black
 )
+
+/**
+ * Displays an error message using the Camply colour palette.
+ */
+@Composable
+fun ErrorMessage(message: String) {
+    Text(
+        text = message,
+        color = CamplyPalette.Danger,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth()
+    )
+}

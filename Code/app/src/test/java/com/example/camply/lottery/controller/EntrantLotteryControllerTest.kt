@@ -28,43 +28,28 @@ class EntrantLotteryControllerTest {
         repository = TestLotteryRepository()
         controller = EntrantLotteryController(model, repository)
     }
-
     /**
-     * Checks that lotteries are loaded using their IDs.
+     * Checks that lotteries joined by the entrant are loaded.
      */
     @Test
-    fun loadLotteries_validIds_loadsLotteries() {
-        // Reference: https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/run-blocking.html
-        runBlocking {
-            val lottery = Lottery(id = "lottery1")
-            repository.lotteries.add(lottery)
+    fun loadLotteries_joinedLotteries_loadsLotteries() = runBlocking {
+        val lottery = Lottery(id = "lottery1")
+        repository.lotteries.add(lottery)
 
-            controller.loadLotteries(listOf("lottery1"))
+        controller.loadLotteries("entrant1")
 
-            assertEquals(listOf(lottery), model.lotteries)
-            assertFalse(model.isLoading)
-            assertNull(model.errorMessage)
-        }
-    }
-
-    /**
-     * Checks that missing lottery documents are skipped.
-     */
-    @Test
-    fun loadLotteries_missingLottery_returnsEmptyList() = runBlocking {
-        controller.loadLotteries(listOf("missing"))
-
-        assertEquals(emptyList<Lottery>(), model.lotteries)
+        assertEquals("entrant1", repository.requestedEntrantId)
+        assertEquals(listOf(lottery), model.lotteries)
         assertFalse(model.isLoading)
         assertNull(model.errorMessage)
     }
 
     /**
-     * Checks that an empty list of lottery IDs produces an empty result.
+     * Checks that an entrant with no joined lotteries gets an empty list.
      */
     @Test
-    fun loadLotteries_noIds_returnsEmptyList() = runBlocking {
-        controller.loadLotteries(emptyList())
+    fun loadLotteries_noJoinedLotteries_returnsEmptyList() = runBlocking {
+        controller.loadLotteries("entrant1")
 
         assertEquals(emptyList<Lottery>(), model.lotteries)
         assertFalse(model.isLoading)
@@ -78,7 +63,7 @@ class EntrantLotteryControllerTest {
     fun loadLotteries_repositoryError_showsError() = runBlocking {
         repository.shouldFail = true
 
-        controller.loadLotteries(listOf("lottery1"))
+        controller.loadLotteries("entrant1")
 
         assertEquals("Could not load lotteries.", model.errorMessage)
         assertFalse(model.isLoading)
@@ -90,15 +75,26 @@ class EntrantLotteryControllerTest {
     private class TestLotteryRepository : LotteryRepository {
         val lotteries = mutableListOf<Lottery>()
         var shouldFail = false
+        var requestedEntrantId: String? = null
 
         override suspend fun getLotteries(): List<Lottery> = lotteries
 
         override suspend fun getLottery(id: String): Lottery? {
             if (shouldFail) throw Exception("Could not load lotteries.")
+
             for (lottery in lotteries) {
                 if (lottery.id == id) return lottery
             }
+
             return null
+        }
+
+        override suspend fun getJoinedLotteries(entrantId: String): List<Lottery> {
+            requestedEntrantId = entrantId
+
+            if (shouldFail) throw Exception("Could not load lotteries.")
+
+            return lotteries
         }
     }
 }
