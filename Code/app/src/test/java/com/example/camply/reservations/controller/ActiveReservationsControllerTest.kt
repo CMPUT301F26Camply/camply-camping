@@ -3,6 +3,7 @@ package com.example.camply.reservations.controller
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteRepository
 import com.example.camply.campsite.model.DateRange
+import com.example.camply.reservations.model.ActiveReservationItem
 import com.example.camply.reservations.model.ActiveReservationsModel
 import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationStatus
@@ -146,6 +147,45 @@ class ActiveReservationsControllerTest {
         assertEquals("Could not read campsite.", model.errorMessage)
         assertFalse(model.isLoading)
     }
+
+    /**
+     * Checks that selecting a reservation stores it in the model.
+     */
+    @Test
+    fun onReservationSelected_validItem_selectsReservation() {
+        val item = selectedItem()
+
+        controller.onReservationSelected(item)
+
+        assertEquals(item, model.selectedReservation)
+    }
+
+    /**
+     * Checks that going back to the list clears the selection.
+     */
+    @Test
+    fun onBackToList_reservationSelected_clearsSelection() {
+        controller.onReservationSelected(selectedItem())
+
+        controller.onBackToList()
+
+        assertNull(model.selectedReservation)
+    }
+
+    /**
+     * Checks that loading the reservations again returns to the list.
+     */
+    @Test
+    fun loadReservations_reservationSelected_clearsSelection() = runBlocking {
+        controller.onReservationSelected(selectedItem())
+
+        controller.loadReservations(ENTRANT_ID)
+
+        assertNull(model.selectedReservation)
+    }
+
+    private fun selectedItem() =
+        ActiveReservationItem(reservation("selected", from = "2027-06-12", to = "2027-06-15"), campsite = null)
 
     private fun reservation(
         id: String,

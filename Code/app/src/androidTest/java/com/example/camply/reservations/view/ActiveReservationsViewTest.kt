@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteRepository
 import com.example.camply.campsite.model.DateRange
@@ -18,7 +19,7 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * Compose UI tests for the active reservations list (US 01.06.01).
+ * Compose UI tests for the active reservations list and details (US 01.06.01).
  */
 class ActiveReservationsViewTest {
 
@@ -28,7 +29,13 @@ class ActiveReservationsViewTest {
     private lateinit var reservationRepository: TestReservationRepository
     private lateinit var campsiteRepository: TestCampsiteRepository
 
-    private val campsite = Campsite(id = CAMPSITE_ID, name = "Banff Pines", location = "Banff")
+    private val campsite = Campsite(
+        id = CAMPSITE_ID,
+        name = "Banff Pines",
+        location = "Banff",
+        rules = "Quiet hours are from 10 PM to 7 AM.",
+        cancellationPolicy = "Cancel at least 7 days before arrival."
+    )
 
     /**
      * Creates the fake repositories before each test.
@@ -94,6 +101,56 @@ class ActiveReservationsViewTest {
         showScreen()
 
         compose.onNodeWithText("You have no active reservations.").assertIsDisplayed()
+    }
+
+    /**
+     * Checks that selecting a reservation shows its details, including the rules and policy.
+     */
+    @Test
+    fun reservationCard_click_showsDetails() {
+        campsiteRepository.campsites = listOf(campsite)
+        reservationRepository.reservations = listOf(reservation("first", "2027-06-12", "2027-06-15"))
+
+        showScreen()
+        compose.onNodeWithText("Banff Pines").performClick()
+
+        compose.onNodeWithText("Reservation details").assertIsDisplayed()
+        compose.onNodeWithText("Banff Pines").assertIsDisplayed()
+        compose.onNodeWithText("2027-06-12 to 2027-06-15").assertIsDisplayed()
+        compose.onNodeWithText(campsite.rules).assertIsDisplayed()
+        compose.onNodeWithText(campsite.cancellationPolicy).assertIsDisplayed()
+    }
+
+    /**
+     * Checks that the back button returns from the details to the list.
+     */
+    @Test
+    fun detailsBackButton_click_returnsToList() {
+        campsiteRepository.campsites = listOf(campsite)
+        reservationRepository.reservations = listOf(reservation("first", "2027-06-12", "2027-06-15"))
+
+        showScreen()
+        compose.onNodeWithText("Banff Pines").performClick()
+        compose.onNodeWithText("Back").performClick()
+
+        compose.onNodeWithText("My Reservations").assertIsDisplayed()
+        compose.onNodeWithText("Banff Pines").assertIsDisplayed()
+        compose.onNodeWithText(campsite.rules).assertDoesNotExist()
+    }
+
+    /**
+     * Checks that a reservation's details leave out the rules when its campsite no longer exists.
+     */
+    @Test
+    fun reservationCard_missingCampsite_showsDetailsWithoutRules() {
+        reservationRepository.reservations = listOf(reservation("first", "2027-06-12", "2027-06-15"))
+
+        showScreen()
+        compose.onNodeWithText("Campsite unavailable").performClick()
+
+        compose.onNodeWithText("Reservation details").assertIsDisplayed()
+        compose.onNodeWithText("2027-06-12 to 2027-06-15").assertIsDisplayed()
+        compose.onNodeWithText("Rules & cancellation policy").assertDoesNotExist()
     }
 
     private fun showScreen() {
