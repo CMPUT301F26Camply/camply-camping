@@ -72,6 +72,9 @@ class ActiveReservationsControllerTest {
         assertEquals(listOf("june", "july"), model.reservations.map { it.reservation.id })
     }
 
+    /**
+     * Checks that reservations sharing a campsite are all kept and the campsite is read once.
+     */
     @Test
     fun loadReservations_validCampsite_includesCampsite() = runBlocking {
         val campsite = Campsite(id = CAMPSITE_ID, name = "Banff Pines")
@@ -115,6 +118,9 @@ class ActiveReservationsControllerTest {
         assertNull(model.errorMessage)
     }
 
+    /**
+     * Checks that a failed reservation load shows an error.
+     */
     @Test
     fun loadReservations_reservationRepositoryError_showsError() = runBlocking {
         reservationRepository.shouldFail = true
@@ -125,6 +131,9 @@ class ActiveReservationsControllerTest {
         assertFalse(model.isLoading)
     }
 
+    /**
+     * Checks that a failed campsite lookup shows an error.
+     */
     @Test
     fun loadReservations_campsiteRepositoryError_showsError() = runBlocking {
         campsiteRepository.shouldFail = true
