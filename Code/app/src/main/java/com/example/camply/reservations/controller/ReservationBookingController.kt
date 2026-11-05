@@ -89,6 +89,8 @@ class ReservationBookingController(
     /**
      * Confirms a campsite reservation after verifying booking eligibility.
      *
+     * The entrant must have acknowledged the campsite's rules and policies (US 02.11.01).
+     *
      * @param campsite The campsite being reserved.
      * @param reservation The reservation to confirm.
      * @return The new reservation ID, or null if confirmation fails.
@@ -97,6 +99,12 @@ class ReservationBookingController(
         campsite: Campsite,
         reservation: Reservation
     ): String? {
+        // Checked before any other step so that no caller can complete a booking without it.
+        if (!reservation.rulesAcknowledged) {
+            model.showError("You must confirm that you have read the campsite rules and policies.")
+            return null
+        }
+
         model.showLoading()
 
         // Prevent confirmation until lottery winner verification is implemented.
