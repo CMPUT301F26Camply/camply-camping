@@ -30,6 +30,10 @@ import com.example.camply.reservations.model.ReservationBookingModel
 import com.example.camply.reservations.repository.FirestoreReservationRepository
 import com.example.camply.reservations.service.BookingService
 import com.example.camply.reservations.view.ReservationBookingView
+import com.example.camply.lottery.controller.CampsiteLotteryController
+import com.example.camply.lottery.model.CampsiteLotteryModel
+import com.example.camply.lottery.repository.FirestoreWaitingListRepository
+import com.example.camply.lottery.view.CampsiteLotteryView
 import com.example.camply.shared.navigation.controller.NavigationController
 import com.example.camply.shared.navigation.model.NavigationModel
 import com.example.camply.shared.navigation.model.Screen
@@ -63,6 +67,7 @@ fun CamplyApp() {
 
     // Create and retain the campsite discovery components (phase 2B).
     val campsiteRepository = remember { FirestoreCampsiteRepository() }
+    val waitingListRepository = remember { FirestoreWaitingListRepository() }
     val campsiteBrowseModel = remember { CampsiteBrowseModel() }
     val campsiteBrowseController = remember { CampsiteBrowseController(campsiteBrowseModel, campsiteRepository) }
     val campsiteBrowseView = remember { CampsiteBrowseView(campsiteBrowseModel, campsiteBrowseController) }
@@ -127,7 +132,18 @@ fun CamplyApp() {
                                     BackHandler { selectedCampsiteId = null }
                                     campsiteDetailView.Display(
                                         campsiteId = openId,
-                                        onBack = { selectedCampsiteId = null }
+                                        onBack = { selectedCampsiteId = null },
+                                        extraContent = { campsite ->
+                                            if (currentUser.getRole() == "entrant") {
+                                                val lotteryModel = remember(campsite.id, currentUser.getUid()) {
+                                                    CampsiteLotteryModel(waitingListRepository, campsite.id, currentUser.getUid())
+                                                }
+                                                val lotteryView = remember(lotteryModel) {
+                                                    CampsiteLotteryView(lotteryModel, CampsiteLotteryController(lotteryModel))
+                                                }
+                                                lotteryView.Display()
+                                            }
+                                        }
                                     )
                                 }
                             }
