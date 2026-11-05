@@ -30,12 +30,34 @@ class ActiveReservationsModel {
     var errorMessage: String? by mutableStateOf(null)
         private set
 
+    var selectedReservation: ActiveReservationItem? by mutableStateOf(null)
+        private set
+
     /**
      * Updates the model when active reservations are being loaded.
+     *
+     * Clears the selection so that opening the screen again starts from the list.
      */
     fun showLoading() {
         isLoading = true
         errorMessage = null
+        selectedReservation = null
+    }
+
+    /**
+     * Stores the reservation whose details should be displayed.
+     *
+     * @param item The selected reservation.
+     */
+    fun selectReservation(item: ActiveReservationItem) {
+        selectedReservation = item
+    }
+
+    /**
+     * Clears the selected reservation so that the list is displayed.
+     */
+    fun clearSelection() {
+        selectedReservation = null
     }
 
     /**

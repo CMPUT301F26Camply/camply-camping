@@ -51,4 +51,16 @@ class ActiveReservationsController(
             model.showError(e.message ?: "Could not load reservations.")
         }
     }
+
+    /**
+     * Opens the details of a selected reservation.
+     *
+     * @param item The reservation selected by the entrant.
+     */
+    fun onReservationSelected(item: ActiveReservationItem) = model.selectReservation(item)
+
+    /**
+     * Returns from a reservation's details to the list.
+     */
+    fun onBackToList() = model.clearSelection()
 }
