@@ -134,6 +134,26 @@ class ReservationBookingControllerTest {
     }
 
     /**
+     * Checks that a reservation is rejected and not saved without a rules acknowledgement (US 02.11.01).
+     */
+    @Test
+    fun confirmReservation_rulesNotAcknowledged_returnsNullAndShowsError() = runBlocking {
+        val model = ReservationBookingModel()
+        val controller = ReservationBookingController(BookingService(), repository, model)
+        val reservation = Reservation(campsiteId = "1", rulesAcknowledged = false)
+
+        val reservationId = controller.confirmReservation(campsite, reservation)
+
+        assertNull(reservationId)
+        assertEquals(
+            "You must confirm that you have read the campsite rules and policies.",
+            model.errorMessage
+        )
+        assertFalse(model.isLoading)
+        assertTrue(repository.reservations.isEmpty())
+    }
+
+    /**
      * Provides reservation data for controller tests without accessing Firestore.
      */
     private class TestReservationRepository : ReservationRepository {
