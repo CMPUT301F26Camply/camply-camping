@@ -31,7 +31,9 @@ import com.example.camply.reservations.repository.FirestoreReservationRepository
 import com.example.camply.reservations.service.BookingService
 import com.example.camply.reservations.view.ReservationBookingView
 import com.example.camply.lottery.controller.CampsiteLotteryController
+import com.example.camply.lottery.controller.EntrantLotteryController
 import com.example.camply.lottery.model.CampsiteLotteryModel
+import com.example.camply.lottery.repository.FirestoreLotteryRepository
 import com.example.camply.lottery.repository.FirestoreWaitingListRepository
 import com.example.camply.lottery.view.CampsiteLotteryView
 import com.example.camply.shared.navigation.controller.NavigationController
@@ -75,12 +77,20 @@ fun CamplyApp() {
     val campsiteDetailController = remember { CampsiteDetailController(campsiteDetailModel, campsiteRepository) }
     val campsiteDetailView = remember { CampsiteDetailView(campsiteDetailModel, campsiteDetailController) }
 
-    // Id of the campsite currently open from the browse screen (null = show the list).
+    // ID of the campsite currently open from the browse screen (null = show the list).
     var selectedCampsiteId by remember { mutableStateOf<String?>(null) }
 
     // Entrant lottery management
     val entrantLotteryModel = remember { EntrantLotteryModel() }
     val entrantLotteryView = remember(entrantLotteryModel) { EntrantLotteryView(entrantLotteryModel) }
+    val entrantLotteryRepository = remember { FirestoreLotteryRepository() }
+    val entrantLotteryController = remember {
+        EntrantLotteryController(
+            entrantLotteryModel,
+            entrantLotteryRepository
+        )
+    }
+
 
     // Entrant reservation booking
     val reservationBookingModel = remember { ReservationBookingModel() }
@@ -102,7 +112,15 @@ fun CamplyApp() {
         }
 
         "signup" -> {
-            userSignUpView.Display(userController)
+            Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                ) {
+                    userSignUpView.Display(userController)
+                }
+            }
         }
 
         "ready" -> {
@@ -149,6 +167,10 @@ fun CamplyApp() {
                             }
 
                             Screen.LOTTERIES -> {
+                                LaunchedEffect(currentUser.getUid()) {
+                                    entrantLotteryController.loadLotteries(currentUser.getUid())
+                                }
+
                                 val campsite = selectedBookingCampsite
 
                                 if (campsite == null) {

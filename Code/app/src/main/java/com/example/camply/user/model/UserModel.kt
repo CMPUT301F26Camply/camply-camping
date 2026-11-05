@@ -22,6 +22,9 @@ class UserModel {
     private var loadedUser: User? = null
     private var currentStartupState by mutableStateOf("loading")
 
+    var signupError by mutableStateOf<String?>(null)
+        private set
+
     /**
      * Gets the Firebase UID associated with the current user.
      *
@@ -173,8 +176,20 @@ class UserModel {
 
         // Check the users profile information before creating a Profile
         if (name.isBlank() || email.isBlank() || !email.contains("@") || !email.contains(".") || phoneNumber.isBlank()) {
-            return
+            signupError = null
+
+            signupError = when {
+                name.isBlank() -> "Please enter your name."
+                email.isBlank() -> "Please enter your email address."
+                !email.contains("@") || !email.contains(".") -> "Please enter a valid email address."
+                phoneNumber.isBlank() -> "Please enter your phone number."
+                else -> null
+            }
+
+            if (signupError != null) return
         }
+
+        signupError = null
 
         val profile = Profile(name.trim(), email.trim(), phoneNumber.trim())
 
