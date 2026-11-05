@@ -52,6 +52,26 @@ class ReservationTest {
         assertFalse(reservation.isActive(today))
     }
 
+    /**
+     * Checks that a rejected reservation is not active.
+     */
+    @Test
+    fun isActive_rejected_returnsFalse() {
+        val reservation = reservation(ReservationStatus.REJECTED, to = "2027-06-15")
+
+        assertFalse(reservation.isActive(today))
+    }
+
+    /**
+     * Checks that an uninitialized reservation is not active.
+     */
+    @Test
+    fun isActive_uninitialized_returnsFalse() {
+        val reservation = reservation(ReservationStatus.UNINITIALIZED, to = "2027-06-15")
+
+        assertFalse(reservation.isActive(today))
+    }
+
     private fun reservation(status: ReservationStatus, to: String) =
         Reservation(status = status, dates = DateRange("2027-06-01", to))
 }
