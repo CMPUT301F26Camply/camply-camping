@@ -94,9 +94,14 @@ class CampsiteDetailView(
 
     @Composable
     private fun CampsiteImage(campsite: Campsite) {
-        if (campsite.imageUrl.isNullOrBlank()) return
+        // "firstOrNull" Implementation: https://www.educative.io/answers/how-to-use-the-firstornull-method-of-arraylist-in-kotlin
+        val imageUrl = campsite.images.firstOrNull()
+        //if there are no images, return
+        if (imageUrl.isNullOrBlank()){
+            return
+        }
         AsyncImage(
-            model = campsite.imageUrl,
+            model = imageUrl,
             contentDescription = "Photo of ${campsite.name}",
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(16.dp))
@@ -127,18 +132,6 @@ class CampsiteDetailView(
                 campsite.description.ifBlank { "No description provided." },
                 fontSize = 14.sp, color = CamplyPalette.Ink
             )
-            val lat = campsite.latitude
-            val lng = campsite.longitude
-            if (lat != null && lng != null) {
-                Spacer(Modifier.height(8.dp))
-                CardLabel("Map location")
-                Text("%.4f, %.4f".format(lat, lng), fontSize = 13.sp, color = CamplyPalette.Ink)
-                Spacer(Modifier.height(6.dp))
-                SecondaryButton("Open in Maps", {
-                    val uri = "geo:$lat,$lng?q=$lat,$lng(${Uri.encode(campsite.name)})".toUri()
-                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
-                })
-            }
         }
     }
 
