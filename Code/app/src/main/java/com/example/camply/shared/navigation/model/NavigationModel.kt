@@ -12,7 +12,8 @@ import com.example.camply.R
 enum class Screen {
     BACK,
     BROWSE,
-    LOTTERIES
+    LOTTERIES,
+    RESERVATIONS
 }
 
 /**
@@ -30,7 +31,8 @@ class NavigationModel {
     private val entrantNavBarItems = listOf(
         NavBarItem(Screen.BACK, "Back", R.drawable.back_arrow_icon),
         NavBarItem(Screen.BROWSE, "Browse Campsites", R.drawable.campsite_icon),
-        NavBarItem(Screen.LOTTERIES, "My Lotteries", R.drawable.lottery_icon)
+        NavBarItem(Screen.LOTTERIES, "My Lotteries", R.drawable.lottery_icon),
+        NavBarItem(Screen.RESERVATIONS, "My Reservations", R.drawable.reservation_icon)
     )
 
     private val ownerNavBarItems = emptyList<NavBarItem>()

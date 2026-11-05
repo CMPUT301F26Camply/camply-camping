@@ -27,4 +27,13 @@ data class Reservation(
     val dates: DateRange = DateRange(),
     val status: ReservationStatus = ReservationStatus.UNINITIALIZED,
     val rulesAcknowledged: Boolean = false
-)
+) {
+    /**
+     * Checks if this reservation is already confirmed and its stay has not ended (US 01.06.01).
+     *
+     * @param today Today's date is an ISO string, like "2027-06-01".
+     * @return True if the reservation is active on the given date.
+     */
+    fun isActive(today: String): Boolean =
+        status == ReservationStatus.CONFIRMED && dates.to >= today
+}

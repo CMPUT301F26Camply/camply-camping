@@ -25,10 +25,13 @@ import com.example.camply.campsite.view.CampsiteBrowseView
 import com.example.camply.campsite.view.CampsiteDetailView
 import com.example.camply.lottery.model.EntrantLotteryModel
 import com.example.camply.lottery.view.EntrantLotteryView
+import com.example.camply.reservations.controller.ActiveReservationsController
 import com.example.camply.reservations.controller.ReservationBookingController
+import com.example.camply.reservations.model.ActiveReservationsModel
 import com.example.camply.reservations.model.ReservationBookingModel
 import com.example.camply.reservations.repository.FirestoreReservationRepository
 import com.example.camply.reservations.service.BookingService
+import com.example.camply.reservations.view.ActiveReservationsView
 import com.example.camply.reservations.view.ReservationBookingView
 import com.example.camply.lottery.controller.CampsiteLotteryController
 import com.example.camply.lottery.controller.EntrantLotteryController
@@ -99,6 +102,15 @@ fun CamplyApp() {
     val reservationBookingController = remember { ReservationBookingController(bookingService, reservationRepository, reservationBookingModel) }
     val reservationBookingView = remember { ReservationBookingView(reservationBookingModel, reservationBookingController) }
     var selectedBookingCampsite by remember { mutableStateOf<Campsite?>(null) }
+
+    // Entrant active reservations
+    val activeReservationsModel = remember { ActiveReservationsModel() }
+    val activeReservationsController = remember {
+        ActiveReservationsController(activeReservationsModel, reservationRepository, campsiteRepository)
+    }
+    val activeReservationsView = remember {
+        ActiveReservationsView(activeReservationsModel, activeReservationsController)
+    }
 
     // Check for an existing Firebase user or sign in anonymously
     LaunchedEffect(Unit) {
@@ -204,6 +216,8 @@ fun CamplyApp() {
                                     )
                                 }
                             }
+
+                            Screen.RESERVATIONS -> activeReservationsView.Display(currentUser.getUid())
 
                             else -> Text("Screen still needs to be implemented...")
                         }
