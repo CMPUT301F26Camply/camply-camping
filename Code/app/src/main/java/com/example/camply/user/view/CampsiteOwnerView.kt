@@ -48,6 +48,7 @@ by a campsite owner
  * @param campsites the campsite owner's registered campsites
  * @param addCampsite the "+" button in front of the name (also part of the header)
  * @param editCampsite the "pencil" icon in the top-right corner of every campsite card to edit campsite information
+ *  @param viewCampsite to view Campsite Details if the campsite card is clicked
  * @param lotteryRegistration called when "List Campsite in lottery" is clicked
  * @param reservationList is for the "View reservation list" button
  * @param viewOrCreateLottery is for the "Create/View Lottery" button
@@ -208,7 +209,7 @@ class CampsiteListView {
                         contentDescription = "photo of campsite",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
+                            .clip(RoundedCornerShape(topStart = 16.dp, bottomEnd = 16.dp))
                             .size(width = 145.dp, height = 120.dp)
                     )
 
@@ -272,6 +273,7 @@ fun CampsiteListViewPreview() {
             ownerName = "Owner 1",
             campsites = listOf(
                 Campsite(
+                    id = "a",
                     name = "Campsite A",
                     location = "Location, A",
                     amenities = listOf("Fireplace", "Trash disposal"),
@@ -279,6 +281,7 @@ fun CampsiteListViewPreview() {
                     rules = "Quiet hours 9pm"
                 ),
                 Campsite(
+                    id = "b",
                     name = "Campsite B",
                     location = "Location, B",
                     amenities = listOf("Washrooms"),
@@ -286,6 +289,7 @@ fun CampsiteListViewPreview() {
                     rules = "No pets"
                 ),
                 Campsite(
+                    id = "c",
                     name = "Campsite C",
                     location = "Location C",
                     amenities = listOf("Picnic Table"),

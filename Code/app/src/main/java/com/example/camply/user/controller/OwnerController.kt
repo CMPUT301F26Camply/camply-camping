@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteRepository
 import com.example.camply.user.model.CampsiteOwnerUser
+import kotlinx.coroutines.CancellationException
 
 /**
  * Handles campsite owner's actions and forwards them to the campsite owner model
@@ -19,11 +20,25 @@ class OwnerController(
 ) {
     var campsites by mutableStateOf<List<Campsite>>(emptyList())
     var errors by mutableStateOf<List<String>>(emptyList())
+    var loadingCheck by mutableStateOf(false)
 
     // load campsites for the owner from the firebase db
     suspend fun loadCampsite() {
-        campsiteOwner.loadExistingCampsite(repository.getCampsitesByOwner(campsiteOwner.getUid()))
-        campsites = campsiteOwner.campsites.toList()
+        if(campsites.isEmpty()){
+            loadingCheck = true
+        }
+        try {
+            campsiteOwner.loadExistingCampsite(repository.getCampsitesByOwner(campsiteOwner.getUid()))
+            campsites = campsiteOwner.campsites.toList()
+            errors = emptyList()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+        errors = listOf(e.message ?: "Could not load campsites")
+        }
+        finally {
+            loadingCheck = false
+        }
     }
 
     suspend fun registerCampsite(
@@ -58,9 +73,36 @@ class OwnerController(
             return false
         }
 
-        repository.saveCampsite(campsite)
+        val newId: String
+        try {
+            newId = repository.saveCampsite(campsite) // get the id of the new campsite from firestore
+        } catch (e: CancellationException){
+            throw e
+        } catch (e: Exception) {
+            errors = listOf(e.message ?: "Could not save campsite")
+            return false
+        }
+
+        val newCampsite = buildCampsiteRecord(
+            id = newId,
+            name = name,
+            location = location,
+            description = description,
+            amenities = amenities,
+            maxOccupancy = maxOccupancy,
+            price = price,
+            tags = tags,
+            rules = rules,
+            cancellationPolicy = cancellationPolicy,
+            images = images
+        )
+
+        if(!campsiteOwner.registerCampsite(newCampsite)){
+            errors = listOf("Could not add the new campsite to list")
+            return false
+        }
         errors = emptyList()
-        loadCampsite()
+        campsites = campsiteOwner.campsites.toList()
         return true
     }
 
@@ -97,20 +139,35 @@ class OwnerController(
             return false
         }
 
+        try {
+            repository.saveCampsite(edit)
+        } catch (e: CancellationException){
+            throw e
+        } catch (e: Exception){
+            errors = listOf(e.message ?: "Could not save changes to campsite")
+            return false
+        }
+
         // copies the edited values into existingSite
         if (!campsiteOwner.updateExistingCampsite(existingSite, edit)) {
             errors = listOf("Campsite not found")
             return false
         }
 
-        repository.saveCampsite(existingSite)
-        errors = emptyList()
-        campsites = campsiteOwner.campsites.toList()
+        loadCampsite()
         return true
     }
 
     suspend fun removeCampsite(campsite: Campsite) {
-        repository.deleteCampsite(campsite.id)
+        try {
+            repository.deleteCampsite(campsite.id)
+        } catch (e: CancellationException){
+            throw e
+        } catch (e: Exception){
+            errors= listOf(e.message ?: "Could not delete campsite.")
+            return
+        }
+
         campsiteOwner.removeCampsite(campsite)
         campsites = campsiteOwner.campsites.toList()
     }

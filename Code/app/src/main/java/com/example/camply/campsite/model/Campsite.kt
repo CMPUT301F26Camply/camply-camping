@@ -93,7 +93,7 @@ class Campsite(
         if (maxOccupancy <= 0){
             errorList.add("Please enter a valid occupancy number")
         }
-        if (price < 0){
+        if (price <= 0){
             errorList.add("Please enter a valid price")
         }
         return errorList
