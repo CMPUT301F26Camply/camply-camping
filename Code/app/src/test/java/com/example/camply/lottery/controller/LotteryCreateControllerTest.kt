@@ -127,6 +127,7 @@ class LotteryCreateControllerTest {
             created += lottery
             return "new-id"
         }
+        override suspend fun getJoinedLotteries(entrantId: String): List<Lottery> = emptyList()
     }
 
     private class FakeCampsiteRepository : CampsiteRepository {
