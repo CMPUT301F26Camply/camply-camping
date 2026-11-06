@@ -110,7 +110,27 @@ class LotteryCreateControllerTest {
         assertTrue(lotteries.created.isEmpty())
         assertEquals("Winner count must be at least 1.", model.errorMessage)
     }
+    @Test
+    fun createLottery_lotteryEndBeforeStart_doesNotSave() = runBlocking {
+        fillValidForm()
+        controller.onStayTo("2026-11-01")
 
+        controller.createLottery("owner-1")
+
+        assertTrue(lotteries.created.isEmpty())
+        assertEquals("Lottery end must be on or after the lottery start.", model.errorMessage)
+    }
+
+    @Test
+    fun createLottery_lotteryDateNotARealDay_doesNotSave() = runBlocking {
+        fillValidForm()
+        controller.onStayFrom("2026-02-31")
+
+        controller.createLottery("owner-1")
+
+        assertTrue(lotteries.created.isEmpty())
+        assertEquals("Enter the lottery range as YYYY-MM-DD.", model.errorMessage)
+    }
     private suspend fun fillValidForm() {
         campsites.owned += Campsite(id = "site-1", ownerId = "owner-1")
         controller.loadOwnedCampsites("owner-1")
