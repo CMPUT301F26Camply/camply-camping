@@ -33,6 +33,7 @@ class NotificationsViewTest {
     val compose = createComposeRule()
 
     private lateinit var repository: TestNotificationRepository
+    private lateinit var nameRepository: TestRecipientNameRepository
     private lateinit var view: NotificationsView
 
     /**
@@ -41,10 +42,11 @@ class NotificationsViewTest {
     @Before
     fun setUp() {
         repository = TestNotificationRepository()
+        nameRepository = TestRecipientNameRepository()
         val model = NotificationsModel()
         view = NotificationsView(
             model,
-            NotificationsController(model, repository, TestRecipientNameRepository())
+            NotificationsController(model, repository, nameRepository)
         )
     }
 
@@ -135,11 +137,55 @@ class NotificationsViewTest {
         compose.runOnIdle { assertEquals(1, repository.stopCount) }
     }
 
+    /**
+     * Checks that selecting a notification shows its full message and recipients.
+     */
+    @Test
+    fun notificationCard_click_showsFullMessageAndRecipients() {
+        val fullMessage = "a".repeat(100)
+        repository.records = listOf(
+            record("entrant1", content = fullMessage),
+            record("entrant2", content = fullMessage)
+        )
+        nameRepository.names = mapOf("entrant1" to "Alex", "entrant2" to "Sam")
+
+        showScreen("owner")
+        compose.onNodeWithText("a".repeat(80) + "…").performClick()
+
+        compose.onNodeWithText("Notification details").assertIsDisplayed()
+        compose.onNodeWithText(fullMessage).assertIsDisplayed()
+        compose.onNodeWithText("RECIPIENTS (2)").assertIsDisplayed()
+        compose.onNodeWithText("Alex").assertIsDisplayed()
+        compose.onNodeWithText("Sam").assertIsDisplayed()
+    }
+
+    /**
+     * Checks that the back button returns from the details to the list.
+     */
+    @Test
+    fun detailsBackButton_click_returnsToList() {
+        repository.records = listOf(record("entrant1"))
+        nameRepository.names = mapOf("entrant1" to "Alex")
+
+        showScreen("owner")
+        compose.onNodeWithText(MESSAGE).performClick()
+        compose.onNodeWithText("Alex").assertIsDisplayed()
+        compose.onNodeWithText("Back").performClick()
+
+        compose.onNodeWithText("Notifications").assertIsDisplayed()
+        compose.onNodeWithText("1 recipient").assertIsDisplayed()
+        compose.onNodeWithText("Alex").assertDoesNotExist()
+    }
+
     private fun showScreen(role: String) {
         compose.setContent { view.Display(OWNER_ID, role) }
     }
 
-    private fun record(recipientId: String, sentAt: Timestamp = Timestamp(1_800_000_000, 0)) = Notification(
+    private fun record(
+        recipientId: String,
+        sentAt: Timestamp = Timestamp(1_800_000_000, 0),
+        content: String = MESSAGE
+    ) = Notification(
         id = "event1-$recipientId",
         eventId = "event1",
         senderId = OWNER_ID,
@@ -147,7 +193,7 @@ class NotificationsViewTest {
         origin = NotificationOrigin.OWNER,
         type = NotificationType.OWNER_MESSAGE,
         title = "Title",
-        content = MESSAGE,
+        content = content,
         createdAt = sentAt
     )
 
@@ -185,7 +231,9 @@ class NotificationsViewTest {
      * Provides recipient names without Firestore for testing purpose.
      */
     private class TestRecipientNameRepository : RecipientNameRepository {
-        override suspend fun getRecipientName(userId: String): String? = null
+        var names: Map<String, String> = emptyMap()
+
+        override suspend fun getRecipientName(userId: String): String? = names[userId]
     }
 
     private companion object {

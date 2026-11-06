@@ -6,12 +6,14 @@ import com.example.camply.notification.model.NotificationOrigin
 import com.example.camply.notification.model.NotificationType
 import com.example.camply.notification.model.NotificationsModel
 import com.example.camply.notification.model.SendResult
+import com.example.camply.notification.model.SentNotification
 import com.example.camply.notification.repository.NotificationRepository
 import com.example.camply.notification.repository.RecipientNameRepository
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertNull
 import junit.framework.TestCase.assertTrue
+import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Test
 
@@ -22,6 +24,7 @@ class NotificationsControllerTest {
 
     private lateinit var model: NotificationsModel
     private lateinit var repository: TestNotificationRepository
+    private lateinit var nameRepository: TestRecipientNameRepository
     private lateinit var controller: NotificationsController
 
     /**
@@ -31,7 +34,8 @@ class NotificationsControllerTest {
     fun setUp() {
         model = NotificationsModel()
         repository = TestNotificationRepository()
-        controller = NotificationsController(model, repository, TestRecipientNameRepository())
+        nameRepository = TestRecipientNameRepository()
+        controller = NotificationsController(model, repository, nameRepository)
     }
 
     /**
@@ -109,6 +113,58 @@ class NotificationsControllerTest {
         assertEquals(1, repository.stopCount)
     }
 
+    /**
+     * Checks that selecting a notification loads its recipients' names in order.
+     */
+    @Test
+    fun onNotificationSelected_validRecipients_showsNames() = runBlocking {
+        nameRepository.names = mapOf("entrant1" to "Alex", "entrant2" to "Sam")
+        val notification = sentNotification()
+
+        controller.onNotificationSelected(notification)
+
+        assertEquals(notification, model.selectedNotification)
+        assertEquals(listOf("Alex", "Sam"), model.recipientNames)
+        assertFalse(model.isLoadingRecipients)
+    }
+
+    /**
+     * Checks that a failed name lookup keeps the notification open and shows an error.
+     */
+    @Test
+    fun onNotificationSelected_lookupFails_keepsMessageAndShowsError() = runBlocking {
+        nameRepository.shouldFail = true
+        val notification = sentNotification()
+
+        controller.onNotificationSelected(notification)
+
+        assertEquals(notification, model.selectedNotification)
+        assertEquals("Could not read names.", model.recipientsError)
+        assertFalse(model.isLoadingRecipients)
+    }
+
+    /**
+     * Checks that going back to the list clears the selection and names.
+     */
+    @Test
+    fun onBackToList_notificationSelected_clearsSelection() = runBlocking {
+        nameRepository.names = mapOf("entrant1" to "Alex", "entrant2" to "Sam")
+        controller.onNotificationSelected(sentNotification())
+
+        controller.onBackToList()
+
+        assertNull(model.selectedNotification)
+        assertTrue(model.recipientNames.isEmpty())
+    }
+
+    private fun sentNotification() = SentNotification(
+        eventId = "event1",
+        title = "Title",
+        content = "Message",
+        recipientIds = listOf("entrant1", "entrant2"),
+        sentAt = null
+    )
+
     private fun record(
         eventId: String,
         recipientId: String,
@@ -163,7 +219,13 @@ class NotificationsControllerTest {
      * Provides recipient names without accessing Firestore.
      */
     private class TestRecipientNameRepository : RecipientNameRepository {
-        override suspend fun getRecipientName(userId: String): String? = null
+        var names: Map<String, String> = emptyMap()
+        var shouldFail = false
+
+        override suspend fun getRecipientName(userId: String): String? {
+            if (shouldFail) throw Exception("Could not read names.")
+            return names[userId]
+        }
     }
 
     private companion object {
