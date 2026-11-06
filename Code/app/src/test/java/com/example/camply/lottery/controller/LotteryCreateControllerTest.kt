@@ -41,6 +41,8 @@ class LotteryCreateControllerTest {
         controller.onRegistrationEnd("2026-11-05")
         controller.onBookingStart("2026-11-06")
         controller.onBookingEnd("2026-11-10")
+        controller.onStayFrom("2026-12-01")
+        controller.onStayTo("2026-12-05")
         controller.onWinnerCount("2")
 
         controller.createLottery("owner-1")
@@ -48,6 +50,8 @@ class LotteryCreateControllerTest {
         assertEquals(1, lotteries.created.size)
         assertEquals(
             Lottery(
+                lotteryStart = "2026-12-01",
+                lotteryEnd = "2026-12-05",
                 ownerId = "owner-1",
                 campsiteIds = listOf("site-1"),
                 registrationStart = "2026-11-01",
@@ -113,6 +117,8 @@ class LotteryCreateControllerTest {
         controller.onCampsiteSelected("site-1")
         controller.onRegistrationStart("2026-11-01")
         controller.onRegistrationEnd("2026-11-05")
+        controller.onStayFrom("2026-12-01")
+        controller.onStayTo("2026-12-05")
         controller.onBookingStart("2026-11-06")
         controller.onBookingEnd("2026-11-10")
         controller.onWinnerCount("2")

@@ -69,6 +69,7 @@ class LotteryCreateView (
     fun Display(ownerId: String,onDone:() -> Unit) {
         val scope = rememberCoroutineScope()
         var page by remember { mutableStateOf(1) }
+        var saving by remember { mutableStateOf(false) }
         LaunchedEffect(ownerId) { controller.loadOwnedCampsites(ownerId) }
         CamplyScreen(title = "Lottery Registration") {
             Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -77,7 +78,15 @@ class LotteryCreateView (
                     page == 1 -> FirstHalf(onNext = { page = 2 })
                     else -> SecondHalf(
                         onBack = { page = 1 },
-                        onConfirm = { scope.launch { controller.createLottery(ownerId) } }
+                        saving = saving,
+                        onConfirm = {
+                            if (saving) return@SecondHalf
+                            saving = true
+                            scope.launch {
+                                controller.createLottery(ownerId)
+                                saving = false
+                            }
+                        }
                     )
                 }
             }
@@ -92,7 +101,7 @@ class LotteryCreateView (
             Spacer((Modifier.height(12.dp)))
             Text("Selected Campsite", color = CamplyPalette.Ink)
             if(model.ownedCampsites.isEmpty()) {
-                Text("You have no campsites yet", color = CamplyPalette.Ink)
+                Text("Unable to load campsites, or you have no campsites yet", color = CamplyPalette.Ink)
             }else{
                 model.ownedCampsites.forEach { campsite ->
                     val selected = campsite.id == model.selectedCampsiteId
@@ -137,7 +146,7 @@ class LotteryCreateView (
 /** Booking range, winner count, and Confirm. Back returns to the first page. */
 
     @Composable
-    private fun SecondHalf(onBack: () -> Unit, onConfirm: () -> Unit) {
+    private fun SecondHalf(onBack: () -> Unit, saving: Boolean, onConfirm: () -> Unit) {
         OrangeCard {
             Text("Booking Range", color = CamplyPalette.Ink)
             DateRow(
@@ -162,7 +171,8 @@ class LotteryCreateView (
         Spacer(Modifier.height(12.dp))
         SecondaryButton("Back", onClick = onBack)
         Spacer(Modifier.height(8.dp))
-        PrimaryButton("Confirm", onClick = onConfirm)
+// Ignore extra taps until Firestore returns, so one Confirm creates one lottery.
+        PrimaryButton("Confirm", onClick = onConfirm, enabled = !saving)
     }
 /** Start and end date boxes for one range. */
 

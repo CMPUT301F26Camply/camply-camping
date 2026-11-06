@@ -65,6 +65,8 @@ class LotteryCreateController(
         val registrationEnd = model.registrationEnd.trim()
         val bookingStart = model.bookingStart.trim()
         val bookingEnd = model.bookingEnd.trim()
+        val lotteryStart = model.stayFrom.trim()
+        val lotteryEnd = model.stayTo.trim()
         val winners = model.winnerCount.toIntOrNull()
 
         val error = when {
@@ -72,6 +74,11 @@ class LotteryCreateController(
                 "Select one of your campsites."
             !isDateText(registrationStart) || !isDateText(registrationEnd) ->
                 "Enter the registration period as YYYY-MM-DD."
+//This part will check if the lottery end is before the lottery start
+            !isDateText(lotteryStart) || !isDateText(lotteryEnd) ->
+                "Enter the lottery range as YYYY-MM-DD."
+            lotteryEnd < lotteryStart ->
+                "Lottery end must be on or after the lottery start."
             registrationEnd < registrationStart ->
                 "Registration end must be on or after the start."
             !isDateText(bookingStart) || !isDateText(bookingEnd) ->
@@ -94,8 +101,8 @@ class LotteryCreateController(
             bookingStart = bookingStart,
             bookingEnd = bookingEnd,
             numberOfWinners = winners!!,
-            lotteryStart = model.stayFrom.trim(),
-            lotteryEnd = model.stayTo.trim(),
+            lotteryStart = lotteryStart,
+            lotteryEnd = lotteryEnd,
             status = LotteryStatus.OPEN
         )
 
@@ -116,9 +123,16 @@ class LotteryCreateController(
     private fun isDateText(text: String): Boolean {
         val parts = text.split("-")
         if (parts.size != 3 || parts[0].length != 4) return false
+        val year = parts[0].toIntOrNull() ?: return false
         val month = parts[1].toIntOrNull() ?: return false
         val day = parts[2].toIntOrNull() ?: return false
-        return parts[0].toIntOrNull() != null && month in 1..12 && day in 1..31
+        if (month !in 1..12) return false
+        val daysInMonth = when (month) {
+            2 -> if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) 29 else 28
+            4, 6, 9, 11 -> 30
+            else -> 31
+        }
+        return day in 1..daysInMonth
     }
 
 }
