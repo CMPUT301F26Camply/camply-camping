@@ -221,7 +221,10 @@ class NotificationsViewTest {
             recipientId: String,
             onUpdate: (List<Notification>) -> Unit,
             onError: (Exception) -> Unit
-        ): () -> Unit = error("Not used by view tests")
+        ): () -> Unit {
+            onUpdate(emptyList())
+            return {}
+        }
 
         override suspend fun markAsRead(notificationId: String, recipientId: String) =
             error("Not used by view tests")
