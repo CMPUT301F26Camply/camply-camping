@@ -8,6 +8,59 @@ import androidx.compose.runtime.setValue
  * Stores the state of the shared notification screen (US 02.10.02).
  */
 class NotificationsModel {
+    var receivedNotifications: List<Notification> by mutableStateOf(emptyList())
+        private set
+
+    var selectedReceivedNotification: Notification? by mutableStateOf(null)
+        private set
+
+    var isMarkingRead by mutableStateOf(false)
+        private set
+
+    var readError: String? by mutableStateOf(null)
+        private set
+
+    val hasUnread: Boolean get() = receivedNotifications.any { !it.isRead }
+
+    fun reset() {
+        sentNotifications = emptyList()
+        receivedNotifications = emptyList()
+        clearSelection()
+        isLoading = false
+        errorMessage = null
+    }
+
+    fun showReceivedNotifications(list: List<Notification>) {
+        receivedNotifications = list
+        selectedReceivedNotification = selectedReceivedNotification?.let { selected ->
+            list.firstOrNull { it.id == selected.id }
+        }
+        isLoading = false
+        errorMessage = null
+    }
+
+    fun selectReceivedNotification(notification: Notification) {
+        clearSelection()
+        selectedReceivedNotification = notification
+    }
+
+    fun showMarkingRead() {
+        isMarkingRead = true
+        readError = null
+    }
+
+    fun finishMarkingRead(id: String, error: String? = null) {
+        if (error == null) {
+            receivedNotifications = receivedNotifications.map {
+                if (it.id == id) it.copy(isRead = true) else it
+            }
+        }
+        if (selectedReceivedNotification?.id == id) {
+            isMarkingRead = false
+            readError = error
+            if (error == null) selectedReceivedNotification = selectedReceivedNotification?.copy(isRead = true)
+        }
+    }
 
     var sentNotifications: List<SentNotification> by mutableStateOf(emptyList())
         private set
@@ -96,6 +149,9 @@ class NotificationsModel {
      * Clears the selected notification so that the list is displayed.
      */
     fun clearSelection() {
+        selectedReceivedNotification = null
+        isMarkingRead = false
+        readError = null
         selectedNotification = null
         recipientNames = emptyList()
         isLoadingRecipients = false

@@ -1,6 +1,7 @@
 package com.example.camply.notification.controller
 
 import com.example.camply.notification.model.NotificationsModel
+import com.example.camply.notification.model.Notification
 import com.example.camply.notification.model.SentNotification
 import com.example.camply.notification.model.groupSentNotifications
 import com.example.camply.notification.repository.NotificationRepository
@@ -20,29 +21,47 @@ class NotificationsController(
     private val recipientNameRepository: RecipientNameRepository
 ) {
     private var stopListening: (() -> Unit)? = null
+    private var observationVersion = 0
+    private var observedUserId: String? = null
+    private var observedRole: String? = null
 
     /**
      * Starts showing a user's notifications, replacing any earlier listener.
      *
-     * Only campsite owners have content so far. Other roles see an empty screen.
+     * Owners see sent history; entrants see their received inbox.
      *
      * @param userId The user's Firebase user ID.
      * @param role The user's role.
      */
     fun startObserving(userId: String, role: String) {
         stopObserving()
-        model.clearSelection()
+        val version = observationVersion
+        observedUserId = userId
+        observedRole = role
+        model.reset()
 
-        if (role != "owner") {
+        if (role != "owner" && role != "entrant") {
             model.showSentNotifications(emptyList())
             return
         }
 
         model.showLoading()
-        stopListening = repository.observeSent(
+        stopListening = if (role == "entrant") repository.observeReceived(
+            recipientId = userId,
+            onUpdate = { records ->
+                if (version == observationVersion) model.showReceivedNotifications(records)
+            },
+            onError = { error ->
+                if (version == observationVersion) model.showError(error.message ?: "Could not load notifications.")
+            }
+        ) else repository.observeSent(
             senderId = userId,
-            onUpdate = { records -> model.showSentNotifications(groupSentNotifications(records)) },
-            onError = { error -> model.showError(error.message ?: "Could not load notifications.") }
+            onUpdate = { records ->
+                if (version == observationVersion) model.showSentNotifications(groupSentNotifications(records))
+            },
+            onError = { error ->
+                if (version == observationVersion) model.showError(error.message ?: "Could not load notifications.")
+            }
         )
     }
 
@@ -50,8 +69,38 @@ class NotificationsController(
      * Stops listening for notification updates, such as when the screen closes.
      */
     fun stopObserving() {
+        observationVersion++
+        observedUserId = null
+        observedRole = null
         stopListening?.invoke()
         stopListening = null
+        model.reset()
+    }
+
+    /** Opens only a received record belonging to the active entrant. */
+    suspend fun onReceivedNotificationSelected(notification: Notification) {
+        if (observedRole != "entrant" || notification.recipientId != observedUserId) return
+        val record = model.receivedNotifications.firstOrNull { it.id == notification.id } ?: return
+        model.selectReceivedNotification(record)
+        markSelectedAsRead()
+    }
+
+    suspend fun markSelectedAsRead() {
+        val notification = model.selectedReceivedNotification ?: return
+        val userId = observedUserId ?: return
+        if (observedRole != "entrant" || notification.recipientId != userId ||
+            notification.isRead || model.isMarkingRead) return
+        val version = observationVersion
+        model.showMarkingRead()
+        try {
+            repository.markAsRead(notification.id, userId)
+            if (version == observationVersion) model.finishMarkingRead(notification.id)
+        } catch (error: CancellationException) {
+            if (version == observationVersion) model.finishMarkingRead(notification.id, "Read status was not confirmed. Please retry.")
+            throw error
+        } catch (error: Exception) {
+            if (version == observationVersion) model.finishMarkingRead(notification.id, "Could not mark this notification as read.")
+        }
     }
 
     /**

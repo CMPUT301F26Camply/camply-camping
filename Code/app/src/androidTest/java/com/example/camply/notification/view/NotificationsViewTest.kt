@@ -28,6 +28,32 @@ import org.junit.Test
  * Compose UI tests for the shared notification screen (US 02.10.02).
  */
 class NotificationsViewTest {
+    @Test
+    fun entrantCanReadWinAndLoseMessagesAndReturnToList() {
+        repository.records = listOf(
+            record(OWNER_ID).copy(id = "win", title = "Lottery won", content = "Choose your dates.", type = NotificationType.LOTTERY_WIN),
+            record(OWNER_ID).copy(id = "lose", title = "Lottery lost", content = "Try another lottery.", type = NotificationType.LOTTERY_LOSE)
+        )
+        showScreen("entrant")
+        compose.onNodeWithText("Lottery won").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Choose your dates.").assertIsDisplayed()
+        compose.runOnIdle { assertEquals("win" to OWNER_ID, repository.markedRead) }
+        compose.onNodeWithText("Back").performClick()
+        compose.onNodeWithText("Lottery lost").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Try another lottery.").assertIsDisplayed()
+    }
+
+    @Test
+    fun entrantReadFailureShowsMessageAndRetry() {
+        repository.records = listOf(record(OWNER_ID).copy(id = "win", title = "Lottery won"))
+        repository.failRead = true
+        showScreen("entrant")
+        compose.onNodeWithText("Lottery won").performClick()
+        compose.onNodeWithText("Could not mark this notification as read.").assertIsDisplayed()
+        compose.runOnIdle { repository.failRead = false }
+        compose.onNodeWithText("Retry read status").performClick()
+        compose.onNodeWithText("Could not mark this notification as read.").assertDoesNotExist()
+    }
 
     @get:Rule
     val compose = createComposeRule()
@@ -201,6 +227,8 @@ class NotificationsViewTest {
      * Delivers notification records without Firestore for testing purpose.
      */
     private class TestNotificationRepository : NotificationRepository {
+        var markedRead: Pair<String, String>? = null
+        var failRead = false
         var records: List<Notification> = emptyList()
         var shouldFail = false
         var stopCount = 0
@@ -221,10 +249,16 @@ class NotificationsViewTest {
             recipientId: String,
             onUpdate: (List<Notification>) -> Unit,
             onError: (Exception) -> Unit
-        ): () -> Unit = error("Not used by view tests")
+        ): () -> Unit {
+            if (shouldFail) onError(Exception("Could not read notifications."))
+            else onUpdate(records.filter { it.recipientId == recipientId })
+            return { stopCount++ }
+        }
 
-        override suspend fun markAsRead(notificationId: String, recipientId: String) =
-            error("Not used by view tests")
+        override suspend fun markAsRead(notificationId: String, recipientId: String) {
+            if (failRead) throw Exception("Write failed")
+            markedRead = notificationId to recipientId
+        }
     }
 
     /**

@@ -9,6 +9,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -216,11 +217,15 @@ fun CamplyApp() {
             }
             if (currentUser != null)
             {
+                DisposableEffect(currentUser.getUid(), currentUser.getRole()) {
+                    notificationsController.startObserving(currentUser.getUid(), currentUser.getRole())
+                    onDispose { notificationsController.stopObserving() }
+                }
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
                         if (navigationModel.getShowNavBar()) {
-                            bottomNavBar.Display(currentUser.getRole())
+                            bottomNavBar.Display(currentUser.getRole(), notificationsModel.hasUnread)
                         }
                     }
                 ) { innerPadding ->
@@ -370,7 +375,9 @@ fun CamplyApp() {
                             
                             Screen.PROFILE -> userProfileView.Display(currentUser, userController)
 
-                            Screen.NOTIFICATIONS -> notificationsView.Display(currentUser.getUid(), currentUser.getRole())
+                            Screen.NOTIFICATIONS -> notificationsView.Display(
+                                currentUser.getUid(), currentUser.getRole(), manageObservation = false
+                            )
 
                             else -> Text("Screen still needs to be implemented...")
                         }

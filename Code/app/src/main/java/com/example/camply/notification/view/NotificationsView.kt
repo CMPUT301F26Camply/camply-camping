@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.camply.notification.controller.NotificationsController
 import com.example.camply.notification.model.NotificationsModel
+import com.example.camply.notification.model.Notification
 import com.example.camply.notification.model.SentNotification
 import com.example.camply.shared.view.CamplyPalette
 import com.example.camply.shared.view.CamplyScreen
@@ -56,18 +57,21 @@ class NotificationsView(
      * @param role The user's role.
      */
     @Composable
-    fun Display(userId: String, role: String) {
+    fun Display(userId: String, role: String, manageObservation: Boolean = true) {
         // Kept here because a card's own scope ends when the details replace the list.
         val scope = rememberCoroutineScope()
         val error = model.errorMessage
         val selected = model.selectedNotification
+        val received = model.selectedReceivedNotification
 
-        DisposableEffect(userId, role) {
-            controller.startObserving(userId, role)
-            onDispose { controller.stopObserving() }
+        DisposableEffect(userId, role, manageObservation) {
+            if (manageObservation) controller.startObserving(userId, role)
+            onDispose {
+                if (manageObservation) controller.stopObserving() else controller.onBackToList()
+            }
         }
 
-        CamplyScreen(title = if (selected != null) "Notification details" else "Notifications") {
+        CamplyScreen(title = if (selected != null || received != null) "Notification details" else "Notifications") {
             // Loading and errors come first
             when {
                 model.isLoading -> Box(
@@ -83,6 +87,29 @@ class NotificationsView(
 
                 selected != null -> NotificationDetails(selected)
 
+                received != null -> ReceivedNotificationDetails(received) {
+                    scope.launch { controller.markSelectedAsRead() }
+                }
+
+                role == "entrant" -> {
+                    if (model.receivedNotifications.isEmpty()) {
+                        CenteredMessage("No notifications yet.")
+                    } else {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(model.receivedNotifications, key = { it.id }) { notification ->
+                                OrangeCard(Modifier.clickable {
+                                    scope.launch { controller.onReceivedNotificationSelected(notification) }
+                                }) {
+                                    CardLabel(if (notification.isRead) "Read" else "Unread")
+                                    Text(notification.title, fontWeight = FontWeight.Bold, color = CamplyPalette.Ink)
+                                    Text(notification.content, color = CamplyPalette.Ink)
+                                    Text(receivedTimeText(notification), fontSize = 13.sp, color = CamplyPalette.Ink)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 model.sentNotifications.isEmpty() -> CenteredMessage(emptyMessage(role))
 
                 else -> LazyColumn(
@@ -97,6 +124,33 @@ class NotificationsView(
             }
         }
     }
+
+    @Composable
+    private fun ReceivedNotificationDetails(notification: Notification, onRetryRead: () -> Unit) {
+        BackHandler { controller.onBackToList() }
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OrangeCard {
+                Text(notification.title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = CamplyPalette.Ink)
+                Text(notification.content, color = CamplyPalette.Ink)
+                Text(receivedTimeText(notification), fontSize = 13.sp, color = CamplyPalette.Ink)
+            }
+            if (model.isMarkingRead) {
+                Text("Updating read status...", color = Color.White)
+            }
+            model.readError?.let { error ->
+                CenteredMessage(error, "Retry read status", onRetryRead)
+            }
+            SecondaryButton("Back", controller::onBackToList)
+        }
+    }
+
+    private fun receivedTimeText(notification: Notification): String =
+        notification.createdAt?.let {
+            SimpleDateFormat("MMM d, yyyy, h:mm a", Locale.getDefault()).format(it.toDate())
+        } ?: "Time pending"
 
     // Shows one sent notification's preview, sent time, and number of recipients.
     @Composable
