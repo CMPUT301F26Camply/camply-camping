@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +50,9 @@ import com.example.camply.shared.view.PrimaryButton
 import com.example.camply.user.controller.UserController
 import com.example.camply.user.model.UserModel
 import com.example.camply.user.view.UserSignUpView
+import com.example.camply.user.controller.OwnerController
+import com.example.camply.user.model.CampsiteOwnerUser
+import com.example.camply.user.view.CampsiteListView
 
 /**
  * Displays the Camply application and manages its startup screens
@@ -112,6 +116,12 @@ fun CamplyApp() {
         ActiveReservationsView(activeReservationsModel, activeReservationsController)
     }
 
+    //Campsite Owner Handling
+    val campsiteListView = remember { CampsiteListView() }
+    var ownerDetailCampsiteId by remember { mutableStateOf<String?>(null) }
+    var ownerShowForm by remember { mutableStateOf(false) }
+    var ownerEditCampsite by remember { mutableStateOf<Campsite?>(null) }
+
     // Check for an existing Firebase user or sign in anonymously
     LaunchedEffect(Unit) {
         userModel.initializeUser()
@@ -137,8 +147,20 @@ fun CamplyApp() {
 
         "ready" -> {
             val currentUser = userModel.getCurrentUser()
+            android.util.Log.d("Camply", "startup=${userModel.getStartupState()} user=$currentUser role=${currentUser?.getRole()} isOwner=${currentUser is CampsiteOwnerUser}")
+            val owner = currentUser as? CampsiteOwnerUser
+            val ownerController = remember(owner) {
+                owner?.let { OwnerController(it, campsiteRepository) }
+            }
 
-            if (currentUser != null) {
+            LaunchedEffect(ownerController) {
+                if (ownerController != null) {
+                    navigationModel.navigateTo(Screen.CAMPSITE_LIST)
+                    ownerController.loadCampsite()
+                }
+            }
+            if (currentUser != null)
+            {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
@@ -218,7 +240,47 @@ fun CamplyApp() {
                             }
 
                             Screen.RESERVATIONS -> activeReservationsView.Display(currentUser.getUid())
+                            Screen.CAMPSITE_LIST -> {
+                                if (ownerController != null) {
+                                    val detailId = ownerDetailCampsiteId
 
+                                    if (ownerShowForm) {
+                                        BackHandler {
+                                            ownerShowForm = false
+                                            ownerEditCampsite = null
+                                        }
+                                        Text("Campsite form goes here")
+                                    } else if (detailId != null) {
+                                        BackHandler { ownerDetailCampsiteId = null }
+                                        campsiteDetailView.Display(
+                                            campsiteId = detailId,
+                                            onBack = { ownerDetailCampsiteId = null },
+                                            extraContent = { campsite ->
+                                                Button(onClick = {
+                                                    ownerEditCampsite = campsite
+                                                    ownerShowForm = true
+                                                }) {
+                                                    Text("Edit campsite")
+                                                }
+                                            }
+                                        )
+                                    } else {
+                                        campsiteListView.Display(
+                                            ownerName = "Owner 1",
+                                            campsites = ownerController.campsites,
+                                            addCampsite = { ownerShowForm = true },
+                                            editCampsite = {
+                                                ownerEditCampsite = it
+                                                ownerShowForm = true
+                                            },
+                                            viewCampsite = { ownerDetailCampsiteId = it.id },
+                                            lotteryRegistration = { },
+                                            reservationList = { },
+                                            viewOrCreateLottery = { }
+                                        )
+                                    }
+                                }
+                            }
                             else -> Text("Screen still needs to be implemented...")
                         }
                     }

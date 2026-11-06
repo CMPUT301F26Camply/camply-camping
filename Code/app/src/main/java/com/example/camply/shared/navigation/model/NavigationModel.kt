@@ -13,7 +13,10 @@ enum class Screen {
     BACK,
     BROWSE,
     LOTTERIES,
-    RESERVATIONS
+    RESERVATIONS,
+    CAMPSITE_LIST,
+    WAIT_LIST,
+    INBOX
 }
 
 /**
@@ -32,10 +35,17 @@ class NavigationModel {
         NavBarItem(Screen.BACK, "Back", R.drawable.back_arrow_icon),
         NavBarItem(Screen.BROWSE, "Browse Campsites", R.drawable.campsite_icon),
         NavBarItem(Screen.LOTTERIES, "My Lotteries", R.drawable.lottery_icon),
-        NavBarItem(Screen.RESERVATIONS, "My Reservations", R.drawable.reservation_icon)
+        NavBarItem(Screen.RESERVATIONS, "My Reservations", R.drawable.reservation_icon),
     )
 
-    private val ownerNavBarItems = emptyList<NavBarItem>()
+    private val ownerNavBarItems = listOf(
+        NavBarItem(Screen.BACK, "Back", R.drawable.back_arrow_icon),
+        NavBarItem(Screen.WAIT_LIST, "Waitlist", R.drawable.waitlist_icon),
+        NavBarItem(Screen.RESERVATIONS, "Campsite Reservations", R.drawable.reservation_icon),
+        NavBarItem(Screen.INBOX, "Owner Inbox", R.drawable.inbox_icon),
+        NavBarItem(Screen.CAMPSITE_LIST, "Campsite List", R.drawable.camp_list)
+
+    )
     private val adminNavBarItems = emptyList<NavBarItem>()
 
     /**
