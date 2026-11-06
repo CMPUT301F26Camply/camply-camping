@@ -37,8 +37,6 @@ class OwnerController(
         rules: String,
         cancellationPolicy: String,
         images: List<String> = emptyList(),
-        latitude: Double? = null,
-        longitude: Double? = null
     ): Boolean {
         val campsite = buildCampsiteRecord(
             id = "",
@@ -52,8 +50,6 @@ class OwnerController(
             rules = rules,
             cancellationPolicy = cancellationPolicy,
             images = images,
-            latitude = latitude,
-            longitude = longitude
         )
 
         val problems = campsite.validationCheck()
@@ -80,8 +76,6 @@ class OwnerController(
         rules: String,
         cancellationPolicy: String,
         images: List<String> = emptyList(),
-        latitude: Double? = null,
-        longitude: Double? = null
     ): Boolean {
         val edit = buildCampsiteRecord(
             id = existingSite.id,
@@ -95,8 +89,6 @@ class OwnerController(
             rules = rules,
             cancellationPolicy = cancellationPolicy,
             images = images,
-            latitude = latitude,
-            longitude = longitude
         )
 
         val problems = edit.validationCheck()
@@ -139,12 +131,10 @@ class OwnerController(
         rules: String,
         cancellationPolicy: String,
         images: List<String>,
-        latitude: Double?,
-        longitude: Double?
     ): Campsite {
-        // an invalid number becomes 0, which validationCheck() then rejects (occupancy)
-        val occupancy = maxOccupancy.trim().toIntOrNull() ?: 0
-        val priceValue = price.trim().toDoubleOrNull() ?: 0.0
+        
+        val occupancy = maxOccupancy.trim().toIntOrNull()
+        val priceValue = price.trim().toDoubleOrNull()
         //.map functionality: https://kotlinlang.org/docs/collection-transformations.html#map
 
         val amenityList = amenities.split(",").map {
