@@ -158,6 +158,52 @@ class ReservationBookingControllerTest {
         assertTrue(repository.reservations.isEmpty())
     }
 
+    /**
+     * Checks that a saved reservation sends its confirmation to the entrant (US 01.05.01).
+     */
+    @Test
+    fun notifyReservationConfirmed_validReservation_sendsConfirmation() = runBlocking {
+        val notifications = TestNotificationRepository()
+        val controller = ReservationBookingController(
+            BookingService(),
+            repository,
+            NotificationService(notifications)
+        )
+
+        controller.notifyReservationConfirmed(ownedCampsite, savedReservation, "reservation1")
+
+        val notification = notifications.records.single()
+        assertEquals("entrant1", notification.recipientId)
+        assertEquals("owner1", notification.senderId)
+        assertEquals("reservation1", notification.reservationId)
+    }
+
+    /**
+     * Checks that a failed send does not throw, because the reservation is already saved.
+     */
+    @Test
+    fun notifyReservationConfirmed_sendFails_doesNotThrow() = runBlocking {
+        val notifications = TestNotificationRepository()
+        notifications.shouldFail = true
+        val controller = ReservationBookingController(
+            BookingService(),
+            repository,
+            NotificationService(notifications)
+        )
+
+        controller.notifyReservationConfirmed(ownedCampsite, savedReservation, "reservation1")
+
+        assertTrue(notifications.records.isEmpty())
+    }
+
+    private val ownedCampsite = Campsite(id = "1", name = "Banff Pines", ownerId = "owner1")
+
+    private val savedReservation = Reservation(
+        entrantId = "entrant1",
+        campsiteId = "1",
+        dates = DateRange("2027-06-03", "2027-06-05")
+    )
+
     private fun notificationService() = NotificationService(TestNotificationRepository())
 
     /**
@@ -180,11 +226,17 @@ class ReservationBookingControllerTest {
     }
 
     /**
-     * Accepts notifications for controller tests without accessing Firestore.
+     * Records notifications for controller tests without accessing Firestore.
      */
     private class TestNotificationRepository : NotificationRepository {
-        override suspend fun createIfAbsent(id: String, notification: NewNotification): SendResult =
-            SendResult.CREATED
+        val records = mutableListOf<NewNotification>()
+        var shouldFail = false
+
+        override suspend fun createIfAbsent(id: String, notification: NewNotification): SendResult {
+            if (shouldFail) throw Exception("Could not send notification.")
+            records.add(notification)
+            return SendResult.CREATED
+        }
 
         override fun observeReceived(
             recipientId: String,
