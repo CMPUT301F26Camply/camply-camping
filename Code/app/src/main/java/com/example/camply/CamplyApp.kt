@@ -51,7 +51,6 @@ import com.example.camply.user.model.UserModel
 import com.example.camply.user.view.UserSignUpView
 import com.example.camply.lottery.controller.LotteryCreateController
 import com.example.camply.lottery.model.LotteryCreateModel
-import com.example.camply.lottery.repository.FirestoreLotteryRepository
 import com.example.camply.lottery.view.LotteryCreateView
 
 /**

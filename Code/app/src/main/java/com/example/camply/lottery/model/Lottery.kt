@@ -33,7 +33,7 @@ data class Lottery(
     val registrationStart: String = "",
     val registrationEnd: String = "",
     val bookingStart: String = "",
-    val bookingEnd: String = "",/
+    val bookingEnd: String = "",
     val lotteryStart: String = "",
     val lotteryEnd: String = "",
     val numberOfWinners: Int = 0,
