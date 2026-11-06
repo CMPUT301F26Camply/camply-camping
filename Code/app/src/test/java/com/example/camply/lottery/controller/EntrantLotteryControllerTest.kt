@@ -11,7 +11,13 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Unit tests for loading entrant lotteries in EntrantLotteryController (US 01.04.01).
+ * Unit tests for EntrantLotteryController (US 01.04.01).
+ *
+ * These tests use a fake repository to verify that the controller passes the
+ * correct entrant ID, updates the model, and handles repository errors.
+ * They do not connect to Firestore or test database filtering.
+ *
+ * TODO: Add Firestore integration tests using the Firebase Emulator to verify that getJoinedLotteries returns only lotteries joined by the specified entrant.
  */
 class EntrantLotteryControllerTest {
 
@@ -29,10 +35,10 @@ class EntrantLotteryControllerTest {
         controller = EntrantLotteryController(model, repository)
     }
     /**
-     * Checks that lotteries joined by the entrant are loaded.
+     * Checks that the controller passes the entrant ID and stores the repository results.
      */
     @Test
-    fun loadLotteries_joinedLotteries_loadsLotteries() = runBlocking {
+    fun loadLotteries_repositoryResults_updatesModel() = runBlocking {
         val lottery = Lottery(id = "lottery1")
         repository.lotteries.add(lottery)
 
@@ -45,10 +51,10 @@ class EntrantLotteryControllerTest {
     }
 
     /**
-     * Checks that an entrant with no joined lotteries gets an empty list.
+     * Checks that the model receives an empty list when the repository returns no lotteries.
      */
     @Test
-    fun loadLotteries_noJoinedLotteries_returnsEmptyList() = runBlocking {
+    fun loadLotteries_emptyRepositoryResults_updatesModel() = runBlocking {
         controller.loadLotteries("entrant1")
 
         assertEquals(emptyList<Lottery>(), model.lotteries)
@@ -70,7 +76,8 @@ class EntrantLotteryControllerTest {
     }
 
     /**
-     * Provides lottery data for testing without connecting to Firestore.
+     * Provides predefined lottery data to test the controller without Firestore.
+     * Entrant membership filtering is handled by the real Firestore repository.
      */
     private class TestLotteryRepository : LotteryRepository {
         val lotteries = mutableListOf<Lottery>()
@@ -88,6 +95,7 @@ class EntrantLotteryControllerTest {
 
             return null
         }
+        override suspend fun create(lottery: Lottery): String = error("not used by these tests.")
 
         override suspend fun getJoinedLotteries(entrantId: String): List<Lottery> {
             requestedEntrantId = entrantId

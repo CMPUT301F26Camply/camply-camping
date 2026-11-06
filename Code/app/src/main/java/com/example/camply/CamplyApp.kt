@@ -26,6 +26,11 @@ import com.example.camply.campsite.view.CampsiteBrowseView
 import com.example.camply.campsite.view.CampsiteDetailView
 import com.example.camply.lottery.model.EntrantLotteryModel
 import com.example.camply.lottery.view.EntrantLotteryView
+import com.example.camply.notification.controller.NotificationsController
+import com.example.camply.notification.model.NotificationsModel
+import com.example.camply.notification.repository.FirestoreNotificationRepository
+import com.example.camply.notification.repository.FirestoreRecipientNameRepository
+import com.example.camply.notification.view.NotificationsView
 import com.example.camply.reservations.controller.ActiveReservationsController
 import com.example.camply.reservations.controller.ReservationBookingController
 import com.example.camply.reservations.model.ActiveReservationsModel
@@ -49,10 +54,14 @@ import com.example.camply.shared.view.LoadingView
 import com.example.camply.shared.view.PrimaryButton
 import com.example.camply.user.controller.UserController
 import com.example.camply.user.model.UserModel
+import com.example.camply.user.view.UserProfileView
 import com.example.camply.user.view.UserSignUpView
 import com.example.camply.user.controller.OwnerController
 import com.example.camply.user.model.CampsiteOwnerUser
 import com.example.camply.user.view.CampsiteListView
+import com.example.camply.lottery.controller.LotteryCreateController
+import com.example.camply.lottery.model.LotteryCreateModel
+import com.example.camply.lottery.view.LotteryCreateView
 
 /**
  * Displays the Camply application and manages its startup screens
@@ -62,10 +71,11 @@ import com.example.camply.user.view.CampsiteListView
 @Composable
 fun CamplyApp() {
 
-    // Create and retain the user model, controller, and signup view.
+    // Create and retain the user model, controller, and user views.
     val userModel = remember { UserModel() }
     val userController = remember { UserController(userModel) }
     val userSignUpView = remember { UserSignUpView() }
+    val userProfileView = remember { UserProfileView() }
 
     // Create and retain the navigation components.
     val navigationModel = remember { NavigationModel() }
@@ -83,7 +93,17 @@ fun CamplyApp() {
     val campsiteDetailModel = remember { CampsiteDetailModel() }
     val campsiteDetailController = remember { CampsiteDetailController(campsiteDetailModel, campsiteRepository) }
     val campsiteDetailView = remember { CampsiteDetailView(campsiteDetailModel, campsiteDetailController) }
-
+    
+    // Owner lottery registration. US 02.04.01, 02.04.03, 02.04.04, 02.04.05.
+    val lotteryCreateModel = remember { LotteryCreateModel() }
+    val lotteryRepository = remember { FirestoreLotteryRepository() }
+    val lotteryCreateController = remember {
+        LotteryCreateController(lotteryCreateModel, lotteryRepository, campsiteRepository)
+    }
+    val lotteryCreateView = remember {
+        LotteryCreateView(lotteryCreateModel, lotteryCreateController)
+    }
+    var showLotteryForm by remember { mutableStateOf(true) }
     // ID of the campsite currently open from the browse screen (null = show the list).
     var selectedCampsiteId by remember { mutableStateOf<String?>(null) }
 
@@ -121,6 +141,17 @@ fun CamplyApp() {
     var ownerDetailCampsiteId by remember { mutableStateOf<String?>(null) }
     var ownerShowForm by remember { mutableStateOf(false) }
     var ownerEditCampsite by remember { mutableStateOf<Campsite?>(null) }
+    
+    // Shared notifications
+    val notificationsModel = remember { NotificationsModel() }
+    val notificationsController = remember {
+        NotificationsController(
+            notificationsModel,
+            FirestoreNotificationRepository(),
+            FirestoreRecipientNameRepository()
+        )
+    }
+    val notificationsView = remember { NotificationsView(notificationsModel, notificationsController) }
 
     // Check for an existing Firebase user or sign in anonymously
     LaunchedEffect(Unit) {
@@ -175,8 +206,15 @@ fun CamplyApp() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        when (navigationModel.getCurrentScreen()) {
-                            Screen.BROWSE -> {
+                    // Temporary: an owner opens on the form until the campsite-list button exists.
+
+                        if (currentUser.getRole() == "owner"&&showLotteryForm) {
+                            lotteryCreateView.Display(currentUser.getUid()){
+                                showLotteryForm=false
+                            }
+                        } else when (navigationModel.getCurrentScreen()) {                            
+                          
+                              Screen.BROWSE -> {
                                 val openId = selectedCampsiteId
                                 if (openId == null) {
                                     campsiteBrowseView.Display(onCampsiteClick = { selectedCampsiteId = it })
@@ -240,6 +278,7 @@ fun CamplyApp() {
                             }
 
                             Screen.RESERVATIONS -> activeReservationsView.Display(currentUser.getUid())
+                            
                             Screen.CAMPSITE_LIST -> {
                                 if (ownerController != null) {
                                     val detailId = ownerDetailCampsiteId
@@ -281,6 +320,11 @@ fun CamplyApp() {
                                     }
                                 }
                             }
+                            
+                            Screen.PROFILE -> userProfileView.Display(currentUser, userController)
+
+                            Screen.NOTIFICATIONS -> notificationsView.Display(currentUser.getUid(), currentUser.getRole())
+
                             else -> Text("Screen still needs to be implemented...")
                         }
                     }

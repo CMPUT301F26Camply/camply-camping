@@ -16,7 +16,9 @@ enum class Screen {
     RESERVATIONS,
     CAMPSITE_LIST,
     WAIT_LIST,
-    INBOX
+    INBOX,
+    PROFILE,
+    NOTIFICATIONS
 }
 
 /**
@@ -33,19 +35,28 @@ class NavigationModel {
     // TODO: Implement navigation history for the Back button.
     private val entrantNavBarItems = listOf(
         NavBarItem(Screen.BACK, "Back", R.drawable.back_arrow_icon),
-        NavBarItem(Screen.BROWSE, "Browse Campsites", R.drawable.campsite_icon),
-        NavBarItem(Screen.LOTTERIES, "My Lotteries", R.drawable.lottery_icon),
-        NavBarItem(Screen.RESERVATIONS, "My Reservations", R.drawable.reservation_icon),
+        NavBarItem(Screen.PROFILE, "Profile", R.drawable.profile_icon),
+        NavBarItem(Screen.BROWSE, "Browse", R.drawable.campsite_icon),
+        NavBarItem(Screen.LOTTERIES, "Lotteries", R.drawable.lottery_icon),
+        NavBarItem(Screen.RESERVATIONS, "Reservations", R.drawable.reservation_icon),
+        // TODO :In here for now but need to change flow of notifications to be inside inbox...
+        NavBarItem(Screen.NOTIFICATIONS, "Inbox", R.drawable.inbox_icon)
     )
-
+    
     private val ownerNavBarItems = listOf(
         NavBarItem(Screen.BACK, "Back", R.drawable.back_arrow_icon),
+      NavBarItem(Screen.PROFILE, "Profile", R.drawable.profile_icon),
         NavBarItem(Screen.WAIT_LIST, "Waitlist", R.drawable.waitlist_icon),
         NavBarItem(Screen.INBOX, "Owner Inbox", R.drawable.inbox_icon),
-        NavBarItem(Screen.CAMPSITE_LIST, "Campsite List", R.drawable.camp_list)
-
+        NavBarItem(Screen.CAMPSITE_LIST, "Campsite List", R.drawable.camp_list),
+        // TODO: In here for now but need to change flow of notifications to be inside inbox...
+        NavBarItem(Screen.NOTIFICATIONS, "Inbox", R.drawable.inbox_icon)
     )
-    private val adminNavBarItems = emptyList<NavBarItem>()
+    
+    private val adminNavBarItems = listOf(
+        // TODO: In here for now but need to change flow of notifications to be inside inbox...
+        NavBarItem(Screen.NOTIFICATIONS, "Inbox", R.drawable.inbox_icon)
+    )
 
     /**
      * Returns the navigation bar items for a specific user role.

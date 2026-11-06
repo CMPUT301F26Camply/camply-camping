@@ -22,6 +22,13 @@ interface LotteryRepository {
      * @return The lottery, or null if it does not exist
      */
     suspend fun getLottery(id: String): Lottery?
+    /**
+     * Writes one lottery document and returns its new id.
+     *
+     * @param lottery the listing to save. Its id may still be empty.
+     * @return the Firestore document id assigned to the saved lottery
+     */
+    suspend fun create(lottery: Lottery): String
 
     /**
      * Retrieves lotteries that the specified entrant has joined.
@@ -47,6 +54,12 @@ class FirestoreLotteryRepository(
 
     override suspend fun getLottery(id: String): Lottery? =
         lotteries.document(id).get().await().toObject(Lottery::class.java)
+
+    override suspend fun create(lottery: Lottery): String {
+        val document = lotteries.document()
+        document.set(lottery.copy(id = document.id)).await()
+        return document.id
+    }
 
     override suspend fun getJoinedLotteries(entrantId: String): List<Lottery> {
         require(entrantId.isNotBlank() && !entrantId.contains('/')) {
