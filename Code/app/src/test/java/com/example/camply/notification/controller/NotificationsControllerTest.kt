@@ -7,6 +7,7 @@ import com.example.camply.notification.model.NotificationType
 import com.example.camply.notification.model.NotificationsModel
 import com.example.camply.notification.model.SendResult
 import com.example.camply.notification.repository.NotificationRepository
+import com.example.camply.notification.repository.RecipientNameRepository
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertNull
@@ -30,7 +31,7 @@ class NotificationsControllerTest {
     fun setUp() {
         model = NotificationsModel()
         repository = TestNotificationRepository()
-        controller = NotificationsController(model, repository)
+        controller = NotificationsController(model, repository, TestRecipientNameRepository())
     }
 
     /**
@@ -156,6 +157,13 @@ class NotificationsControllerTest {
 
         override suspend fun markAsRead(notificationId: String, recipientId: String) =
             error("Not used by controller tests")
+    }
+
+    /**
+     * Provides recipient names without accessing Firestore.
+     */
+    private class TestRecipientNameRepository : RecipientNameRepository {
+        override suspend fun getRecipientName(userId: String): String? = null
     }
 
     private companion object {

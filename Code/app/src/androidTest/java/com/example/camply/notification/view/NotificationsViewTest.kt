@@ -15,6 +15,7 @@ import com.example.camply.notification.model.NotificationType
 import com.example.camply.notification.model.NotificationsModel
 import com.example.camply.notification.model.SendResult
 import com.example.camply.notification.repository.NotificationRepository
+import com.example.camply.notification.repository.RecipientNameRepository
 import com.google.firebase.Timestamp
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -41,7 +42,10 @@ class NotificationsViewTest {
     fun setUp() {
         repository = TestNotificationRepository()
         val model = NotificationsModel()
-        view = NotificationsView(model, NotificationsController(model, repository))
+        view = NotificationsView(
+            model,
+            NotificationsController(model, repository, TestRecipientNameRepository())
+        )
     }
 
     /**
@@ -175,6 +179,13 @@ class NotificationsViewTest {
 
         override suspend fun markAsRead(notificationId: String, recipientId: String) =
             error("Not used by view tests")
+    }
+
+    /**
+     * Provides recipient names without Firestore for testing purpose.
+     */
+    private class TestRecipientNameRepository : RecipientNameRepository {
+        override suspend fun getRecipientName(userId: String): String? = null
     }
 
     private companion object {
