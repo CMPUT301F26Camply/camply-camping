@@ -29,6 +29,7 @@ import com.example.camply.notification.controller.NotificationsController
 import com.example.camply.notification.model.NotificationsModel
 import com.example.camply.notification.repository.FirestoreNotificationRepository
 import com.example.camply.notification.repository.FirestoreRecipientNameRepository
+import com.example.camply.notification.service.NotificationService
 import com.example.camply.notification.view.NotificationsView
 import com.example.camply.reservations.controller.ActiveReservationsController
 import com.example.camply.reservations.controller.ReservationBookingController
@@ -118,7 +119,8 @@ fun CamplyApp() {
     val reservationBookingModel = remember { ReservationBookingModel() }
     val reservationRepository = remember { FirestoreReservationRepository() }
     val bookingService = remember { BookingService() }
-    val reservationBookingController = remember { ReservationBookingController(bookingService, reservationRepository, reservationBookingModel) }
+    val notificationService = remember { NotificationService(FirestoreNotificationRepository()) }
+    val reservationBookingController = remember { ReservationBookingController(bookingService, reservationRepository, notificationService, reservationBookingModel) }
     val reservationBookingView = remember { ReservationBookingView(reservationBookingModel, reservationBookingController) }
     var selectedBookingCampsite by remember { mutableStateOf<Campsite?>(null) }
 
