@@ -62,6 +62,7 @@ import com.example.camply.user.view.CampsiteListView
 import com.example.camply.lottery.controller.LotteryCreateController
 import com.example.camply.lottery.model.LotteryCreateModel
 import com.example.camply.lottery.view.LotteryCreateView
+import com.example.camply.shared.view.SecondaryButton
 
 /**
  * Displays the Camply application and manages its startup screens
@@ -103,7 +104,7 @@ fun CamplyApp() {
     val lotteryCreateView = remember {
         LotteryCreateView(lotteryCreateModel, lotteryCreateController)
     }
-    var showLotteryForm by remember { mutableStateOf(true) }
+
     // ID of the campsite currently open from the browse screen (null = show the list).
     var selectedCampsiteId by remember { mutableStateOf<String?>(null) }
 
@@ -206,14 +207,8 @@ fun CamplyApp() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                    // Temporary: an owner opens on the form until the campsite-list button exists.
+                        when (navigationModel.getCurrentScreen()) {
 
-                        if (currentUser.getRole() == "owner"&&showLotteryForm) {
-                            lotteryCreateView.Display(currentUser.getUid()){
-                                showLotteryForm=false
-                            }
-                        } else when (navigationModel.getCurrentScreen()) {                            
-                          
                               Screen.BROWSE -> {
                                 val openId = selectedCampsiteId
                                 if (openId == null) {
@@ -288,7 +283,19 @@ fun CamplyApp() {
                                             ownerShowForm = false
                                             ownerEditCampsite = null
                                         }
-                                        Text("Campsite form goes here")
+
+                                        Column {
+                                            Text("Campsite form goes here")
+
+                                            SecondaryButton(
+                                                text = "Back",
+                                                onClick = {
+                                                    ownerShowForm = false
+                                                    ownerEditCampsite = null
+                                                }
+                                            )
+                                        }
+
                                     } else if (detailId != null) {
                                         BackHandler { ownerDetailCampsiteId = null }
                                         campsiteDetailView.Display(
