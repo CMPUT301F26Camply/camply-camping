@@ -24,6 +24,7 @@ import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Test
+import kotlin.collections.emptyList
 
 /**
  * Unit tests for reservation date validation in ReservationBookingController.

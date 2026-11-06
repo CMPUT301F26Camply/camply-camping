@@ -70,6 +70,7 @@ class ReservationBookingViewTest {
                 campsite = campsite,
                 entrantId = "entrant1",
                 lotteryId = "lottery1",
+                lotteryStayDates = DateRange("2027-06-01", "2027-06-10"),
                 onBack = {}
             )
         }
@@ -152,6 +153,17 @@ class ReservationBookingViewTest {
         confirmButton().assertIsNotEnabled()
     }
 
+    /**
+     * Checks that the booking screen displays the lottery's permitted stay dates.
+     * US 01.04.01.
+     */
+    @Test
+    fun display_showsLotteryStayDates() {
+        compose.onNodeWithText("2027-06-01 to 2027-06-10")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
     private fun confirmButton() = compose.onNodeWithText("Confirm Reservation").performScrollTo()
 
     private fun clickRulesCheckbox() {
@@ -214,7 +226,19 @@ class ReservationBookingViewTest {
 
         override suspend fun getLotteries(): List<Lottery> = emptyList()
 
-        override suspend fun getLottery(id: String): Lottery? = null
+        override suspend fun getLottery(id: String): Lottery? =
+            if (id == "lottery1") {
+                Lottery(
+                    id = "lottery1",
+                    campsiteIds = listOf("1"),
+                    lotteryStart = "2027-06-01",
+                    lotteryEnd = "2027-06-10",
+                    bookingStart = "2020-01-01",
+                    bookingEnd = "2099-12-31"
+                )
+            } else {
+                null
+            }
 
         override suspend fun create(lottery: Lottery): String = lottery.id
 
