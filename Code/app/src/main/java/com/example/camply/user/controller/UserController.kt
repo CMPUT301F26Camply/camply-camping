@@ -27,4 +27,30 @@ class UserController(private val userModel: UserModel) {
     fun getSignupError(): String? {
         return userModel.signupError
     }
+
+    /**
+     * Updates the current user's personal information.
+     */
+    fun updateUserProfile(name: String, email: String, phoneNumber: String) =
+        userModel.updateUserProfile(name, email, phoneNumber)
+
+    /**
+     * Returns the error message from the last profile update attempt
+     */
+    fun getProfileError(): String? = userModel.profileError
+
+    /**
+     * Checks whether profile changes are being saved
+     */
+    fun isSavingProfile(): Boolean = userModel.isSavingProfile
+
+    /**
+     * Checks whether the profile was saved successfully
+     */
+    fun isProfileSaved(): Boolean = userModel.profileSaved
+
+    /**
+     * Clears previous profile update messages.
+     */
+    fun clearProfileStatus() = userModel.clearProfileStatus()
 }
