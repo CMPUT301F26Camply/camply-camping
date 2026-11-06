@@ -14,7 +14,19 @@ data class DateRange(
     /** US 01.01.02: true if this range fully contains the requested stay. */
     fun covers(stayFrom: String, stayTo: String): Boolean = from <= stayFrom && to >= stayTo
 }
-//data class location(){}
+
+/**
+ * A map position for a campsite (US 01.01.05 / 02.01.02).
+ * Defaults are required so Firestore can build the object from a document.
+ */
+data class Coordinates(
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0
+) {
+    /** True if the values are real-world latitude/longitude. */
+    fun isValid(): Boolean = latitude in -90.0..90.0 && longitude in -180.0..180.0
+}
+
 /**
  *
  * US 01.01.05 / 02.01.02: name, location (park or area, e.g. "Banff"), description, amenities,
@@ -35,6 +47,7 @@ data class DateRange(
  * @param cancellationPolicy cancellation policy
  * @param ownerId uid of the owning campsite owner
  * @param availability date ranges the owner has made available
+ * @param coordinates optional map location (latitude/longitude); null if the owner didn't set one
  */
 class Campsite(
     @DocumentId val id: String = "",
@@ -51,7 +64,9 @@ class Campsite(
     val ownerId: String = "",
     var availability: List<DateRange> = emptyList(),
     var images: List<String> = emptyList(),
+    var coordinates: Coordinates? = null,
 ) {
+
     /** US 01.01.01: case-insensitive partial name match. A blank query matches everything. */
     fun matchesName(query: String): Boolean =
         query.isBlank() || name.contains(query.trim(), ignoreCase = true)
@@ -96,6 +111,22 @@ class Campsite(
         if (price <= 0){
             errorList.add("Please enter a valid price")
         }
+        coordinates?.let {
+            if (!it.isValid()) {
+                errorList.add("Please enter a valid latitude (-90 to 90) and longitude (-180 to 180)")
+            }
+        }
         return errorList
+    }
+    /** True if the owner has set a map location. */
+    fun hasCoordinates(): Boolean = coordinates != null
+
+    /** Sets or clears (null) the map location. Returns false if the values are out of range. */
+    fun updateCoordinates(newCoordinates: Coordinates?): Boolean {
+        if (newCoordinates != null && !newCoordinates.isValid()) {
+            return false
+        }
+        coordinates = newCoordinates
+        return true
     }
 }

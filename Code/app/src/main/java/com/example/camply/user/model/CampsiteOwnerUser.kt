@@ -65,6 +65,7 @@ class CampsiteOwnerUser(
         campsite.tags = edit.tags
         campsite.images = edit.images
         campsite.availability = edit.availability
+        campsite.coordinates = edit.coordinates
 
         return true
     }
