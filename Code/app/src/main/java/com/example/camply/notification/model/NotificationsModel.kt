@@ -65,6 +65,7 @@ class NotificationsModel {
     var sentNotifications: List<SentNotification> by mutableStateOf(emptyList())
         private set
 
+
     var isLoading: Boolean by mutableStateOf(false)
         private set
 
@@ -101,6 +102,7 @@ class NotificationsModel {
         isLoading = false
         errorMessage = null
     }
+
 
     /**
      * Updates the model when notifications can not be loaded.

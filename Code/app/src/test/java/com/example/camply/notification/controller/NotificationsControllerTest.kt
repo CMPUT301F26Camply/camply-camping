@@ -173,6 +173,45 @@ class NotificationsControllerTest {
     }
 
     /**
+     * Checks that an entrant listens for the notifications sent to them (US 01.05.01).
+     */
+    @Test
+    fun startObserving_entrant_listensForReceived() {
+        controller.startObserving("entrant1", "entrant")
+
+        assertEquals("entrant1", repository.recipientId)
+        assertEquals(0, repository.observeCount)
+        assertEquals(1, repository.receivedObserveCount)
+        assertTrue(model.isLoading)
+    }
+
+    /**
+     * Checks that an update shows the entrant's received notifications (US 01.05.01).
+     */
+    @Test
+    fun startObserving_entrantUpdate_showsReceivedNotifications() {
+        val received = record("reservation-confirmed:reservation1", "entrant1", NotificationOrigin.SYSTEM)
+        controller.startObserving("entrant1", "entrant")
+
+        repository.sendReceivedUpdate(listOf(received))
+
+        assertEquals(listOf(received), model.receivedNotifications)
+        assertFalse(model.isLoading)
+    }
+
+    /**
+     * Checks that admins get an empty screen without reading any notifications.
+     */
+    @Test
+    fun startObserving_admin_showsEmptyWithoutListening() {
+        controller.startObserving("admin1", "admin")
+
+        assertEquals(0, repository.observeCount)
+        assertNull(repository.recipientId)
+        assertFalse(model.isLoading)
+    }
+
+    /**
      * Checks that selecting a notification loads its recipients' names in order.
      */
     @Test
@@ -248,11 +287,15 @@ class NotificationsControllerTest {
         var failRead = false
         var senderId: String? = null
         var observeCount = 0
+        var receivedObserveCount = 0
         var stopCount = 0
         private var onUpdate: (List<Notification>) -> Unit = {}
+        private var onReceivedUpdate: (List<Notification>) -> Unit = {}
 
         fun sendUpdate(records: List<Notification>) = onUpdate(records)
         fun savedUpdate(): (List<Notification>) -> Unit = onUpdate
+
+        fun sendReceivedUpdate(records: List<Notification>) = onReceivedUpdate(records)
 
         override fun observeSent(
             senderId: String,
@@ -274,8 +317,9 @@ class NotificationsControllerTest {
             onError: (Exception) -> Unit
         ): () -> Unit {
             this.recipientId = recipientId
+            onReceivedUpdate = onUpdate
             this.onUpdate = onUpdate
-            observeCount++
+            receivedObserveCount++
             return { stopCount++ }
         }
 

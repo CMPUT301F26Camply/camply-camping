@@ -2,6 +2,7 @@ package com.example.camply.reservations.controller
 
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.DateRange
+import com.example.camply.notification.service.NotificationService
 import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationBookingModel
 import com.example.camply.reservations.repository.ReservationRepository
@@ -13,11 +14,13 @@ import kotlin.coroutines.cancellation.CancellationException
  *
  * @param bookingService The service used to check reservation dates.
  * @param repository The repository used to retrieve existing reservations.
+ * @param notificationService The service used to send reservation confirmations.
  * @param model The model used to store booking screen state.
  */
 class ReservationBookingController(
     private val bookingService: BookingService,
     private val repository: ReservationRepository,
+    private val notificationService: NotificationService,
     private val model: ReservationBookingModel = ReservationBookingModel()
 ) {
 
@@ -110,5 +113,34 @@ class ReservationBookingController(
         // Prevent confirmation until lottery winner verification is implemented.
         model.showError("Lottery winner verification is not connected yet.")
         return null
+    }
+
+    /**
+     * Sends the entrant a confirmation after their reservation has been saved (US 01.05.01).
+     *
+     * A failed send does not affect the booking, because the reservation already exists.
+     *
+     * @param campsite The reserved campsite.
+     * @param reservation The saved reservation.
+     * @param reservationId The ID returned when the reservation was saved.
+     */
+    suspend fun notifyReservationConfirmed(
+        campsite: Campsite,
+        reservation: Reservation,
+        reservationId: String
+    ) {
+        try {
+            notificationService.sendReservationConfirmation(
+                campsite.ownerId,
+                reservation.entrantId,
+                reservationId,
+                campsite.name,
+                reservation.dates
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // The reservation is already saved, so a failed notification is not a booking error.
+        }
     }
 }

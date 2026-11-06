@@ -203,6 +203,40 @@ class NotificationsViewTest {
         compose.onNodeWithText("Alex").assertDoesNotExist()
     }
 
+    /**
+     * Checks that a reservation confirmation appears under system notifications (US 01.05.01).
+     */
+    @Test
+    fun display_entrantWithConfirmation_showsUnderSystemSection() {
+        repository.receivedRecords = listOf(
+            receivedRecord(NotificationOrigin.SYSTEM, "Reservation confirmed", "Your reservation is confirmed.")
+        )
+
+        showScreen("entrant")
+
+        compose.onNodeWithText("System notifications").assertIsDisplayed()
+        compose.onNodeWithText("Reservation confirmed").assertIsDisplayed()
+        compose.onNodeWithText("Your reservation is confirmed.").assertIsDisplayed()
+        compose.onNodeWithText("Messages").assertDoesNotExist()
+    }
+
+    /**
+     * Checks that an owner's message appears under messages (US 01.05.01).
+     */
+    @Test
+    fun display_entrantWithOwnerMessage_showsUnderMessages() {
+        repository.receivedRecords = listOf(
+            receivedRecord(NotificationOrigin.OWNER, "Quiet hours", MESSAGE)
+        )
+
+        showScreen("entrant")
+
+        compose.onNodeWithText("Messages").assertIsDisplayed()
+        compose.onNodeWithText("Quiet hours").assertIsDisplayed()
+        compose.onNodeWithText(MESSAGE).assertIsDisplayed()
+        compose.onNodeWithText("System notifications").assertDoesNotExist()
+    }
+
     private fun showScreen(role: String) {
         compose.setContent { view.Display(OWNER_ID, role) }
     }
@@ -223,6 +257,18 @@ class NotificationsViewTest {
         createdAt = sentAt
     )
 
+    private fun receivedRecord(origin: NotificationOrigin, title: String, content: String) = Notification(
+        id = "received1",
+        eventId = "event1",
+        senderId = OWNER_ID,
+        recipientId = "entrant1",
+        origin = origin,
+        type = NotificationType.OWNER_MESSAGE,
+        title = title,
+        content = content,
+        createdAt = Timestamp(1_800_000_000, 0)
+    )
+
     /**
      * Delivers notification records without Firestore for testing purpose.
      */
@@ -230,6 +276,7 @@ class NotificationsViewTest {
         var markedRead: Pair<String, String>? = null
         var failRead = false
         var records: List<Notification> = emptyList()
+        var receivedRecords: List<Notification> = emptyList()
         var shouldFail = false
         var stopCount = 0
 
@@ -251,7 +298,7 @@ class NotificationsViewTest {
             onError: (Exception) -> Unit
         ): () -> Unit {
             if (shouldFail) onError(Exception("Could not read notifications."))
-            else onUpdate(records.filter { it.recipientId == recipientId })
+            else onUpdate(receivedRecords + records.filter { it.recipientId == recipientId })
             return { stopCount++ }
         }
 

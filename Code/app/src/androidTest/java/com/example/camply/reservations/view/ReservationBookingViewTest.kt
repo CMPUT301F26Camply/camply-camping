@@ -12,6 +12,11 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.DateRange
+import com.example.camply.notification.model.NewNotification
+import com.example.camply.notification.model.Notification
+import com.example.camply.notification.model.SendResult
+import com.example.camply.notification.repository.NotificationRepository
+import com.example.camply.notification.service.NotificationService
 import com.example.camply.reservations.controller.ReservationBookingController
 import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationBookingModel
@@ -45,7 +50,12 @@ class ReservationBookingViewTest {
     @Before
     fun setUp() {
         val model = ReservationBookingModel()
-        val controller = ReservationBookingController(BookingService(), TestReservationRepository(), model)
+        val controller = ReservationBookingController(
+            BookingService(),
+            TestReservationRepository(),
+            NotificationService(TestNotificationRepository()),
+            model
+        )
         val view = ReservationBookingView(model, controller)
 
         compose.setContent { view.Display(campsite = campsite, onBack = {}) }
@@ -153,6 +163,29 @@ class ReservationBookingViewTest {
         override suspend fun getReservationsForCampsite(campsiteId: String): List<Reservation> = emptyList()
 
         override suspend fun createReservation(reservation: Reservation): String = "testReservationId"
+    }
+
+    /**
+     * Accepts notifications without accessing Firestore.
+     */
+    private class TestNotificationRepository : NotificationRepository {
+        override suspend fun createIfAbsent(id: String, notification: NewNotification): SendResult =
+            SendResult.CREATED
+
+        override fun observeReceived(
+            recipientId: String,
+            onUpdate: (List<Notification>) -> Unit,
+            onError: (Exception) -> Unit
+        ): () -> Unit = error("Not used by view tests")
+
+        override fun observeSent(
+            senderId: String,
+            onUpdate: (List<Notification>) -> Unit,
+            onError: (Exception) -> Unit
+        ): () -> Unit = error("Not used by view tests")
+
+        override suspend fun markAsRead(notificationId: String, recipientId: String) =
+            error("Not used by view tests")
     }
 
     private companion object {

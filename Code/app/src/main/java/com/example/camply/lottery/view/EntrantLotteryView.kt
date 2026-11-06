@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.camply.lottery.model.EntrantLotteryModel
+import com.example.camply.lottery.model.Lottery
 import com.example.camply.shared.view.CamplyPalette
 import com.example.camply.shared.view.CamplyScreen
 import com.example.camply.shared.view.CenteredMessage
@@ -32,9 +33,11 @@ class EntrantLotteryView(
 
     /**
      * Displays the My Lotteries screen using the current model state.
+     *
+     * @param cardContent Extra content (Decline section) shown at the bottom of each lottery's card.
      */
     @Composable
-    fun Display() {
+    fun Display(cardContent: @Composable (Lottery) -> Unit = {}) {
         val error = model.errorMessage
 
         CamplyScreen(title = "My Lotteries") {
@@ -71,6 +74,10 @@ class EntrantLotteryView(
                                 text = "Booking: ${lottery.bookingStart} to ${lottery.bookingEnd}",
                                 color = CamplyPalette.Ink
                             )
+
+                            Spacer(Modifier.height(8.dp))
+
+                            cardContent(lottery)
                         }
                     }
                 }
