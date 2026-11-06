@@ -14,6 +14,9 @@ enum class Screen {
     BROWSE,
     LOTTERIES,
     RESERVATIONS,
+    CAMPSITE_LIST,
+    WAIT_LIST,
+    INBOX,
     PROFILE,
     NOTIFICATIONS
 }
@@ -36,14 +39,22 @@ class NavigationModel {
         NavBarItem(Screen.BROWSE, "Browse", R.drawable.campsite_icon),
         NavBarItem(Screen.LOTTERIES, "Lotteries", R.drawable.lottery_icon),
         NavBarItem(Screen.RESERVATIONS, "Reservations", R.drawable.reservation_icon),
+        // TODO :In here for now but need to change flow of notifications to be inside inbox...
         NavBarItem(Screen.NOTIFICATIONS, "Inbox", R.drawable.inbox_icon)
     )
-
+    
     private val ownerNavBarItems = listOf(
-        NavBarItem(Screen.PROFILE, "Profile", R.drawable.profile_icon),
+        NavBarItem(Screen.BACK, "Back", R.drawable.back_arrow_icon),
+      NavBarItem(Screen.PROFILE, "Profile", R.drawable.profile_icon),
+        NavBarItem(Screen.WAIT_LIST, "Waitlist", R.drawable.waitlist_icon),
+        NavBarItem(Screen.INBOX, "Owner Inbox", R.drawable.inbox_icon),
+        NavBarItem(Screen.CAMPSITE_LIST, "Campsite List", R.drawable.camp_list),
+        // TODO: In here for now but need to change flow of notifications to be inside inbox...
         NavBarItem(Screen.NOTIFICATIONS, "Inbox", R.drawable.inbox_icon)
     )
+    
     private val adminNavBarItems = listOf(
+        // TODO: In here for now but need to change flow of notifications to be inside inbox...
         NavBarItem(Screen.NOTIFICATIONS, "Inbox", R.drawable.inbox_icon)
     )
 
