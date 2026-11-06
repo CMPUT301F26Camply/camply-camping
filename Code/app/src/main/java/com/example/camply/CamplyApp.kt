@@ -24,8 +24,17 @@ import com.example.camply.campsite.model.DateRange
 import com.example.camply.campsite.model.FirestoreCampsiteRepository
 import com.example.camply.campsite.view.CampsiteBrowseView
 import com.example.camply.campsite.view.CampsiteDetailView
+import com.example.camply.lottery.controller.CampsiteLotteryController
+import com.example.camply.lottery.controller.EntrantLotteryController
+import com.example.camply.lottery.controller.LotteryCreateController
+import com.example.camply.lottery.model.CampsiteLotteryModel
 import com.example.camply.lottery.model.EntrantLotteryModel
+import com.example.camply.lottery.model.LotteryCreateModel
+import com.example.camply.lottery.repository.FirestoreLotteryRepository
+import com.example.camply.lottery.repository.FirestoreWaitingListRepository
+import com.example.camply.lottery.view.CampsiteLotteryView
 import com.example.camply.lottery.view.EntrantLotteryView
+import com.example.camply.lottery.view.LotteryCreateView
 import com.example.camply.notification.controller.NotificationsController
 import com.example.camply.notification.model.NotificationsModel
 import com.example.camply.notification.repository.FirestoreNotificationRepository
@@ -39,12 +48,6 @@ import com.example.camply.reservations.repository.FirestoreReservationRepository
 import com.example.camply.reservations.service.BookingService
 import com.example.camply.reservations.view.ActiveReservationsView
 import com.example.camply.reservations.view.ReservationBookingView
-import com.example.camply.lottery.controller.CampsiteLotteryController
-import com.example.camply.lottery.controller.EntrantLotteryController
-import com.example.camply.lottery.model.CampsiteLotteryModel
-import com.example.camply.lottery.repository.FirestoreLotteryRepository
-import com.example.camply.lottery.repository.FirestoreWaitingListRepository
-import com.example.camply.lottery.view.CampsiteLotteryView
 import com.example.camply.shared.navigation.controller.NavigationController
 import com.example.camply.shared.navigation.model.NavigationModel
 import com.example.camply.shared.navigation.model.Screen
@@ -52,17 +55,14 @@ import com.example.camply.shared.navigation.view.CamplyBottomNavBar
 import com.example.camply.shared.view.ErrorView
 import com.example.camply.shared.view.LoadingView
 import com.example.camply.shared.view.PrimaryButton
+import com.example.camply.shared.view.SecondaryButton
+import com.example.camply.user.controller.OwnerController
 import com.example.camply.user.controller.UserController
+import com.example.camply.user.model.CampsiteOwnerUser
 import com.example.camply.user.model.UserModel
+import com.example.camply.user.view.CampsiteListView
 import com.example.camply.user.view.UserProfileView
 import com.example.camply.user.view.UserSignUpView
-import com.example.camply.user.controller.OwnerController
-import com.example.camply.user.model.CampsiteOwnerUser
-import com.example.camply.user.view.CampsiteListView
-import com.example.camply.lottery.controller.LotteryCreateController
-import com.example.camply.lottery.model.LotteryCreateModel
-import com.example.camply.lottery.view.LotteryCreateView
-import com.example.camply.shared.view.SecondaryButton
 
 /**
  * Displays the Camply application and manages its startup screens
@@ -142,6 +142,7 @@ fun CamplyApp() {
     var ownerDetailCampsiteId by remember { mutableStateOf<String?>(null) }
     var ownerShowForm by remember { mutableStateOf(false) }
     var ownerEditCampsite by remember { mutableStateOf<Campsite?>(null) }
+    var ownerShowLottery by remember { mutableStateOf(false) }
     
     // Shared notifications
     val notificationsModel = remember { NotificationsModel() }
@@ -278,7 +279,16 @@ fun CamplyApp() {
                                 if (ownerController != null) {
                                     val detailId = ownerDetailCampsiteId
 
-                                    if (ownerShowForm) {
+                                    if (ownerShowLottery) {
+                                        BackHandler {
+                                            ownerShowLottery = false
+                                        }
+
+                                        lotteryCreateView.Display(
+                                            ownerId = currentUser.getUid(),
+                                            onDone = { ownerShowLottery = false }
+                                        )
+                                    } else if (ownerShowForm) {
                                         BackHandler {
                                             ownerShowForm = false
                                             ownerEditCampsite = null
@@ -320,7 +330,10 @@ fun CamplyApp() {
                                                 ownerShowForm = true
                                             },
                                             viewCampsite = { ownerDetailCampsiteId = it.id },
-                                            lotteryRegistration = { },
+                                            lotteryRegistration = { campsite ->
+                                                lotteryCreateController.onCampsiteSelected(campsite.id)
+                                                ownerShowLottery = true
+                                            },
                                             reservationList = { },
                                             viewOrCreateLottery = { }
                                         )
