@@ -1,6 +1,5 @@
 package com.example.camply.campsite.model
 
-import android.net.Uri
 import com.google.firebase.firestore.DocumentId
 
 /**
@@ -16,15 +15,18 @@ data class DateRange(
 }
 
 /**
- * A map position for a campsite (US 01.01.05 / 02.01.02).
- * Defaults are required so Firestore can build the object from a document.
+ * A map location (latitude/longitude) for a campsite, set by the owner (US 02.01.02).
+ * Both fields default to 0.0 so Firestore can rebuild the object from a document.
+ *
+ * @param latitude degrees north (+) or south (-), valid range -90.0 to 90.0
+ * @param longitude degrees east (+) or west (-), valid range -180.0 to 180.0
  */
 data class Coordinates(
-    val latitude: Double = 0.0,
-    val longitude: Double = 0.0
+    var latitude: Double = 0.0,
+    var longitude: Double = 0.0
 ) {
-    /** True if the values are real-world latitude/longitude. */
-    fun isValid(): Boolean = latitude in -90.0..90.0 && longitude in -180.0..180.0
+    /** @return true if both values fall inside the legal latitude/longitude ranges */
+    fun inRange(): Boolean = latitude in -90.0..90.0 && longitude in -180.0..180.0
 }
 
 /**
@@ -42,12 +44,12 @@ data class Coordinates(
  * @param price price per night
  * @param rating average rating from entrants (not entered by the owner)
  * @param tags are a list of campsite tags (optional)
- * @param tags are a list of campsite tags (optional)
  * @param rules the campsite rules and policies
  * @param cancellationPolicy cancellation policy
  * @param ownerId uid of the owning campsite owner
  * @param availability date ranges the owner has made available
- * @param coordinates optional map location (latitude/longitude); null if the owner didn't set one
+ * @param images image addresses for the campsite (optional)
+ * @param coordinates optional map location (latitude/longitude); null if the owner did not provide one
  */
 class Campsite(
     @DocumentId val id: String = "",
@@ -71,11 +73,10 @@ class Campsite(
     fun matchesName(query: String): Boolean =
         query.isBlank() || name.contains(query.trim(), ignoreCase = true)
 
-    /** US 02.01.01: returns a copy with the image added; blank addresses are ignored. */
-
-    fun addImage(uri:String): Boolean{
+    /** US 02.01.01: adds the image; returns false if the address is blank or already present. */
+    fun addImage(uri: String): Boolean {
         // "uri" reference: https://developer.android.com/reference/android/net/Uri
-        if (uri.isBlank() || uri in images){
+        if (uri.isBlank() || uri in images) {
             return false
         }
         images = images + uri
@@ -83,12 +84,13 @@ class Campsite(
     }
 
     fun removeImage(uri: String): Boolean {
-        if(uri !in images) {
+        if (uri !in images) {
             return false
         }
         images = images - uri
         return true
     }
+
     /**
      * US 02.01.01 / 02.01.03: checks that the owner supplied the required details.
      *
@@ -96,34 +98,36 @@ class Campsite(
      */
     fun validationCheck(): List<String> {
         val errorList = mutableListOf<String>()
-        if (name.isBlank()){
+        if (name.isBlank()) {
             errorList.add("Please enter campsite name")
         }
-        if (location.isBlank()){
+        if (location.isBlank()) {
             errorList.add("Please enter campsite location")
         }
-        if (rules.isBlank()){
+        if (rules.isBlank()) {
             errorList.add("Please enter rules and policies for this campsite")
         }
-        if (maxOccupancy <= 0){
+        if (maxOccupancy <= 0) {
             errorList.add("Please enter a valid occupancy number")
         }
-        if (price <= 0){
+        if (price <= 0) {
             errorList.add("Please enter a valid price")
         }
+        // Coordinates are optional, but if present they must be in range
         coordinates?.let {
-            if (!it.isValid()) {
+            if (!it.inRange()) {
                 errorList.add("Please enter a valid latitude (-90 to 90) and longitude (-180 to 180)")
             }
         }
         return errorList
     }
+
     /** True if the owner has set a map location. */
     fun hasCoordinates(): Boolean = coordinates != null
 
     /** Sets or clears (null) the map location. Returns false if the values are out of range. */
     fun updateCoordinates(newCoordinates: Coordinates?): Boolean {
-        if (newCoordinates != null && !newCoordinates.isValid()) {
+        if (newCoordinates != null && !newCoordinates.inRange()) {
             return false
         }
         coordinates = newCoordinates

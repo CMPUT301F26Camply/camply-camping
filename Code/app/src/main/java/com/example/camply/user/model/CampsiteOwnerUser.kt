@@ -1,6 +1,5 @@
 package com.example.camply.user.model
 
-import com.google.firebase.firestore.DocumentId
 import com.example.camply.campsite.model.Campsite
 
 /**
@@ -25,33 +24,35 @@ class CampsiteOwnerUser(
     override fun getRole(): String {
         return "owner"
     }
+
     private val _campsites = mutableListOf<Campsite>()
 
     val campsites: List<Campsite>
         get() = _campsites
 
-    fun loadExistingCampsite(loadedCampsites: List<Campsite>){
+    fun loadExistingCampsite(loadedCampsites: List<Campsite>) {
         _campsites.clear()
         _campsites.addAll(loadedCampsites)
     }
+
     override fun registerCampsite(campsite: Campsite): Boolean {
-        if (campsite.validationCheck().isNotEmpty()){
+        if (campsite.validationCheck().isNotEmpty()) {
             return false
         }
         _campsites.add(campsite)
         return true
     }
 
-    override fun removeCampsite(campsite: Campsite){
+    override fun removeCampsite(campsite: Campsite) {
         _campsites.remove(campsite)
     }
 
     override fun updateExistingCampsite(campsite: Campsite, edit: Campsite): Boolean {
         // if there is no existing campsites for this owner
-        if (!_campsites.contains((campsite))){
+        if (!_campsites.contains(campsite)) {
             return false
         }
-        if (edit.validationCheck().isNotEmpty()){
+        if (edit.validationCheck().isNotEmpty()) {
             return false
         }
         campsite.name = edit.name
@@ -69,6 +70,4 @@ class CampsiteOwnerUser(
 
         return true
     }
-
 }
-
