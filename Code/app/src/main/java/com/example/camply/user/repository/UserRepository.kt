@@ -76,4 +76,33 @@ class UserRepository {
                 onFailure()
             }
     }
+
+    /**
+     * Updates an existing user's personal information in Firestore.
+     *
+     * @param uid The user's Firebase UID.
+     * @param name The updated name.
+     * @param email The updated email.
+     * @param phoneNumber The updated phone number.
+     * @param onSuccess Called when the update succeeds.
+     * @param onFailure Called when the update fails.
+     */
+    fun updateUserProfile(
+        uid: String,
+        name: String,
+        email: String,
+        phoneNumber: String,
+        onSuccess: () -> Unit,
+        onFailure: () -> Unit
+    ) {
+        val profileData = hashMapOf<String, Any>(
+            "name" to name,
+            "email" to email,
+            "phoneNumber" to phoneNumber
+        )
+
+        db.collection("users").document(uid).update(profileData)
+            .addOnSuccessListener { onSuccess() }
+            .addOnFailureListener { onFailure() }
+    }
 }

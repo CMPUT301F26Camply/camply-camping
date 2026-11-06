@@ -48,6 +48,7 @@ import com.example.camply.shared.view.LoadingView
 import com.example.camply.shared.view.PrimaryButton
 import com.example.camply.user.controller.UserController
 import com.example.camply.user.model.UserModel
+import com.example.camply.user.view.UserProfileView
 import com.example.camply.user.view.UserSignUpView
 
 /**
@@ -58,10 +59,11 @@ import com.example.camply.user.view.UserSignUpView
 @Composable
 fun CamplyApp() {
 
-    // Create and retain the user model, controller, and signup view.
+    // Create and retain the user model, controller, and user views.
     val userModel = remember { UserModel() }
     val userController = remember { UserController(userModel) }
     val userSignUpView = remember { UserSignUpView() }
+    val userProfileView = remember { UserProfileView() }
 
     // Create and retain the navigation components.
     val navigationModel = remember { NavigationModel() }
@@ -218,6 +220,8 @@ fun CamplyApp() {
                             }
 
                             Screen.RESERVATIONS -> activeReservationsView.Display(currentUser.getUid())
+
+                            Screen.PROFILE -> userProfileView.Display(currentUser, userController)
 
                             else -> Text("Screen still needs to be implemented...")
                         }
