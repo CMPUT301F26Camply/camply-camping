@@ -15,6 +15,7 @@ enum class Screen {
     LOTTERIES,
     RESERVATIONS,
     CAMPSITE_LIST,
+    CAMPSITE_FORM,
     WAIT_LIST,
     INBOX,
     PROFILE,
