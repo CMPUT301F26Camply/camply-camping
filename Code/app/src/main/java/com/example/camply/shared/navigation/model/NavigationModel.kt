@@ -13,7 +13,8 @@ enum class Screen {
     BACK,
     BROWSE,
     LOTTERIES,
-    RESERVATIONS
+    RESERVATIONS,
+    PROFILE
 }
 
 /**
@@ -30,12 +31,15 @@ class NavigationModel {
     // TODO: Implement navigation history for the Back button.
     private val entrantNavBarItems = listOf(
         NavBarItem(Screen.BACK, "Back", R.drawable.back_arrow_icon),
-        NavBarItem(Screen.BROWSE, "Browse Campsites", R.drawable.campsite_icon),
-        NavBarItem(Screen.LOTTERIES, "My Lotteries", R.drawable.lottery_icon),
-        NavBarItem(Screen.RESERVATIONS, "My Reservations", R.drawable.reservation_icon)
+        NavBarItem(Screen.PROFILE, "Profile", R.drawable.profile_icon),
+        NavBarItem(Screen.BROWSE, "Browse", R.drawable.campsite_icon),
+        NavBarItem(Screen.LOTTERIES, "Lotteries", R.drawable.lottery_icon),
+        NavBarItem(Screen.RESERVATIONS, "Reservations", R.drawable.reservation_icon)
     )
 
-    private val ownerNavBarItems = emptyList<NavBarItem>()
+    private val ownerNavBarItems = listOf(
+        NavBarItem(Screen.PROFILE, "Profile", R.drawable.profile_icon)
+    )
     private val adminNavBarItems = emptyList<NavBarItem>()
 
     /**
