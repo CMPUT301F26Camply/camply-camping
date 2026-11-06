@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.example.camply.campsite.model.Campsite
@@ -59,7 +60,7 @@ class ActiveReservationsViewTest {
         compose.onNodeWithText("Banff Pines").assertIsDisplayed()
         compose.onNodeWithText("Banff").assertIsDisplayed()
         compose.onNodeWithText("2027-06-12 to 2027-06-15").assertIsDisplayed()
-        compose.onNodeWithText("Active").assertIsDisplayed()
+        compose.onAllNodesWithText("Active").assertCountEquals(2)
     }
 
     /**
@@ -100,7 +101,7 @@ class ActiveReservationsViewTest {
     fun display_noReservations_showsEmptyMessage() {
         showScreen()
 
-        compose.onNodeWithText("You have no active reservations.").assertIsDisplayed()
+        compose.onNodeWithText("You have no reservations.").assertIsDisplayed()
     }
 
     /**
@@ -153,6 +154,140 @@ class ActiveReservationsViewTest {
         compose.onNodeWithText("Rules & cancellation policy").assertDoesNotExist()
     }
 
+    /**
+     * Checks that selecting the Active filter displays only active reservations.
+     */
+    @Test
+    fun filterChips_selectActive_showsOnlyActiveReservations() {
+        campsiteRepository.campsites = listOf(campsite)
+        reservationRepository.reservations = listOf(
+            reservation("active", "2027-06-12", "2027-06-15"),
+            reservation("past", "2027-06-01", "2027-06-05")
+        )
+
+        showScreen()
+
+        // Both reservations appear before selecting a filter.
+        compose.onNodeWithText("2027-06-12 to 2027-06-15").assertIsDisplayed()
+        compose.onNodeWithText("2027-06-01 to 2027-06-05").assertIsDisplayed()
+
+        // Select Active using the actual filter chip.
+        compose.onAllNodesWithText("Active").onFirst().performClick()
+
+        // Only the active reservation remains visible.
+        compose.onNodeWithText("2027-06-12 to 2027-06-15").assertIsDisplayed()
+        compose.onNodeWithText("2027-06-01 to 2027-06-05").assertDoesNotExist()
+    }
+
+
+    /**
+     * Checks that an empty filter result displays the appropriate message.
+     */
+    @Test
+    fun filterChips_noMatchingReservations_showsMessage() {
+        campsiteRepository.campsites = listOf(campsite)
+        reservationRepository.reservations = listOf(
+            reservation("past", "2027-06-01", "2027-06-05")
+        )
+
+        showScreen()
+
+        // The entrant has a past reservation.
+        compose.onNodeWithText("2027-06-01 to 2027-06-05").assertIsDisplayed()
+
+        // No active reservations match the selected filter.
+        compose.onNodeWithText("Active").performClick()
+
+        compose.onNodeWithText("No reservations match the selected filters.").assertIsDisplayed()
+    }
+
+
+    /**
+     * Checks that a confirmed reservation with an end date before today
+     * is automatically shown as Past.
+     */
+    @Test
+    fun display_completedReservation_showsPastStatus() {
+        campsiteRepository.campsites = listOf(campsite)
+        reservationRepository.reservations = listOf(
+            reservation("past", "2027-06-01", "2027-06-05")
+        )
+
+        // The test date is 2027-06-10, so this trip has ended.
+        showScreen()
+
+        compose.onNodeWithText("2027-06-01 to 2027-06-05").assertIsDisplayed()
+        compose.onAllNodesWithText("Past").assertCountEquals(2)
+    }
+
+
+    /**
+     * Checks that an old cancelled reservation stays Cancelled
+     * instead of being treated as a past completed trip.
+     */
+    @Test
+    fun filterChips_cancelledReservation_notShownUnderPast() {
+        campsiteRepository.campsites = listOf(campsite)
+        reservationRepository.reservations = listOf(
+            reservation(
+                "cancelled",
+                "2027-06-01",
+                "2027-06-05",
+                ReservationStatus.CANCELLED
+            )
+        )
+
+        showScreen()
+
+        // The cancelled reservation is visible under All.
+        compose.onNodeWithText("2027-06-01 to 2027-06-05").assertIsDisplayed()
+        compose.onAllNodesWithText("Cancelled").assertCountEquals(2)
+
+        // Selecting Past should not include cancelled reservations.
+        compose.onNodeWithText("Past").performClick()
+
+        compose.onNodeWithText("No reservations match the selected filters.")
+            .assertIsDisplayed()
+
+        // All restores the cancelled reservation.
+        compose.onNodeWithText("All").performClick()
+
+        compose.onNodeWithText("2027-06-01 to 2027-06-05").assertIsDisplayed()
+    }
+
+
+    /**
+     * Checks that selecting All clears the active filter
+     * and displays every reservation again.
+     */
+    @Test
+    fun filterChips_selectAll_restoresAllReservations() {
+        campsiteRepository.campsites = listOf(campsite)
+        reservationRepository.reservations = listOf(
+            reservation("active", "2027-06-12", "2027-06-15"),
+            reservation("past", "2027-06-01", "2027-06-05")
+        )
+
+        showScreen()
+
+        // All is selected by default, so both reservations appear.
+        compose.onNodeWithText("2027-06-12 to 2027-06-15").assertIsDisplayed()
+        compose.onNodeWithText("2027-06-01 to 2027-06-05").assertIsDisplayed()
+
+        // Select Active and check that Past disappears.
+        compose.onAllNodesWithText("Active").onFirst().performClick()
+
+        compose.onNodeWithText("2027-06-12 to 2027-06-15").assertIsDisplayed()
+        compose.onNodeWithText("2027-06-01 to 2027-06-05").assertDoesNotExist()
+
+        // Select All and check that both return.
+        compose.onNodeWithText("All").performClick()
+
+        compose.onNodeWithText("2027-06-12 to 2027-06-15").assertIsDisplayed()
+        compose.onNodeWithText("2027-06-01 to 2027-06-05").assertIsDisplayed()
+    }
+
+
     private fun showScreen() {
         val model = ActiveReservationsModel()
         val controller = ActiveReservationsController(
@@ -166,12 +301,17 @@ class ActiveReservationsViewTest {
         compose.setContent { view.Display(ENTRANT_ID) }
     }
 
-    private fun reservation(id: String, from: String, to: String) = Reservation(
+    private fun reservation(
+        id: String,
+        from: String,
+        to: String,
+        status: ReservationStatus = ReservationStatus.CONFIRMED
+    ) = Reservation(
         id = id,
         entrantId = ENTRANT_ID,
         campsiteId = CAMPSITE_ID,
         dates = DateRange(from, to),
-        status = ReservationStatus.CONFIRMED
+        status = status
     )
 
     /**
