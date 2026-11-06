@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.camply.campsite.model.Campsite
+import com.example.camply.campsite.model.DateRange
 
 /**
  * Stores the selected lottery and campsite for an entrant's booking.
@@ -23,6 +24,9 @@ class LotteryBookingModel {
     var errorMessage: String? by mutableStateOf(null)
         private set
 
+    var stayDates: DateRange? by mutableStateOf(null)
+        private set
+
     /**
      * Clears the previous selection while the campsite is being loaded.
      */
@@ -31,17 +35,19 @@ class LotteryBookingModel {
         campsite = null
         isLoading = true
         errorMessage = null
+        stayDates = null
     }
 
     /**
-     * Stores the lottery and campsite selected for booking.
+     * Stores the selected lottery, campsite, and permitted stay dates.
      *
-     * @param selectedLotteryId The lottery's document ID.
+     * @param lottery The selected winning lottery.
      * @param selectedCampsite The campsite linked to the lottery.
      */
-    fun showBooking(selectedLotteryId: String, selectedCampsite: Campsite) {
-        lotteryId = selectedLotteryId
+    fun showBooking(lottery: Lottery, selectedCampsite: Campsite) {
+        lotteryId = lottery.id
         campsite = selectedCampsite
+        stayDates = DateRange(lottery.lotteryStart, lottery.lotteryEnd)
         isLoading = false
         errorMessage = null
     }
@@ -56,6 +62,7 @@ class LotteryBookingModel {
         campsite = null
         isLoading = false
         errorMessage = message
+        stayDates = null
     }
 
     /**
@@ -66,5 +73,6 @@ class LotteryBookingModel {
         campsite = null
         isLoading = false
         errorMessage = null
+        stayDates = null
     }
 }

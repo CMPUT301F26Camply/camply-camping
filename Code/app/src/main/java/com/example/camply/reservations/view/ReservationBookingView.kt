@@ -44,16 +44,26 @@ class ReservationBookingView(
 ) {
 
     /**
-     * Allows an entrant to select reservation dates from a campsite's availability,
-     * acknowledge its rules and policies, and confirm the reservation.
+     * Allows an eligible lottery winner to select reservation dates,
+     * acknowledge campsite rules and policies, and confirm a reservation.
+     *
+     * The selected dates are validated against the lottery's permitted stay
+     * period rather than the campsite's general availability.
      *
      * @param campsite The campsite being reserved.
      * @param entrantId The Firebase user ID of the entrant making the reservation.
      * @param lotteryId The lottery that awarded the reservation opportunity.
+     * @param lotteryStayDates The permitted stay dates configured for the selected lottery.
      * @param onBack Returns to the previous screen.
      */
     @Composable
-    fun Display(campsite: Campsite, entrantId: String, lotteryId: String, onBack: () -> Unit) {
+    fun Display(
+        campsite: Campsite,
+        entrantId: String,
+        lotteryId: String,
+        lotteryStayDates: DateRange?,
+        onBack: () -> Unit
+    ) {
         val scope = rememberCoroutineScope()
 
         LaunchedEffect(campsite.id, lotteryId) {
@@ -76,14 +86,20 @@ class ReservationBookingView(
                     Text(campsite.name, color = CamplyPalette.Ink)
                     Spacer(Modifier.height(12.dp))
 
-                    Text("Available dates", color = CamplyPalette.Ink)
+                    Text("Available lottery stay dates", color = CamplyPalette.Ink)
 
-                    if (campsite.availability.isEmpty()) {
-                        Text("No available dates.", color = CamplyPalette.Ink)
+                    Spacer(Modifier.height(8.dp))
+
+                    if (lotteryStayDates != null) {
+                        Text(
+                            "${lotteryStayDates.from} to ${lotteryStayDates.to}",
+                            color = CamplyPalette.Ink
+                        )
                     } else {
-                        for (dates in campsite.availability) {
-                            Text("${dates.from} to ${dates.to}", color = CamplyPalette.Ink)
-                        }
+                        Text(
+                            "Lottery stay dates could not be loaded.",
+                            color = CamplyPalette.Ink
+                        )
                     }
                 }
 
@@ -150,7 +166,13 @@ class ReservationBookingView(
                     text = "Check Dates",
                     onClick = {
                         checkedDates = selectedDates
-                        scope.launch { controller.checkDates(campsite, selectedDates) }
+                        scope.launch {
+                            controller.checkDates(
+                                campsite,
+                                selectedDates,
+                                lotteryId
+                            )
+                        }
                     },
                     enabled = !model.isLoading && !model.reservationConfirmed && startDate.isNotBlank() && endDate.isNotBlank()
                 )
@@ -196,6 +218,7 @@ class ReservationBookingView(
                             controller.confirmReservation(campsite, reservation)
                         }
                     },
+
                     // The button is enabled only when all 5 of these are true.
                     enabled = !model.isLoading && !model.reservationConfirmed && showingResult && model.datesValid && rulesAcknowledged
                 )

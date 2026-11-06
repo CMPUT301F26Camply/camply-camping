@@ -33,19 +33,42 @@ class ReservationBookingController(
     private val lotteryEntryRepository: LotteryEntryRepository
 ) {
 
+
     /**
-     * Checks whether the selected dates can be used for a campsite reservation.
+     * Validates reservation dates using the lottery stay period when a lottery is provided.
+     *
+     * Lottery reservations use the dates configured by the campsite owner during
+     * lottery creation. Reservations without a lottery use the campsite's general
+     * availability instead. All reservations are checked for overlapping bookings.
      *
      * @param campsite The campsite being reserved.
-     * @param selectedDates The entrant's selected dates.
-     * @return An error message if the dates are unavailable, or null if no conflict is found.
+     * @param selectedDates The entrant's selected reservation dates.
+     * @param lotteryId The lottery ID for a lottery booking, or null for a general booking.
+     * @return An error message if the dates are invalid or unavailable, or null otherwise.
      */
-    suspend fun validateDates(campsite: Campsite, selectedDates: DateRange): String? {
+    suspend fun validateDates(
+        campsite: Campsite,
+        selectedDates: DateRange,
+        lotteryId: String? = null
+    ): String? {
         if (!bookingService.areDatesValid(selectedDates)) {
             return "Enter valid dates using the yyyy-MM-dd format."
         }
 
-        if (!bookingService.areDatesAvailable(campsite, selectedDates)) {
+        if (lotteryId != null) {
+            val lottery = lotteryRepository.getLottery(lotteryId)
+                ?: return "Lottery not found."
+
+            if (campsite.id !in lottery.campsiteIds) {
+                return "This campsite is not part of the lottery."
+            }
+
+            if (selectedDates.from < lottery.lotteryStart ||
+                selectedDates.to > lottery.lotteryEnd
+            ) {
+                return "Selected dates are outside the lottery stay period."
+            }
+        } else if (!bookingService.areDatesAvailable(campsite, selectedDates)) {
             return "Selected dates are outside the campsite's availability."
         }
 
@@ -57,6 +80,7 @@ class ReservationBookingController(
 
         return null
     }
+
 
     /**
      * Checks whether an entrant has already used their lottery win.
@@ -74,17 +98,26 @@ class ReservationBookingController(
         return null
     }
 
+
     /**
-     * Validates selected dates and updates the booking screen state.
+     * Validates the selected dates and updates the booking screen state.
+     *
+     * Uses the lottery stay period when a lottery ID is provided. Otherwise,
+     * the campsite's general availability is used.
      *
      * @param campsite The campsite being reserved.
-     * @param selectedDates The entrant's selected dates.
+     * @param selectedDates The entrant's selected reservation dates.
+     * @param lotteryId The lottery ID for a lottery booking, or null for a general booking.
      */
-    suspend fun checkDates(campsite: Campsite, selectedDates: DateRange) {
+    suspend fun checkDates(
+        campsite: Campsite,
+        selectedDates: DateRange,
+        lotteryId: String? = null
+    ) {
         model.showLoading()
 
         try {
-            val error = validateDates(campsite, selectedDates)
+            val error = validateDates(campsite, selectedDates, lotteryId)
 
             if (error == null) {
                 model.showValidDates()
@@ -98,16 +131,19 @@ class ReservationBookingController(
         }
     }
 
-
     /**
-     * Confirms a reservation after checking the entrant's lottery win,
-     * booking period, campsite availability, and rules acknowledgement.
+     * Confirms a reservation for an eligible lottery winner.
+     *
+     * Verifies the winning opportunity, booking period, permitted lottery
+     * stay dates, existing reservation conflicts, and rules acknowledgement
+     * before saving the confirmed reservation to Firestore.
      * US 01.04.01.
      *
      * @param campsite The campsite being reserved.
      * @param reservation The reservation containing the entrant, lottery, and selected dates.
      * @return The saved reservation ID, or null if confirmation fails.
      */
+
     suspend fun confirmReservation(
         campsite: Campsite,
         reservation: Reservation
@@ -171,8 +207,11 @@ class ReservationBookingController(
                 return null
             }
 
-            val dateError = validateDates(campsite, reservation.dates)
-
+            val dateError = validateDates(
+                campsite,
+                reservation.dates,
+                reservation.lotteryId
+            )
             if (dateError != null) {
                 model.showError(dateError)
                 return null

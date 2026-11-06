@@ -375,6 +375,7 @@ fun CamplyApp() {
                                         campsite = campsite,
                                         entrantId = currentUser.getUid(),
                                         lotteryId = lotteryBookingModel.lotteryId ?: "",
+                                        lotteryStayDates = lotteryBookingModel.stayDates,
                                         onBack = {
                                             reservationBookingController.resetBooking()
                                             lotteryBookingController.clearBooking()

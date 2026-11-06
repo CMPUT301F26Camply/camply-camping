@@ -41,7 +41,7 @@ class LotteryBookingController(
                 return
             }
 
-            model.showBooking(lottery.id, campsite)
+            model.showBooking(lottery, campsite)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
