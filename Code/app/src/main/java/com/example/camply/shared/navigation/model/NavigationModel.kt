@@ -14,7 +14,8 @@ enum class Screen {
     BROWSE,
     LOTTERIES,
     RESERVATIONS,
-    PROFILE
+    PROFILE,
+    NOTIFICATIONS
 }
 
 /**
@@ -34,13 +35,17 @@ class NavigationModel {
         NavBarItem(Screen.PROFILE, "Profile", R.drawable.profile_icon),
         NavBarItem(Screen.BROWSE, "Browse", R.drawable.campsite_icon),
         NavBarItem(Screen.LOTTERIES, "Lotteries", R.drawable.lottery_icon),
-        NavBarItem(Screen.RESERVATIONS, "Reservations", R.drawable.reservation_icon)
+        NavBarItem(Screen.RESERVATIONS, "Reservations", R.drawable.reservation_icon),
+        NavBarItem(Screen.NOTIFICATIONS, "Inbox", R.drawable.inbox_icon)
     )
 
     private val ownerNavBarItems = listOf(
-        NavBarItem(Screen.PROFILE, "Profile", R.drawable.profile_icon)
+        NavBarItem(Screen.PROFILE, "Profile", R.drawable.profile_icon),
+        NavBarItem(Screen.NOTIFICATIONS, "Inbox", R.drawable.inbox_icon)
     )
-    private val adminNavBarItems = emptyList<NavBarItem>()
+    private val adminNavBarItems = listOf(
+        NavBarItem(Screen.NOTIFICATIONS, "Inbox", R.drawable.inbox_icon)
+    )
 
     /**
      * Returns the navigation bar items for a specific user role.
