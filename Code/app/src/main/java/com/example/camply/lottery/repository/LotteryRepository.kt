@@ -29,6 +29,14 @@ interface LotteryRepository {
      * @return the Firestore document id assigned to the saved lottery
      */
     suspend fun create(lottery: Lottery): String
+
+    /**
+     * Retrieves lotteries that the specified entrant has joined.
+     *
+     * @param entrantId The entrant's Firebase user ID
+     * @return The lotteries containing an entry for this entrant
+     */
+    suspend fun getJoinedLotteries(entrantId: String): List<Lottery>
 }
 
 /**
@@ -51,5 +59,29 @@ class FirestoreLotteryRepository(
         val document = lotteries.document()
         document.set(lottery.copy(id = document.id)).await()
         return document.id
+    }
+
+    override suspend fun getJoinedLotteries(entrantId: String): List<Lottery> {
+        require(entrantId.isNotBlank() && !entrantId.contains('/')) {
+            "Invalid entrant ID."
+        }
+
+        val joinedLotteries = mutableListOf<Lottery>()
+
+        for (lottery in lotteries.get().await().documents) {
+            val entry = lottery.reference
+                .collection("entries")
+                .document(entrantId).get().await()
+
+            if (entry.exists()) {
+                val joinedLottery = lottery.toObject(Lottery::class.java)
+
+                if (joinedLottery != null) {
+                    joinedLotteries.add(joinedLottery)
+                }
+            }
+        }
+
+        return joinedLotteries
     }
 }

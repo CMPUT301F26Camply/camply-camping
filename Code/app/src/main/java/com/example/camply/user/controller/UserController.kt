@@ -20,4 +20,11 @@ class UserController(private val userModel: UserModel) {
     fun registerNewUser(name: String, email: String, phoneNumber: String, role: String) {
         userModel.registerNewUser(name, email, phoneNumber, role)
     }
+
+    /**
+     * Returns the signup validation error, if one exists.
+     */
+    fun getSignupError(): String? {
+        return userModel.signupError
+    }
 }

@@ -25,13 +25,18 @@ import com.example.camply.campsite.view.CampsiteBrowseView
 import com.example.camply.campsite.view.CampsiteDetailView
 import com.example.camply.lottery.model.EntrantLotteryModel
 import com.example.camply.lottery.view.EntrantLotteryView
+import com.example.camply.reservations.controller.ActiveReservationsController
 import com.example.camply.reservations.controller.ReservationBookingController
+import com.example.camply.reservations.model.ActiveReservationsModel
 import com.example.camply.reservations.model.ReservationBookingModel
 import com.example.camply.reservations.repository.FirestoreReservationRepository
 import com.example.camply.reservations.service.BookingService
+import com.example.camply.reservations.view.ActiveReservationsView
 import com.example.camply.reservations.view.ReservationBookingView
 import com.example.camply.lottery.controller.CampsiteLotteryController
+import com.example.camply.lottery.controller.EntrantLotteryController
 import com.example.camply.lottery.model.CampsiteLotteryModel
+import com.example.camply.lottery.repository.FirestoreLotteryRepository
 import com.example.camply.lottery.repository.FirestoreWaitingListRepository
 import com.example.camply.lottery.view.CampsiteLotteryView
 import com.example.camply.shared.navigation.controller.NavigationController
@@ -88,12 +93,20 @@ fun CamplyApp() {
         LotteryCreateView(lotteryCreateModel, lotteryCreateController)
     }
     var showLotteryForm by remember { mutableStateOf(true) }
-    // Id of the campsite currently open from the browse screen (null = show the list).
+    // ID of the campsite currently open from the browse screen (null = show the list).
     var selectedCampsiteId by remember { mutableStateOf<String?>(null) }
 
     // Entrant lottery management
     val entrantLotteryModel = remember { EntrantLotteryModel() }
     val entrantLotteryView = remember(entrantLotteryModel) { EntrantLotteryView(entrantLotteryModel) }
+    val entrantLotteryRepository = remember { FirestoreLotteryRepository() }
+    val entrantLotteryController = remember {
+        EntrantLotteryController(
+            entrantLotteryModel,
+            entrantLotteryRepository
+        )
+    }
+
 
     // Entrant reservation booking
     val reservationBookingModel = remember { ReservationBookingModel() }
@@ -102,6 +115,15 @@ fun CamplyApp() {
     val reservationBookingController = remember { ReservationBookingController(bookingService, reservationRepository, reservationBookingModel) }
     val reservationBookingView = remember { ReservationBookingView(reservationBookingModel, reservationBookingController) }
     var selectedBookingCampsite by remember { mutableStateOf<Campsite?>(null) }
+
+    // Entrant active reservations
+    val activeReservationsModel = remember { ActiveReservationsModel() }
+    val activeReservationsController = remember {
+        ActiveReservationsController(activeReservationsModel, reservationRepository, campsiteRepository)
+    }
+    val activeReservationsView = remember {
+        ActiveReservationsView(activeReservationsModel, activeReservationsController)
+    }
 
     // Check for an existing Firebase user or sign in anonymously
     LaunchedEffect(Unit) {
@@ -115,7 +137,15 @@ fun CamplyApp() {
         }
 
         "signup" -> {
-            userSignUpView.Display(userController)
+            Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                ) {
+                    userSignUpView.Display(userController)
+                }
+            }
         }
 
         "ready" -> {
@@ -167,6 +197,10 @@ fun CamplyApp() {
                             }
 
                             Screen.LOTTERIES -> {
+                                LaunchedEffect(currentUser.getUid()) {
+                                    entrantLotteryController.loadLotteries(currentUser.getUid())
+                                }
+
                                 val campsite = selectedBookingCampsite
 
                                 if (campsite == null) {
@@ -200,6 +234,8 @@ fun CamplyApp() {
                                     )
                                 }
                             }
+
+                            Screen.RESERVATIONS -> activeReservationsView.Display(currentUser.getUid())
 
                             else -> Text("Screen still needs to be implemented...")
                         }
