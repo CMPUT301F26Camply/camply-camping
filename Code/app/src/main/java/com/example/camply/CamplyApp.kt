@@ -26,14 +26,18 @@ import com.example.camply.campsite.view.CampsiteBrowseView
 import com.example.camply.campsite.view.CampsiteDetailView
 import com.example.camply.lottery.controller.CampsiteLotteryController
 import com.example.camply.lottery.controller.EntrantLotteryController
+import com.example.camply.lottery.controller.LotteryOpportunityController
 import com.example.camply.lottery.controller.LotteryCreateController
 import com.example.camply.lottery.model.CampsiteLotteryModel
 import com.example.camply.lottery.model.EntrantLotteryModel
+import com.example.camply.lottery.model.LotteryOpportunityModel
 import com.example.camply.lottery.model.LotteryCreateModel
+import com.example.camply.lottery.repository.FirestoreLotteryEntryRepository
 import com.example.camply.lottery.repository.FirestoreLotteryRepository
 import com.example.camply.lottery.repository.FirestoreWaitingListRepository
 import com.example.camply.lottery.view.CampsiteLotteryView
 import com.example.camply.lottery.view.EntrantLotteryView
+import com.example.camply.lottery.view.LotteryOpportunityView
 import com.example.camply.lottery.view.LotteryCreateView
 import com.example.camply.notification.controller.NotificationsController
 import com.example.camply.notification.model.NotificationsModel
@@ -116,6 +120,7 @@ fun CamplyApp() {
     val entrantLotteryModel = remember { EntrantLotteryModel() }
     val entrantLotteryView = remember(entrantLotteryModel) { EntrantLotteryView(entrantLotteryModel) }
     val entrantLotteryRepository = remember { FirestoreLotteryRepository() }
+    val lotteryEntryRepository = remember { FirestoreLotteryEntryRepository() }
     val entrantLotteryController = remember {
         EntrantLotteryController(
             entrantLotteryModel,
@@ -285,7 +290,23 @@ fun CamplyApp() {
                                             }
                                         )
 
-                                        entrantLotteryView.Display()
+                                        entrantLotteryView.Display { lottery ->
+                                            val opportunityModel = remember(lottery.id, currentUser.getUid()) {
+                                                LotteryOpportunityModel()
+                                            }
+                                            val opportunityView = remember(opportunityModel) {
+                                                LotteryOpportunityView(
+                                                    opportunityModel,
+                                                    LotteryOpportunityController(
+                                                        opportunityModel,
+                                                        lotteryEntryRepository,
+                                                        reservationRepository,
+                                                        bookingService
+                                                    )
+                                                )
+                                            }
+                                            opportunityView.Display(lottery.id, currentUser.getUid())
+                                        }
                                     }
                                 } else {
                                     BackHandler { selectedBookingCampsite = null }
