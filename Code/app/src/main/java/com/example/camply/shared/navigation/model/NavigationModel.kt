@@ -41,7 +41,6 @@ class NavigationModel {
     private val ownerNavBarItems = listOf(
         NavBarItem(Screen.BACK, "Back", R.drawable.back_arrow_icon),
         NavBarItem(Screen.WAIT_LIST, "Waitlist", R.drawable.waitlist_icon),
-        NavBarItem(Screen.RESERVATIONS, "Campsite Reservations", R.drawable.reservation_icon),
         NavBarItem(Screen.INBOX, "Owner Inbox", R.drawable.inbox_icon),
         NavBarItem(Screen.CAMPSITE_LIST, "Campsite List", R.drawable.camp_list)
 
