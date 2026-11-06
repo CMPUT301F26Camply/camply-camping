@@ -132,11 +132,10 @@ class OwnerController(
         cancellationPolicy: String,
         images: List<String>,
     ): Campsite {
-        
-        val occupancy = maxOccupancy.trim().toIntOrNull()
-        val priceValue = price.trim().toDoubleOrNull()
+        // The following function is from Anthropic, Claude, "How do I ensure that anything not valid turns into 0 so that my validation check can catch it?", 2026-11-05
+        val occupancy = maxOccupancy.trim().toIntOrNull() ?: 0
+        val priceForSite = price.trim().toDoubleOrNull() ?: 0.0
         //.map functionality: https://kotlinlang.org/docs/collection-transformations.html#map
-
         val amenityList = amenities.split(",").map {
             it.trim()
         }.filter { it.isNotEmpty() }
@@ -152,7 +151,7 @@ class OwnerController(
             description = description,
             amenities = amenityList,
             maxOccupancy = occupancy,
-            price = priceValue,
+            price = priceForSite,
             tags = tagList,
             rules = rules,
             cancellationPolicy = cancellationPolicy,
