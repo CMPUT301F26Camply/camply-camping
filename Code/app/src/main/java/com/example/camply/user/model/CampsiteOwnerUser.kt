@@ -64,6 +64,7 @@ class CampsiteOwnerUser(
         campsite.maxOccupancy = edit.maxOccupancy
         campsite.tags = edit.tags
         campsite.images = edit.images
+        campsite.availability = edit.availability
 
         return true
     }
