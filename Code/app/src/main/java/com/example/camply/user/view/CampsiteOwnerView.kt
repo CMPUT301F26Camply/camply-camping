@@ -52,6 +52,8 @@ by a campsite owner
  * @param lotteryRegistration called when "List Campsite in lottery" is clicked
  * @param reservationList is for the "View reservation list" button
  * @param viewOrCreateLottery is for the "Create/View Lottery" button
+ *
+ * Covering US 02.01.04 and US 02.03.01
  */
 class CampsiteListView {
     @Composable
@@ -204,6 +206,7 @@ class CampsiteListView {
                             .padding(28.dp)
                     )
                 } else {
+                    // "Async Implementation": https://developer.android.com/develop/ui/compose/graphics/images/loading
                     AsyncImage(
                         model = image,
                         contentDescription = "photo of campsite",
