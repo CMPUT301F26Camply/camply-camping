@@ -30,8 +30,10 @@ import com.example.camply.lottery.controller.LotteryCreateController
 import com.example.camply.lottery.model.CampsiteLotteryModel
 import com.example.camply.lottery.model.EntrantLotteryModel
 import com.example.camply.lottery.model.LotteryCreateModel
+import com.example.camply.lottery.repository.FirestoreLotteryDrawRepository
 import com.example.camply.lottery.repository.FirestoreLotteryRepository
 import com.example.camply.lottery.repository.FirestoreWaitingListRepository
+import com.example.camply.lottery.service.LotteryDrawService
 import com.example.camply.lottery.view.CampsiteLotteryView
 import com.example.camply.lottery.view.EntrantLotteryView
 import com.example.camply.lottery.view.LotteryCreateView
@@ -39,6 +41,7 @@ import com.example.camply.notification.controller.NotificationsController
 import com.example.camply.notification.model.NotificationsModel
 import com.example.camply.notification.repository.FirestoreNotificationRepository
 import com.example.camply.notification.repository.FirestoreRecipientNameRepository
+import com.example.camply.notification.service.NotificationService
 import com.example.camply.notification.view.NotificationsView
 import com.example.camply.reservations.controller.ActiveReservationsController
 import com.example.camply.reservations.controller.OwnerReservationsController
@@ -97,10 +100,16 @@ fun CamplyApp() {
     val campsiteDetailModel = remember { CampsiteDetailModel() }
     val campsiteDetailController = remember { CampsiteDetailController(campsiteDetailModel, campsiteRepository) }
     val campsiteDetailView = remember { CampsiteDetailView(campsiteDetailModel, campsiteDetailController) }
-    
+
     // Owner lottery registration. US 02.04.01, 02.04.03, 02.04.04, 02.04.05.
     val lotteryCreateModel = remember { LotteryCreateModel() }
     val lotteryRepository = remember { FirestoreLotteryRepository() }
+    val lotteryDrawService = remember {
+        LotteryDrawService(
+            FirestoreLotteryDrawRepository(),
+            NotificationService(FirestoreNotificationRepository())
+        )
+    }
     val lotteryCreateController = remember {
         LotteryCreateController(lotteryCreateModel, lotteryRepository, campsiteRepository)
     }
@@ -165,7 +174,7 @@ fun CamplyApp() {
     var ownerEditCampsite by remember { mutableStateOf<Campsite?>(null) }
     var ownerShowLottery by remember { mutableStateOf(false) }
     var ownerShowReservations by remember { mutableStateOf(false) }
-    
+
     // Shared notifications
     val notificationsModel = remember { NotificationsModel() }
     val notificationsController = remember {
@@ -180,6 +189,13 @@ fun CamplyApp() {
     // Check for an existing Firebase user or sign in anonymously
     LaunchedEffect(Unit) {
         userModel.initializeUser()
+    }
+    LaunchedEffect(Unit) {
+        try {
+            lotteryDrawService.keepChecking()
+        } catch (e: Exception) {
+            if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+        }
     }
 
     // Need to show the correct screen depending on the users startup state
@@ -367,7 +383,7 @@ fun CamplyApp() {
                                     }
                                 }
                             }
-                            
+
                             Screen.PROFILE -> userProfileView.Display(currentUser, userController)
 
                             Screen.NOTIFICATIONS -> notificationsView.Display(currentUser.getUid(), currentUser.getRole())
