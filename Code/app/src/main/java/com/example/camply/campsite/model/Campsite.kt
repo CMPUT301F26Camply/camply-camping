@@ -14,7 +14,22 @@ data class DateRange(
     /** US 01.01.02: true if this range fully contains the requested stay. */
     fun covers(stayFrom: String, stayTo: String): Boolean = from <= stayFrom && to >= stayTo
 }
-//data class location(){}
+
+/**
+ * A map location (latitude/longitude) for a campsite, set by the owner (US 02.01.02).
+ * Both fields default to 0.0 so Firestore can rebuild the object from a document.
+ *
+ * @param latitude degrees north (+) or south (-), valid range -90.0 to 90.0
+ * @param longitude degrees east (+) or west (-), valid range -180.0 to 180.0
+ */
+data class Coordinates(
+    var latitude: Double = 0.0,
+    var longitude: Double = 0.0
+) {
+    /** @return true if both values fall inside the legal latitude/longitude ranges */
+    fun inRange(): Boolean = latitude in -90.0..90.0 && longitude in -180.0..180.0
+}
+
 /**
  *
  * US 01.01.05 / 02.01.02: name, location (park or area, e.g. "Banff"), description, amenities,
@@ -35,6 +50,8 @@ data class DateRange(
  * @param cancellationPolicy cancellation policy
  * @param ownerId uid of the owning campsite owner
  * @param availability date ranges the owner has made available
+ * @param images image addresses for the campsite (optional)
+ *  @param coordinates optional map location (latitude/longitude); null if the owner did not provide one
  */
 class Campsite(
     @DocumentId val id: String = "",
@@ -51,6 +68,7 @@ class Campsite(
     val ownerId: String = "",
     var availability: List<DateRange> = emptyList(),
     images: List<String> = emptyList(),
+    var coordinates: Coordinates? = null,
 ) {
     /** US 01.01.01: case-insensitive partial name match. A blank query matches everything. */
     fun matchesName(query: String): Boolean =
