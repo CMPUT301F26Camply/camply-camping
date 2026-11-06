@@ -21,6 +21,65 @@ import org.junit.Test
  * Unit tests for keeping the shared notification screen up to date (US 02.10.02).
  */
 class NotificationsControllerTest {
+    @Test
+    fun entrantReceivesUpdatesAndUnreadState() {
+        controller.startObserving("entrant1", "entrant")
+        assertEquals("entrant1", repository.recipientId)
+        repository.sendUpdate(listOf(record("win", "entrant1", NotificationOrigin.SYSTEM)))
+        assertEquals(1, model.receivedNotifications.size)
+        assertTrue(model.hasUnread)
+        assertTrue(model.sentNotifications.isEmpty())
+    }
+
+    @Test
+    fun openingReceivedNotificationMarksItRead() = runBlocking {
+        controller.startObserving("entrant1", "entrant")
+        val notification = record("win", "entrant1", NotificationOrigin.SYSTEM)
+        repository.sendUpdate(listOf(notification))
+        controller.onReceivedNotificationSelected(notification)
+        assertEquals(notification.id to "entrant1", repository.markedRead)
+        assertFalse(model.hasUnread)
+        assertEquals(true, model.selectedReceivedNotification?.isRead)
+    }
+
+    @Test
+    fun failedReadKeepsMessageAndUnreadUntilRetrySucceeds() = runBlocking {
+        controller.startObserving("entrant1", "entrant")
+        val notification = record("win", "entrant1", NotificationOrigin.SYSTEM)
+        repository.sendUpdate(listOf(notification))
+        repository.failRead = true
+        controller.onReceivedNotificationSelected(notification)
+        assertTrue(model.hasUnread)
+        assertFalse(model.isMarkingRead)
+        assertEquals(notification, model.selectedReceivedNotification)
+        assertEquals("Could not mark this notification as read.", model.readError)
+        repository.failRead = false
+        controller.markSelectedAsRead()
+        assertFalse(model.hasUnread)
+        assertNull(model.readError)
+    }
+
+    @Test
+    fun changingUserClearsDataAndIgnoresPreviousListener() {
+        controller.startObserving("entrant1", "entrant")
+        repository.sendUpdate(listOf(record("one", "entrant1")))
+        val oldUpdate = repository.savedUpdate()
+        controller.startObserving("entrant2", "entrant")
+        assertTrue(model.receivedNotifications.isEmpty())
+        assertFalse(model.hasUnread)
+        oldUpdate(listOf(record("one", "entrant1")))
+        assertTrue(model.receivedNotifications.isEmpty())
+        repository.sendUpdate(listOf(record("two", "entrant2")))
+        assertEquals("entrant2", model.receivedNotifications.single().recipientId)
+    }
+
+    @Test
+    fun foreignRecipientCannotBeOpenedOrMarkedRead() = runBlocking {
+        controller.startObserving("entrant1", "entrant")
+        controller.onReceivedNotificationSelected(record("one", "entrant2"))
+        assertNull(model.selectedReceivedNotification)
+        assertNull(repository.markedRead)
+    }
 
     private lateinit var model: NotificationsModel
     private lateinit var repository: TestNotificationRepository
@@ -122,6 +181,7 @@ class NotificationsControllerTest {
 
         assertEquals("entrant1", repository.recipientId)
         assertEquals(0, repository.observeCount)
+        assertEquals(1, repository.receivedObserveCount)
         assertTrue(model.isLoading)
     }
 
@@ -222,14 +282,18 @@ class NotificationsControllerTest {
      * Lets tests trigger listener updates without accessing Firestore.
      */
     private class TestNotificationRepository : NotificationRepository {
+        var recipientId: String? = null
+        var markedRead: Pair<String, String>? = null
+        var failRead = false
         var senderId: String? = null
         var observeCount = 0
+        var receivedObserveCount = 0
         var stopCount = 0
-        var recipientId: String? = null
         private var onUpdate: (List<Notification>) -> Unit = {}
         private var onReceivedUpdate: (List<Notification>) -> Unit = {}
 
         fun sendUpdate(records: List<Notification>) = onUpdate(records)
+        fun savedUpdate(): (List<Notification>) -> Unit = onUpdate
 
         fun sendReceivedUpdate(records: List<Notification>) = onReceivedUpdate(records)
 
@@ -254,11 +318,15 @@ class NotificationsControllerTest {
         ): () -> Unit {
             this.recipientId = recipientId
             onReceivedUpdate = onUpdate
-            return {}
+            this.onUpdate = onUpdate
+            receivedObserveCount++
+            return { stopCount++ }
         }
 
-        override suspend fun markAsRead(notificationId: String, recipientId: String) =
-            error("Not used by controller tests")
+        override suspend fun markAsRead(notificationId: String, recipientId: String) {
+            if (failRead) throw Exception("Write failed")
+            markedRead = notificationId to recipientId
+        }
     }
 
     /**

@@ -8,6 +8,19 @@ This README is a work in progress and will be updated as the project develops. A
 
 This section documents the use of generative AI tools during the development of Camply. Usage is recorded by project part and deliverable, including the tools used, their purpose, and the extent of their contribution.
 
+### Project Part 3
+
+**Contributor:** Ayesha Junaid (`junaidayesha92-code`)  
+**AI Provider:** Anthropic 
+**Tool:** Claude 
+**Date Used:** November 2026
+
+#### Campsite UI
+
+- **prompt:**  Using the description and user story images I've provided, give me a step by step guide to implement the UI portion of the user stories. follow the colour schemes ive provided
+- **Purpose:** Used Claude to get help implementing UI screens for US 01.01.01 - 01.01.05
+- **Extent of Use:** Moderate assistance with following a step by step guide to implement the UI
+
 ### Project Part 2
 
 **Contributor:** Filip Kosmajac (`fkosmajac`)  
