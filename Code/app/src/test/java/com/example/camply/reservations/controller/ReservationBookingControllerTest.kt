@@ -304,12 +304,40 @@ class ReservationBookingControllerTest {
         assertEquals(ReservationStatus.CONFIRMED, repository.reservations.single().status)
         assertEquals("entrant1", repository.reservations.single().entrantId)
         assertEquals("lottery1", repository.reservations.single().lotteryId)
+        assertTrue(repository.reservations.single().rulesAcknowledged)
         assertTrue(model.reservationConfirmed)
         assertNull(model.errorMessage)
 
         assertEquals(1, notifications.records.size)
         assertEquals("entrant1", notifications.records.single().recipientId)
         assertEquals("testReservationId", notifications.records.single().reservationId)
+    }
+
+    /**
+     * Checks that no confirmation is sent when the reservation could not be saved (US 01.05.01).
+     */
+    @Test
+    fun confirmReservation_saveFails_doesNotSendConfirmation() = runBlocking {
+        val model = ReservationBookingModel()
+        val notifications = TestNotificationRepository()
+        lotteryRepository.lottery = bookingLottery()
+        lotteryEntryRepository.entry = LotteryEntry(status = LotteryEntry.STATUS_WON)
+        repository.shouldFailSave = true
+
+        val bookingController = ReservationBookingController(
+            bookingService = BookingService(),
+            repository = repository,
+            notificationService = NotificationService(notifications),
+            lotteryRepository = lotteryRepository,
+            lotteryEntryRepository = lotteryEntryRepository,
+            model = model
+        )
+
+        val result = bookingController.confirmReservation(campsite, bookingReservation())
+
+        assertNull(result)
+        assertTrue(notifications.records.isEmpty())
+        assertFalse(model.reservationConfirmed)
     }
 
     /**
@@ -452,6 +480,7 @@ class ReservationBookingControllerTest {
     private class TestReservationRepository : ReservationRepository {
 
         var reservations: List<Reservation> = emptyList()
+        var shouldFailSave = false
 
         override suspend fun getReservationsForEntrant(entrantId: String): List<Reservation> =
             reservations.filter { it.entrantId == entrantId }
@@ -460,6 +489,7 @@ class ReservationBookingControllerTest {
             reservations.filter { it.campsiteId == campsiteId }
 
         override suspend fun createReservation(reservation: Reservation): String {
+            if (shouldFailSave) throw Exception("Could not save reservation.")
             reservations = reservations + reservation
             return "testReservationId"
         }
