@@ -58,6 +58,9 @@ import com.example.camply.user.view.UserSignUpView
 import com.example.camply.lottery.controller.LotteryCreateController
 import com.example.camply.lottery.model.LotteryCreateModel
 import com.example.camply.lottery.view.LotteryCreateView
+import com.example.camply.lottery.repository.FirestoreLotteryDrawRepository
+import com.example.camply.lottery.service.LotteryDrawService
+import com.example.camply.notification.service.NotificationService
 
 /**
  * Displays the Camply application and manages its startup screens
@@ -92,6 +95,12 @@ fun CamplyApp() {
     // Owner lottery registration. US 02.04.01, 02.04.03, 02.04.04, 02.04.05.
     val lotteryCreateModel = remember { LotteryCreateModel() }
     val lotteryRepository = remember { FirestoreLotteryRepository() }
+    val lotteryDrawService = remember {
+        LotteryDrawService(
+            FirestoreLotteryDrawRepository(),
+            NotificationService(FirestoreNotificationRepository())
+        )
+    }
     val lotteryCreateController = remember {
         LotteryCreateController(lotteryCreateModel, lotteryRepository, campsiteRepository)
     }
@@ -145,6 +154,13 @@ fun CamplyApp() {
     // Check for an existing Firebase user or sign in anonymously
     LaunchedEffect(Unit) {
         userModel.initializeUser()
+    }
+    LaunchedEffect(Unit) {
+        try {
+            lotteryDrawService.keepChecking()
+        } catch (e: Exception) {
+            if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+        }
     }
 
     // Need to show the correct screen depending on the users startup state
