@@ -17,6 +17,9 @@ class ReservationBookingModel {
     var datesValid: Boolean by mutableStateOf(false)
         private set
 
+    var reservationConfirmed: Boolean by mutableStateOf(false)
+        private set
+
     /**
      * Updates the model when reservation dates are being checked.
      */
@@ -44,5 +47,25 @@ class ReservationBookingModel {
         isLoading = false
         errorMessage = message
         datesValid = false
+    }
+
+    /**
+     * Updates the booking screen after a reservation is successfully saved.
+     */
+    fun showConfirmedReservation() {
+        isLoading = false
+        errorMessage = null
+        datesValid = false
+        reservationConfirmed = true
+    }
+
+    /**
+     * Resets the booking state when the entrant starts a new reservation.
+     */
+    fun resetBooking() {
+        isLoading = false
+        errorMessage = null
+        datesValid = false
+        reservationConfirmed = false
     }
 }

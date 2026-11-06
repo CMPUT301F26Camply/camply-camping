@@ -12,6 +12,11 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.DateRange
+import com.example.camply.lottery.model.Lottery
+import com.example.camply.lottery.model.LotteryEntry
+import com.example.camply.lottery.repository.DeclineResult
+import com.example.camply.lottery.repository.LotteryEntryRepository
+import com.example.camply.lottery.repository.LotteryRepository
 import com.example.camply.notification.model.NewNotification
 import com.example.camply.notification.model.Notification
 import com.example.camply.notification.model.SendResult
@@ -51,14 +56,23 @@ class ReservationBookingViewTest {
     fun setUp() {
         val model = ReservationBookingModel()
         val controller = ReservationBookingController(
-            BookingService(),
-            TestReservationRepository(),
-            NotificationService(TestNotificationRepository()),
-            model
+            bookingService = BookingService(),
+            repository = TestReservationRepository(),
+            notificationService = NotificationService(TestNotificationRepository()),
+            lotteryRepository = TestLotteryRepository(),
+            lotteryEntryRepository = TestLotteryEntryRepository(),
+            model = model
         )
         val view = ReservationBookingView(model, controller)
 
-        compose.setContent { view.Display(campsite = campsite, onBack = {}) }
+        compose.setContent {
+            view.Display(
+                campsite = campsite,
+                entrantId = "entrant1",
+                lotteryId = "lottery1",
+                onBack = {}
+            )
+        }
     }
 
     /**
@@ -191,5 +205,36 @@ class ReservationBookingViewTest {
     private companion object {
         const val START_DATE_LABEL = "Start date (yyyy-MM-dd)"
         const val END_DATE_LABEL = "End date (yyyy-MM-dd)"
+    }
+
+    /**
+     * Provides lottery information without accessing Firestore.
+     */
+    private class TestLotteryRepository : LotteryRepository {
+
+        override suspend fun getLotteries(): List<Lottery> = emptyList()
+
+        override suspend fun getLottery(id: String): Lottery? = null
+
+        override suspend fun create(lottery: Lottery): String = lottery.id
+
+        override suspend fun getJoinedLotteries(entrantId: String): List<Lottery> =
+            emptyList()
+    }
+
+    /**
+     * Provides lottery entry information without accessing Firestore.
+     */
+    private class TestLotteryEntryRepository : LotteryEntryRepository {
+
+        override suspend fun getEntry(
+            lotteryId: String,
+            entrantId: String
+        ): LotteryEntry? = null
+
+        override suspend fun declineOpportunity(
+            lotteryId: String,
+            entrantId: String
+        ): DeclineResult = DeclineResult.NOT_ELIGIBLE
     }
 }

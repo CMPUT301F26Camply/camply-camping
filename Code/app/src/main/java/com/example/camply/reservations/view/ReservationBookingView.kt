@@ -11,6 +11,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,17 +48,24 @@ class ReservationBookingView(
      * acknowledge its rules and policies, and confirm the reservation.
      *
      * @param campsite The campsite being reserved.
+     * @param entrantId The Firebase user ID of the entrant making the reservation.
+     * @param lotteryId The lottery that awarded the reservation opportunity.
      * @param onBack Returns to the previous screen.
      */
     @Composable
-    fun Display(campsite: Campsite, onBack: () -> Unit) {
+    fun Display(campsite: Campsite, entrantId: String, lotteryId: String, onBack: () -> Unit) {
         val scope = rememberCoroutineScope()
-        var startDate by remember(campsite.id) { mutableStateOf("") }
-        var endDate by remember(campsite.id) { mutableStateOf("") }
-        var checkedDates by remember(campsite.id) { mutableStateOf<DateRange?>(null) }
+
+        LaunchedEffect(campsite.id, lotteryId) {
+            controller.resetBooking()
+        }
+
+        var startDate by remember(campsite.id, lotteryId) { mutableStateOf("") }
+        var endDate by remember(campsite.id, lotteryId) { mutableStateOf("") }
+        var checkedDates by remember(campsite.id, lotteryId) { mutableStateOf<DateRange?>(null) }
         val selectedDates = DateRange(startDate, endDate)
         val showingResult = checkedDates == selectedDates
-        var rulesAcknowledged by remember(campsite.id) { mutableStateOf(false) }
+        var rulesAcknowledged by remember(campsite.id, lotteryId) { mutableStateOf(false) }
 
 
         CamplyScreen(title = "Book Campsite") {
@@ -89,7 +97,8 @@ class ReservationBookingView(
                         value = startDate,
                         onValueChange = { startDate = it },
                         label = { Text("Start date (yyyy-MM-dd)") },
-                        colors = camplyTextFieldColors()
+                        colors = camplyTextFieldColors(),
+                        enabled = !model.reservationConfirmed,
                     )
 
                     Spacer(Modifier.height(8.dp))
@@ -98,7 +107,8 @@ class ReservationBookingView(
                         value = endDate,
                         onValueChange = { endDate = it },
                         label = { Text("End date (yyyy-MM-dd)") },
-                        colors = camplyTextFieldColors()
+                        colors = camplyTextFieldColors(),
+                        enabled = !model.reservationConfirmed,
                     )
                 }
 
@@ -124,7 +134,7 @@ class ReservationBookingView(
                         Checkbox(
                             checked = rulesAcknowledged,
                             onCheckedChange = { rulesAcknowledged = it },
-                            enabled = campsite.rules.isNotBlank()
+                            enabled = campsite.rules.isNotBlank() && !model.reservationConfirmed
                         )
 
                         Text(
@@ -142,7 +152,7 @@ class ReservationBookingView(
                         checkedDates = selectedDates
                         scope.launch { controller.checkDates(campsite, selectedDates) }
                     },
-                    enabled = !model.isLoading && startDate.isNotBlank() && endDate.isNotBlank()
+                    enabled = !model.isLoading && !model.reservationConfirmed && startDate.isNotBlank() && endDate.isNotBlank()
                 )
 
                 if (showingResult && model.isLoading) {
@@ -155,7 +165,13 @@ class ReservationBookingView(
                     Text(model.errorMessage ?: "", color = CamplyPalette.Ink)
                 }
 
-                if (showingResult && model.datesValid) {
+                if (model.reservationConfirmed) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "Reservation confirmed! You can view it in My Reservations.",
+                        color = CamplyPalette.Ink
+                    )
+                } else if (showingResult && model.datesValid) {
                     Spacer(Modifier.height(12.dp))
                     Text(
                         "Selected dates are available. Reservation is not yet confirmed.",
@@ -168,16 +184,20 @@ class ReservationBookingView(
                 PrimaryButton(
                     text = "Confirm Reservation",
                     onClick = {
-                        // Need US 01.04.01 supplying entrantId and lotteryId.
                         val reservation = Reservation(
+                            entrantId = entrantId,
                             campsiteId = campsite.id,
+                            lotteryId = lotteryId,
                             dates = selectedDates,
                             rulesAcknowledged = rulesAcknowledged
                         )
-                        scope.launch { controller.confirmReservation(campsite, reservation) }
+
+                        scope.launch {
+                            controller.confirmReservation(campsite, reservation)
+                        }
                     },
-                    // The button is enabled only when all 4 of these are true.
-                    enabled = !model.isLoading && showingResult && model.datesValid && rulesAcknowledged
+                    // The button is enabled only when all 5 of these are true.
+                    enabled = !model.isLoading && !model.reservationConfirmed && showingResult && model.datesValid && rulesAcknowledged
                 )
 
                 Spacer(Modifier.height(8.dp))

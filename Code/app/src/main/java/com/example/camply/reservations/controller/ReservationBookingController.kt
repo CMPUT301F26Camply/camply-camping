@@ -2,11 +2,16 @@ package com.example.camply.reservations.controller
 
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.DateRange
+import com.example.camply.lottery.repository.LotteryEntryRepository
+import com.example.camply.lottery.repository.LotteryRepository
 import com.example.camply.notification.service.NotificationService
 import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationBookingModel
+import com.example.camply.reservations.model.ReservationStatus
 import com.example.camply.reservations.repository.ReservationRepository
 import com.example.camply.reservations.service.BookingService
+import java.time.LocalDate
+import java.time.ZoneId
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -16,12 +21,16 @@ import kotlin.coroutines.cancellation.CancellationException
  * @param repository The repository used to retrieve existing reservations.
  * @param notificationService The service used to send reservation confirmations.
  * @param model The model used to store booking screen state.
+ * @param lotteryRepository The repository used to retrieve lottery information.
+ * @param lotteryEntryRepository The repository used to verify the entrant's lottery result.
  */
 class ReservationBookingController(
     private val bookingService: BookingService,
     private val repository: ReservationRepository,
     private val notificationService: NotificationService,
-    private val model: ReservationBookingModel = ReservationBookingModel()
+    private val model: ReservationBookingModel = ReservationBookingModel(),
+    private val lotteryRepository: LotteryRepository,
+    private val lotteryEntryRepository: LotteryEntryRepository
 ) {
 
     /**
@@ -89,20 +98,20 @@ class ReservationBookingController(
         }
     }
 
+
     /**
-     * Confirms a campsite reservation after verifying booking eligibility.
-     *
-     * The entrant must have acknowledged the campsite's rules and policies (US 02.11.01).
+     * Confirms a reservation after checking the entrant's lottery win,
+     * booking period, campsite availability, and rules acknowledgement.
+     * US 01.04.01.
      *
      * @param campsite The campsite being reserved.
-     * @param reservation The reservation to confirm.
-     * @return The new reservation ID, or null if confirmation fails.
+     * @param reservation The reservation containing the entrant, lottery, and selected dates.
+     * @return The saved reservation ID, or null if confirmation fails.
      */
     suspend fun confirmReservation(
         campsite: Campsite,
         reservation: Reservation
     ): String? {
-        // Checked before any other step so that no caller can complete a booking without it.
         if (!reservation.rulesAcknowledged) {
             model.showError("You must confirm that you have read the campsite rules and policies.")
             return null
@@ -110,9 +119,89 @@ class ReservationBookingController(
 
         model.showLoading()
 
-        // Prevent confirmation until lottery winner verification is implemented.
-        model.showError("Lottery winner verification is not connected yet.")
-        return null
+        try {
+            if (reservation.entrantId.isBlank() || reservation.lotteryId.isBlank()) {
+                model.showError("Missing entrant or lottery information.")
+                return null
+            }
+
+            if (reservation.campsiteId != campsite.id) {
+                model.showError("The reservation does not match this campsite.")
+                return null
+            }
+
+            val lottery = lotteryRepository.getLottery(reservation.lotteryId)
+
+            if (lottery == null) {
+                model.showError("Lottery not found.")
+                return null
+            }
+
+            if (campsite.id !in lottery.campsiteIds) {
+                model.showError("This campsite is not part of the lottery.")
+                return null
+            }
+
+            val entry = lotteryEntryRepository.getEntry(
+                reservation.lotteryId,
+                reservation.entrantId
+            )
+
+            if (entry?.canConfirmReservation() != true) {
+                model.showError("You do not have an available winning opportunity.")
+                return null
+            }
+
+            val today = LocalDate.now(ZoneId.of("America/Edmonton")).toString()
+
+            if (today < lottery.bookingStart || today > lottery.bookingEnd) {
+                model.showError("The lottery booking period is not open.")
+                return null
+            }
+
+            if (!bookingService.areDatesValid(reservation.dates)) {
+                model.showError("Enter valid reservation dates.")
+                return null
+            }
+
+            if (reservation.dates.from < lottery.lotteryStart ||
+                reservation.dates.to > lottery.lotteryEnd
+            ) {
+                model.showError("Selected dates are outside the lottery stay period.")
+                return null
+            }
+
+            val dateError = validateDates(campsite, reservation.dates)
+
+            if (dateError != null) {
+                model.showError(dateError)
+                return null
+            }
+
+            val lotteryError = validateLotteryReservation(reservation)
+
+            if (lotteryError != null) {
+                model.showError(lotteryError)
+                return null
+            }
+
+            val confirmedReservation = reservation.copy(
+                status = ReservationStatus.CONFIRMED
+            )
+
+            val reservationId = repository.createReservation(confirmedReservation)
+
+            model.showConfirmedReservation()
+
+            notifyReservationConfirmed(campsite, confirmedReservation, reservationId)
+
+            return reservationId
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            model.showError(e.message ?: "Could not confirm reservation.")
+            return null
+        }
     }
 
     /**
@@ -142,5 +231,12 @@ class ReservationBookingController(
         } catch (e: Exception) {
             // The reservation is already saved, so a failed notification is not a booking error.
         }
+    }
+
+    /**
+     * Resets the booking screen state when an entrant starts a new reservation.
+     */
+    fun resetBooking() {
+        model.resetBooking()
     }
 }

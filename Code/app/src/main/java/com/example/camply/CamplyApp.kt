@@ -26,10 +26,13 @@ import com.example.camply.campsite.view.CampsiteBrowseView
 import com.example.camply.campsite.view.CampsiteDetailView
 import com.example.camply.lottery.controller.CampsiteLotteryController
 import com.example.camply.lottery.controller.EntrantLotteryController
+import com.example.camply.lottery.controller.LotteryBookingController
 import com.example.camply.lottery.controller.LotteryOpportunityController
 import com.example.camply.lottery.controller.LotteryCreateController
 import com.example.camply.lottery.model.CampsiteLotteryModel
 import com.example.camply.lottery.model.EntrantLotteryModel
+import com.example.camply.lottery.model.Lottery
+import com.example.camply.lottery.model.LotteryBookingModel
 import com.example.camply.lottery.model.LotteryOpportunityModel
 import com.example.camply.lottery.model.LotteryCreateModel
 import com.example.camply.lottery.repository.FirestoreLotteryEntryRepository
@@ -142,9 +145,23 @@ fun CamplyApp() {
     val reservationRepository = remember { FirestoreReservationRepository() }
     val bookingService = remember { BookingService() }
     val notificationService = remember { NotificationService(FirestoreNotificationRepository()) }
-    val reservationBookingController = remember { ReservationBookingController(bookingService, reservationRepository, notificationService, reservationBookingModel) }
+    val reservationBookingController = remember {
+        ReservationBookingController(
+            bookingService = bookingService,
+            repository = reservationRepository,
+            notificationService = notificationService,
+            lotteryRepository = lotteryRepository,
+            lotteryEntryRepository = lotteryEntryRepository,
+            model = reservationBookingModel
+        )
+    }
     val reservationBookingView = remember { ReservationBookingView(reservationBookingModel, reservationBookingController) }
-    var selectedBookingCampsite by remember { mutableStateOf<Campsite?>(null) }
+
+
+    // Entrant lottery booking
+    val lotteryBookingModel = remember { LotteryBookingModel() }
+    val lotteryBookingController = remember { LotteryBookingController(lotteryBookingModel, campsiteRepository) }
+    var bookingRequest by remember { mutableStateOf<Lottery?>(null) }
 
     // Entrant active reservations
     val activeReservationsModel = remember { ActiveReservationsModel() }
@@ -196,6 +213,25 @@ fun CamplyApp() {
     LaunchedEffect(Unit) {
         userModel.initializeUser()
     }
+
+    val currentScreen = navigationModel.getCurrentScreen()
+
+    LaunchedEffect(currentScreen) {
+        if (currentScreen != Screen.LOTTERIES) {
+            reservationBookingController.resetBooking()
+            lotteryBookingController.clearBooking()
+        }
+    }
+
+    LaunchedEffect(bookingRequest) {
+        val lottery = bookingRequest
+
+        if (lottery != null) {
+            lotteryBookingController.loadBooking(lottery)
+            bookingRequest = null
+        }
+    }
+
     LaunchedEffect(Unit) {
         try {
             lotteryDrawService.keepChecking()
@@ -283,27 +319,17 @@ fun CamplyApp() {
                                     entrantLotteryController.loadLotteries(currentUser.getUid())
                                 }
 
-                                val campsite = selectedBookingCampsite
+                                val campsite = lotteryBookingModel.campsite
 
                                 if (campsite == null) {
-                                    // TEMPORARY: Booking screen preview. Will remove after proper lottery integration.
                                     Column {
-                                        PrimaryButton(
-                                            text = "Preview Booking Screen",
-                                            onClick = {
-                                                selectedBookingCampsite = Campsite(
-                                                    id = "preview",
-                                                    name = "Preview Campsite",
-                                                    availability = listOf(
-                                                        DateRange(
-                                                            "2027-06-01",
-                                                            "2027-06-10"
-                                                        )
-                                                    ),
-                                                    rules = "Quiet hours are from 10 PM to 7 AM."
-                                                )
-                                            }
-                                        )
+                                        if (lotteryBookingModel.isLoading) {
+                                            Text("Loading campsite...")
+                                        }
+
+                                        if (lotteryBookingModel.errorMessage != null) {
+                                            Text(lotteryBookingModel.errorMessage ?: "")
+                                        }
 
                                         entrantLotteryView.Display { lottery ->
                                             val opportunityModel = remember(lottery.id, currentUser.getUid()) {
@@ -320,15 +346,29 @@ fun CamplyApp() {
                                                     )
                                                 )
                                             }
-                                            opportunityView.Display(lottery.id, currentUser.getUid())
+                                            opportunityView.Display(
+                                                lotteryId = lottery.id,
+                                                entrantId = currentUser.getUid(),
+                                                onBook = {
+                                                    bookingRequest = lottery
+                                                }
+                                            )
                                         }
                                     }
                                 } else {
-                                    BackHandler { selectedBookingCampsite = null }
+                                    BackHandler {
+                                        reservationBookingController.resetBooking()
+                                        lotteryBookingController.clearBooking()
+                                    }
 
                                     reservationBookingView.Display(
                                         campsite = campsite,
-                                        onBack = { selectedBookingCampsite = null }
+                                        entrantId = currentUser.getUid(),
+                                        lotteryId = lotteryBookingModel.lotteryId ?: "",
+                                        onBack = {
+                                            reservationBookingController.resetBooking()
+                                            lotteryBookingController.clearBooking()
+                                        }
                                     )
                                 }
                             }

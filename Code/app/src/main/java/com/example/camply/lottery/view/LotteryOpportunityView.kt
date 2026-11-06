@@ -2,6 +2,7 @@ package com.example.camply.lottery.view
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -13,12 +14,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.camply.lottery.controller.LotteryOpportunityController
 import com.example.camply.lottery.model.LotteryEntry
 import com.example.camply.lottery.model.LotteryOpportunityModel
 import com.example.camply.shared.view.CamplyPalette
 import com.example.camply.shared.view.DangerButton
+import com.example.camply.shared.view.PrimaryButton
 import kotlinx.coroutines.launch
 
 /**
@@ -34,12 +37,15 @@ class LotteryOpportunityView(
 
     /**
      * Loads and displays the entrant's result for one lottery.
+     * Allows winners with an unused opportunity to book or decline.
      *
      * @param lotteryId The lottery's document ID.
      * @param entrantId The entrant's Firebase user ID.
+     * @param onBook The action to open the reservation booking screen.
      */
     @Composable
-    fun Display(lotteryId: String, entrantId: String) {
+    fun Display(lotteryId: String, entrantId: String, onBook: () -> Unit = {})
+    {
         val scope = rememberCoroutineScope()
         val entry = model.entry
         val error = model.errorMessage
@@ -58,8 +64,20 @@ class LotteryOpportunityView(
 
             if (model.isLoading) {
                 CircularProgressIndicator(color = CamplyPalette.Ink)
-            } else if (entry?.canDecline() == true) {
-                DangerButton("Decline reservation opportunity", { showDeclineDialog = true })
+            } else if (entry?.canConfirmReservation() == true) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DangerButton(
+                        "Decline",
+                        { showDeclineDialog = true },
+                        Modifier.weight(1f)
+                    )
+
+                    PrimaryButton(
+                        "Book Reservation",
+                        onBook,
+                        Modifier.weight(1f)
+                    )
+                }
             }
 
             if (error != null) {
