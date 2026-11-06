@@ -24,7 +24,8 @@ class NotificationsController(
     /**
      * Starts showing a user's notifications, replacing any earlier listener.
      *
-     * Only campsite owners have content so far. Other roles see an empty screen.
+     * Campsite owners see what they sent and entrants see what they received.
+     * Other roles see an empty screen for now.
      *
      * @param userId The user's Firebase user ID.
      * @param role The user's role.
@@ -33,17 +34,31 @@ class NotificationsController(
         stopObserving()
         model.clearSelection()
 
-        if (role != "owner") {
-            model.showSentNotifications(emptyList())
-            return
-        }
+        when (role) {
+            "owner" -> {
+                model.showLoading()
+                stopListening = repository.observeSent(
+                    senderId = userId,
+                    onUpdate = { records -> model.showSentNotifications(groupSentNotifications(records)) },
+                    onError = ::showLoadError
+                )
+            }
 
-        model.showLoading()
-        stopListening = repository.observeSent(
-            senderId = userId,
-            onUpdate = { records -> model.showSentNotifications(groupSentNotifications(records)) },
-            onError = { error -> model.showError(error.message ?: "Could not load notifications.") }
-        )
+            "entrant" -> {
+                model.showLoading()
+                stopListening = repository.observeReceived(
+                    recipientId = userId,
+                    onUpdate = { records -> model.showReceivedNotifications(records) },
+                    onError = ::showLoadError
+                )
+            }
+
+            else -> model.showSentNotifications(emptyList())
+        }
+    }
+
+    private fun showLoadError(error: Exception) {
+        model.showError(error.message ?: "Could not load notifications.")
     }
 
     /**

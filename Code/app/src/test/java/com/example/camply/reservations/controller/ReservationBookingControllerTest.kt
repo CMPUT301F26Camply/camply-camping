@@ -2,6 +2,11 @@ package com.example.camply.reservations.controller
 
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.DateRange
+import com.example.camply.notification.model.NewNotification
+import com.example.camply.notification.model.Notification
+import com.example.camply.notification.model.SendResult
+import com.example.camply.notification.repository.NotificationRepository
+import com.example.camply.notification.service.NotificationService
 import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationBookingModel
 import com.example.camply.reservations.model.ReservationStatus
@@ -30,7 +35,7 @@ class ReservationBookingControllerTest {
     @Before
     fun setUp() {
         repository = TestReservationRepository()
-        controller = ReservationBookingController(BookingService(), repository)
+        controller = ReservationBookingController(BookingService(), repository, notificationService())
 
         campsite = Campsite(
             id = "1",
@@ -109,7 +114,7 @@ class ReservationBookingControllerTest {
     @Test
     fun checkDates_availableDates_updatesModel() = runBlocking {
         val model = ReservationBookingModel()
-        val controller = ReservationBookingController(BookingService(), repository, model)
+        val controller = ReservationBookingController(BookingService(), repository, notificationService(), model)
 
         controller.checkDates(campsite, DateRange("2027-06-03", "2027-06-05"))
 
@@ -124,7 +129,7 @@ class ReservationBookingControllerTest {
     @Test
     fun checkDates_unavailableDates_updatesModel() = runBlocking {
         val model = ReservationBookingModel()
-        val controller = ReservationBookingController(BookingService(), repository, model)
+        val controller = ReservationBookingController(BookingService(), repository, notificationService(), model)
 
         controller.checkDates(campsite, DateRange("2027-06-12", "2027-06-15"))
 
@@ -139,7 +144,7 @@ class ReservationBookingControllerTest {
     @Test
     fun confirmReservation_rulesNotAcknowledged_returnsNullAndShowsError() = runBlocking {
         val model = ReservationBookingModel()
-        val controller = ReservationBookingController(BookingService(), repository, model)
+        val controller = ReservationBookingController(BookingService(), repository, notificationService(), model)
         val reservation = Reservation(campsiteId = "1", rulesAcknowledged = false)
 
         val reservationId = controller.confirmReservation(campsite, reservation)
@@ -152,6 +157,54 @@ class ReservationBookingControllerTest {
         assertFalse(model.isLoading)
         assertTrue(repository.reservations.isEmpty())
     }
+
+    /**
+     * Checks that a saved reservation sends its confirmation to the entrant (US 01.05.01).
+     */
+    @Test
+    fun notifyReservationConfirmed_validReservation_sendsConfirmation() = runBlocking {
+        val notifications = TestNotificationRepository()
+        val controller = ReservationBookingController(
+            BookingService(),
+            repository,
+            NotificationService(notifications)
+        )
+
+        controller.notifyReservationConfirmed(ownedCampsite, savedReservation, "reservation1")
+
+        val notification = notifications.records.single()
+        assertEquals("entrant1", notification.recipientId)
+        assertEquals("owner1", notification.senderId)
+        assertEquals("reservation1", notification.reservationId)
+    }
+
+    /**
+     * Checks that a failed send does not throw, because the reservation is already saved.
+     */
+    @Test
+    fun notifyReservationConfirmed_sendFails_doesNotThrow() = runBlocking {
+        val notifications = TestNotificationRepository()
+        notifications.shouldFail = true
+        val controller = ReservationBookingController(
+            BookingService(),
+            repository,
+            NotificationService(notifications)
+        )
+
+        controller.notifyReservationConfirmed(ownedCampsite, savedReservation, "reservation1")
+
+        assertTrue(notifications.records.isEmpty())
+    }
+
+    private val ownedCampsite = Campsite(id = "1", name = "Banff Pines", ownerId = "owner1")
+
+    private val savedReservation = Reservation(
+        entrantId = "entrant1",
+        campsiteId = "1",
+        dates = DateRange("2027-06-03", "2027-06-05")
+    )
+
+    private fun notificationService() = NotificationService(TestNotificationRepository())
 
     /**
      * Provides reservation data for controller tests without accessing Firestore.
@@ -170,5 +223,34 @@ class ReservationBookingControllerTest {
             reservations = reservations + reservation
             return "testReservationId"
         }
+    }
+
+    /**
+     * Records notifications for controller tests without accessing Firestore.
+     */
+    private class TestNotificationRepository : NotificationRepository {
+        val records = mutableListOf<NewNotification>()
+        var shouldFail = false
+
+        override suspend fun createIfAbsent(id: String, notification: NewNotification): SendResult {
+            if (shouldFail) throw Exception("Could not send notification.")
+            records.add(notification)
+            return SendResult.CREATED
+        }
+
+        override fun observeReceived(
+            recipientId: String,
+            onUpdate: (List<Notification>) -> Unit,
+            onError: (Exception) -> Unit
+        ): () -> Unit = error("Not used by controller tests")
+
+        override fun observeSent(
+            senderId: String,
+            onUpdate: (List<Notification>) -> Unit,
+            onError: (Exception) -> Unit
+        ): () -> Unit = error("Not used by controller tests")
+
+        override suspend fun markAsRead(notificationId: String, recipientId: String) =
+            error("Not used by controller tests")
     }
 }

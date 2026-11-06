@@ -1,5 +1,6 @@
 package com.example.camply.notification.service
 
+import com.example.camply.campsite.model.DateRange
 import com.example.camply.notification.model.*
 import com.example.camply.notification.repository.NotificationRepository
 import kotlinx.coroutines.runBlocking
@@ -68,6 +69,42 @@ class NotificationServiceTest {
                 NotificationService(MemoryRepository()).sendLotteryResult("owner", "", "lottery", true)
             }
         }
+    }
+
+    /**
+     * Checks that a reservation confirmation reaches the entrant as a system notification.
+     */
+    @Test
+    fun reservationConfirmationUsesCorrectRecipientTypeAndOrigin() = runBlocking {
+        val repository = MemoryRepository()
+
+        NotificationService(repository).sendReservationConfirmation(
+            "owner", "entrant", "reservation", "Banff Pines", DateRange("2027-06-12", "2027-06-15")
+        )
+
+        val record = repository.records.values.single()
+        assertEquals("entrant", record.recipientId)
+        assertEquals("owner", record.senderId)
+        assertEquals(NotificationType.RESERVATION_CONFIRMED, record.type)
+        assertEquals(NotificationOrigin.SYSTEM, record.origin)
+        assertEquals("reservation", record.reservationId)
+    }
+
+    /**
+     * Checks that a reservation confirmation names the campsite and the reserved dates.
+     */
+    @Test
+    fun reservationConfirmationIncludesCampsiteAndDates() = runBlocking {
+        val repository = MemoryRepository()
+
+        NotificationService(repository).sendReservationConfirmation(
+            "owner", "entrant", "reservation", "Banff Pines", DateRange("2027-06-12", "2027-06-15")
+        )
+
+        assertEquals(
+            "Your reservation at Banff Pines from 2027-06-12 to 2027-06-15 is confirmed.",
+            repository.records.values.single().content
+        )
     }
 
     private class MemoryRepository : NotificationRepository {

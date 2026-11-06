@@ -12,6 +12,9 @@ class NotificationsModel {
     var sentNotifications: List<SentNotification> by mutableStateOf(emptyList())
         private set
 
+    var receivedNotifications: List<Notification> by mutableStateOf(emptyList())
+        private set
+
     var isLoading: Boolean by mutableStateOf(false)
         private set
 
@@ -45,6 +48,17 @@ class NotificationsModel {
      */
     fun showSentNotifications(list: List<SentNotification>) {
         sentNotifications = list
+        isLoading = false
+        errorMessage = null
+    }
+
+    /**
+     * Updates the model with the notifications an entrant has received (US 01.05.01).
+     *
+     * @param list The entrant's received notifications.
+     */
+    fun showReceivedNotifications(list: List<Notification>) {
+        receivedNotifications = list
         isLoading = false
         errorMessage = null
     }
