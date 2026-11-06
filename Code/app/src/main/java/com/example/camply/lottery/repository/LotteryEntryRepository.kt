@@ -1,6 +1,7 @@
 package com.example.camply.lottery.repository
 
 import com.example.camply.lottery.model.LotteryEntry
+import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
@@ -68,6 +69,9 @@ class FirestoreLotteryEntryRepository(
         }.await()
     }
 
-    private fun entryRef(lotteryId: String, entrantId: String) =
-        db.collection("lotteries").document(lotteryId).collection("entries").document(entrantId)
+    private fun entryRef(lotteryId: String, entrantId: String): DocumentReference {
+        require(lotteryId.isNotBlank() && '/' !in lotteryId) { "Invalid lottery ID." }
+        require(entrantId.isNotBlank() && '/' !in entrantId) { "Invalid entrant ID." }
+        return db.collection("lotteries").document(lotteryId).collection("entries").document(entrantId)
+    }
 }
