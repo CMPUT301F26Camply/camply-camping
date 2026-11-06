@@ -49,14 +49,14 @@ class LotteryCreateView (
     private val controller: LotteryCreateController
 ){
     @Composable
-    fun Display(ownerId: String) {
+    fun Display(ownerId: String,onDone:() -> Unit) {
         val scope = rememberCoroutineScope()
         var page by remember { mutableStateOf(1) }
         LaunchedEffect(ownerId) { controller.loadOwnedCampsites(ownerId) }
         CamplyScreen(title = "Lottery Registration") {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 when {
-                    model.savedId != null -> CenteredMessage("Lottery saved.")
+                    model.savedId != null -> CenteredMessage("Lottery saved.","Back to home", onDone)
                     page == 1 -> FirstHalf(onNext = { page = 2 })
                     else -> SecondHalf(
                         onBack = { page = 1 },

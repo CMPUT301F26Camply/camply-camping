@@ -87,6 +87,7 @@ fun CamplyApp() {
     val lotteryCreateView = remember {
         LotteryCreateView(lotteryCreateModel, lotteryCreateController)
     }
+    var showLotteryForm by remember { mutableStateOf(true) }
     // Id of the campsite currently open from the browse screen (null = show the list).
     var selectedCampsiteId by remember { mutableStateOf<String?>(null) }
 
@@ -135,10 +136,11 @@ fun CamplyApp() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        if (currentUser.getRole() == "owner") {
-                            lotteryCreateView.Display(currentUser.getUid())
-                        } else when (navigationModel.getCurrentScreen()) {
-                            Screen.BROWSE -> {
+                        if (currentUser.getRole() == "owner"&&showLotteryForm) {
+                            lotteryCreateView.Display(currentUser.getUid()){
+                                showLotteryForm=false
+                            }
+                        } else when (navigationModel.getCurrentScreen()) {                            Screen.BROWSE -> {
                                 val openId = selectedCampsiteId
                                 if (openId == null) {
                                     campsiteBrowseView.Display(onCampsiteClick = { selectedCampsiteId = it })
