@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteRepository
+import com.example.camply.campsite.model.DateRange
 import com.example.camply.user.model.CampsiteOwnerUser
 import kotlinx.coroutines.CancellationException
 
@@ -34,7 +35,7 @@ class OwnerController(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-        errors = listOf(e.message ?: "Could not load campsites")
+            errors = listOf(e.message ?: "Could not load campsites")
         }
         finally {
             loadingCheck = false
@@ -52,6 +53,7 @@ class OwnerController(
         rules: String,
         cancellationPolicy: String,
         images: List<String> = emptyList(),
+        availability: List<DateRange> = emptyList(),
     ): Boolean {
         val campsite = buildCampsiteRecord(
             id = "",
@@ -65,6 +67,7 @@ class OwnerController(
             rules = rules,
             cancellationPolicy = cancellationPolicy,
             images = images,
+            availability = availability,
         )
 
         val problems = campsite.validationCheck()
@@ -94,7 +97,8 @@ class OwnerController(
             tags = tags,
             rules = rules,
             cancellationPolicy = cancellationPolicy,
-            images = images
+            images = images,
+            availability = availability,
         )
 
         if(!campsiteOwner.registerCampsite(newCampsite)){
@@ -117,7 +121,8 @@ class OwnerController(
         tags: String,
         rules: String,
         cancellationPolicy: String,
-        images: List<String> = emptyList(),
+        images: List<String> = existingSite.images,
+        availability: List<DateRange> = existingSite.availability,
     ): Boolean {
         val edit = buildCampsiteRecord(
             id = existingSite.id,
@@ -131,6 +136,7 @@ class OwnerController(
             rules = rules,
             cancellationPolicy = cancellationPolicy,
             images = images,
+            availability = availability,
         )
 
         val problems = edit.validationCheck()
@@ -188,6 +194,7 @@ class OwnerController(
         rules: String,
         cancellationPolicy: String,
         images: List<String>,
+        availability: List<DateRange>,
     ): Campsite {
         // The following function is from Anthropic, Claude, "How do I ensure that anything not valid turns into 0 so that my validation check can catch it?", 2026-11-05
         val occupancy = maxOccupancy.trim().toIntOrNull() ?: 0
@@ -214,8 +221,8 @@ class OwnerController(
             cancellationPolicy = cancellationPolicy,
             ownerId = campsiteOwner.getUid(),
             images = images,
+            availability = availability,
         )
-
         return campsite
     }
 }
