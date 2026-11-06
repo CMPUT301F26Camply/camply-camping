@@ -36,4 +36,13 @@ data class Reservation(
      */
     fun isActive(today: String): Boolean =
         status == ReservationStatus.CONFIRMED && dates.to >= today
+
+    /**
+     * Checks if a confirmed reservation has already ended.
+     *
+     * @param today The current date in YYYY-MM-DD format.
+     * @return True if the reservation has ended.
+     */
+    fun isPast(today: String): Boolean =
+        status == ReservationStatus.CONFIRMED && dates.to < today
 }
