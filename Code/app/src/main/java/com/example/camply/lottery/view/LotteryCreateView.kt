@@ -43,11 +43,28 @@ import com.example.camply.shared.view.SecondaryButton
 import com.example.camply.shared.view.camplyTextFieldColors
 import kotlinx.coroutines.launch
 import java.util.Date
-
+/**
+ * Lottery Registration screen from the storyboard.
+ *
+ * The first page collects the campsite, lottery range, and registration range.
+ * The second page collects the booking range and the winner count.
+ * US 02.04.01, US 02.04.03, US 02.04.04, US 02.04.05.
+ *
+ * @param model the form values this screen displays
+ * @param controller checks the form and saves the lottery
+ */
 class LotteryCreateView (
     private val model: LotteryCreateModel,
     private val controller: LotteryCreateController
 ){
+ /**
+ * Shows the form for this owner.
+ *
+ * Loads that owner's campsites, then shows page 1, page 2, or the saved message.
+ *
+ * @param ownerId Firebase uid stored on the lottery
+ * @param onDone called when the owner leaves the saved screen
+ */ 
     @Composable
     fun Display(ownerId: String,onDone:() -> Unit) {
         val scope = rememberCoroutineScope()
@@ -66,6 +83,8 @@ class LotteryCreateView (
             }
         }
     }
+/** Campsite, lottery range, and registration range. Next opens the second page. */
+
     @Composable
     private fun FirstHalf(onNext: ()-> Unit){
         OrangeCard {
@@ -115,6 +134,8 @@ class LotteryCreateView (
         PrimaryButton("Next", onClick = onNext, enabled = ready)
 
     }
+/** Booking range, winner count, and Confirm. Back returns to the first page. */
+
     @Composable
     private fun SecondHalf(onBack: () -> Unit, onConfirm: () -> Unit) {
         OrangeCard {
@@ -143,6 +164,8 @@ class LotteryCreateView (
         Spacer(Modifier.height(8.dp))
         PrimaryButton("Confirm", onClick = onConfirm)
     }
+/** Start and end date boxes for one range. */
+
     @Composable
     private fun DateRow(
         start: String,
@@ -156,6 +179,10 @@ class LotteryCreateView (
             DataField("End Date",end,onEnd, Modifier.weight(1f))
         }
     }
+/**
+ * A read-only date box. Tapping it opens the calendar.
+ * The chosen day is written back as YYYY-MM-DD.
+ */
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     private fun DataField(
@@ -193,6 +220,12 @@ class LotteryCreateView (
             ) { DatePicker(state = pickerState) }
         }
     }
+/**
+ * Turns the calendar's UTC midnight millis into YYYY-MM-DD.
+ *
+ * @param millis the instant selected in the date picker
+ * @return that calendar day
+ */
     private fun millisToIso(millis: Long) : String {
         val  calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         calendar.timeInMillis = millis

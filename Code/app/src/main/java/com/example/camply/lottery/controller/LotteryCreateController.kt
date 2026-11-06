@@ -56,7 +56,7 @@ class LotteryCreateController(
      *
      * On bad input, stores an error on the model and does not write.
      * On success, stores the new Firestore id on the model.
-     *
+     * Also stores the lottery stay window from the first page.*
      * @param ownerId the Firebase uid stored on the lottery
      */
     suspend fun createLottery(ownerId: String) {
@@ -94,6 +94,8 @@ class LotteryCreateController(
             bookingStart = bookingStart,
             bookingEnd = bookingEnd,
             numberOfWinners = winners!!,
+            lotteryStart = model.stayFrom.trim(),
+            lotteryEnd = model.stayTo.trim(),
             status = LotteryStatus.OPEN
         )
 

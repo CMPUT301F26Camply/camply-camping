@@ -18,19 +18,24 @@ enum class LotteryStatus {
 }
 
 /**
- * Represents a lottery created by a campsite owner.
+ * One lottery created by a campsite owner.
  *
- * Stores the participating campsites, registration period,
- * booking period, number of winners, and current lottery status.
+ * Stores the campsites, the stay window winners can reserve,
+ * the registration period, the booking period, the winner count,
+ * and the current status.
+ * US 02.04.01, US 02.04.03, US 02.04.04, US 02.04.05.
  */
 data class Lottery(
     @DocumentId val id: String = "",
+    /** Firebase uid of the owner who created this lottery. */
     val ownerId: String = "",
     val campsiteIds: List<String> = emptyList(),
     val registrationStart: String = "",
     val registrationEnd: String = "",
     val bookingStart: String = "",
-    val bookingEnd: String = "",
+    val bookingEnd: String = "",/
+    val lotteryStart: String = "",
+    val lotteryEnd: String = "",
     val numberOfWinners: Int = 0,
     val status: LotteryStatus = LotteryStatus.UNINITIALIZED,
     val waitlistCount: Long = 0,

@@ -136,6 +136,8 @@ fun CamplyApp() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
+// Temporary: an owner opens on the form until the campsite-list button exists.
+
                         if (currentUser.getRole() == "owner"&&showLotteryForm) {
                             lotteryCreateView.Display(currentUser.getUid()){
                                 showLotteryForm=false
