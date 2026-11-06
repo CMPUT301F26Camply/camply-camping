@@ -34,7 +34,7 @@ class EntrantLotteryView(
     /**
      * Displays the My Lotteries screen using the current model state.
      *
-     * @param cardContent Extra content shown at the bottom of each lottery's card.
+     * @param cardContent Extra content (Decline section) shown at the bottom of each lottery's card.
      */
     @Composable
     fun Display(cardContent: @Composable (Lottery) -> Unit = {}) {
