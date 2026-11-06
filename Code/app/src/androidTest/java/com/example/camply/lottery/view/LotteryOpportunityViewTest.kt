@@ -1,6 +1,9 @@
 package com.example.camply.lottery.view
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -95,7 +98,8 @@ class LotteryOpportunityViewTest {
 
         showView()
         compose.onNodeWithText(DECLINE_BUTTON).performClick()
-        compose.onNodeWithText("Decline").performClick()
+        // The card and the dialog both have a "Decline" button, so this targets the dialog's.
+        compose.onNode(hasText("Decline") and hasAnyAncestor(isDialog())).performClick()
 
         compose.onNodeWithText("Opportunity declined").assertIsDisplayed()
         compose.onNodeWithText("Result: You won").assertIsDisplayed()
