@@ -41,12 +41,15 @@ import com.example.camply.notification.repository.FirestoreNotificationRepositor
 import com.example.camply.notification.repository.FirestoreRecipientNameRepository
 import com.example.camply.notification.view.NotificationsView
 import com.example.camply.reservations.controller.ActiveReservationsController
+import com.example.camply.reservations.controller.OwnerReservationsController
 import com.example.camply.reservations.controller.ReservationBookingController
 import com.example.camply.reservations.model.ActiveReservationsModel
+import com.example.camply.reservations.model.OwnerReservationsModel
 import com.example.camply.reservations.model.ReservationBookingModel
 import com.example.camply.reservations.repository.FirestoreReservationRepository
 import com.example.camply.reservations.service.BookingService
 import com.example.camply.reservations.view.ActiveReservationsView
+import com.example.camply.reservations.view.OwnerReservationsView
 import com.example.camply.reservations.view.ReservationBookingView
 import com.example.camply.shared.navigation.controller.NavigationController
 import com.example.camply.shared.navigation.model.NavigationModel
@@ -137,12 +140,31 @@ fun CamplyApp() {
         ActiveReservationsView(activeReservationsModel, activeReservationsController)
     }
 
+    // Owner reservation management
+    val ownerReservationsModel = remember { OwnerReservationsModel() }
+
+    val ownerReservationsController = remember {
+        OwnerReservationsController(
+            ownerReservationsModel,
+            campsiteRepository,
+            reservationRepository
+        )
+    }
+
+    val ownerReservationsView = remember {
+        OwnerReservationsView(
+            ownerReservationsModel,
+            ownerReservationsController
+        )
+    }
+
     //Campsite Owner Handling
     val campsiteListView = remember { CampsiteListView() }
     var ownerDetailCampsiteId by remember { mutableStateOf<String?>(null) }
     var ownerShowForm by remember { mutableStateOf(false) }
     var ownerEditCampsite by remember { mutableStateOf<Campsite?>(null) }
     var ownerShowLottery by remember { mutableStateOf(false) }
+    var ownerShowReservations by remember { mutableStateOf(false) }
     
     // Shared notifications
     val notificationsModel = remember { NotificationsModel() }
@@ -274,12 +296,17 @@ fun CamplyApp() {
                             }
 
                             Screen.RESERVATIONS -> activeReservationsView.Display(currentUser.getUid())
-                            
+
                             Screen.CAMPSITE_LIST -> {
                                 if (ownerController != null) {
                                     val detailId = ownerDetailCampsiteId
 
-                                    if (ownerShowLottery) {
+                                    if (ownerShowReservations) {
+                                        ownerReservationsView.Display(
+                                            ownerId = currentUser.getUid(),
+                                            onBack = { ownerShowReservations = false }
+                                        )
+                                    } else if (ownerShowLottery) {
                                         BackHandler {
                                             ownerShowLottery = false
                                         }
@@ -334,7 +361,7 @@ fun CamplyApp() {
                                                 lotteryCreateController.onCampsiteSelected(campsite.id)
                                                 ownerShowLottery = true
                                             },
-                                            reservationList = { },
+                                            reservationList = { ownerShowReservations = true },
                                             viewOrCreateLottery = { }
                                         )
                                     }

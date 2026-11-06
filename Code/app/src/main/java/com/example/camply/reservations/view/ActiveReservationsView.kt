@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.example.camply.reservations.controller.ActiveReservationsController
 import com.example.camply.reservations.model.ActiveReservationItem
 import com.example.camply.reservations.model.ActiveReservationsModel
+import com.example.camply.shared.view.FilterChips
 import com.example.camply.shared.view.CamplyPalette
 import com.example.camply.shared.view.CamplyScreen
 import com.example.camply.shared.view.CardLabel
@@ -36,10 +37,10 @@ import com.example.camply.shared.view.SecondaryButton
 import kotlinx.coroutines.launch
 
 /**
- * Displays the entrant's active reservations (US 01.06.01).
+ * Displays and filters the entrant's reservations (US 01.06.01, US 01.06.02).
  *
  * @param model The model containing the screen state.
- * @param controller The controller used to load active reservations.
+ * @param controller The controller used to load and filter reservations.
  */
 class ActiveReservationsView(
     private val model: ActiveReservationsModel,
@@ -47,7 +48,7 @@ class ActiveReservationsView(
 ) {
 
     /**
-     * Loads and displays an entrant's active reservations, or the selected reservation's details.
+     * Loads and displays an entrant's reservations, or the selected reservation's details.
      *
      * @param entrantId The entrant's Firebase user ID.
      */
@@ -75,15 +76,39 @@ class ActiveReservationsView(
 
                 selected != null -> ReservationDetails(selected)
 
-                model.reservations.isEmpty() -> CenteredMessage("You have no active reservations.")
 
-                else -> LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(model.reservations, key = { it.reservation.id }) { item ->
-                        ReservationCard(item)
+                else -> {
+                    FilterChips(
+                        categories = listOf("All", "Active", "Past", "Cancelled", "Rejected"),
+                        selectedCategories =
+                            if (model.selectedFilters.isEmpty()) {
+                                setOf("All")
+                            } else {
+                                model.selectedFilters
+                            },
+                        onCategoryToggle = controller::onFilterSelected
+                    )
+
+
+                    Spacer(Modifier.height(12.dp))
+
+                    when {
+                        model.allReservations.isEmpty() ->
+                            CenteredMessage("You have no reservations.")
+
+                        model.filteredReservations.isEmpty() ->
+                            CenteredMessage("No reservations match the selected filters.")
+
+                        else -> LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(model.filteredReservations, key = { it.reservation.id }) { item ->
+                                ReservationCard(item)
+                            }
+                        }
                     }
                 }
+
             }
         }
     }
@@ -133,7 +158,24 @@ class ActiveReservationsView(
 
         item.campsite?.let { Text(it.location, fontSize = 13.sp, color = CamplyPalette.Ink) }
 
+
         Text("${dates.from} to ${dates.to}", fontSize = 13.sp, color = CamplyPalette.Ink)
-        Text("Active", fontSize = 13.sp, color = CamplyPalette.Ink)
+
+        val category = controller.getReservationCategory(item.reservation)
+
+        val statusColor = when (category) {
+            "Active" -> Color(0xFF1B5E20)
+            "Past" -> Color.Gray
+            "Cancelled", "Rejected" -> Color.Red
+            else -> CamplyPalette.Ink
+        }
+
+        Text(
+            category,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = statusColor
+        )
+
     }
 }
