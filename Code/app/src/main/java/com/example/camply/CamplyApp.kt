@@ -13,6 +13,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.camply.campsite.controller.CampsiteBrowseController
@@ -63,9 +64,11 @@ import com.example.camply.user.controller.OwnerController
 import com.example.camply.user.controller.UserController
 import com.example.camply.user.model.CampsiteOwnerUser
 import com.example.camply.user.model.UserModel
+import com.example.camply.user.view.CampsiteFormView
 import com.example.camply.user.view.CampsiteListView
 import com.example.camply.user.view.UserProfileView
 import com.example.camply.user.view.UserSignUpView
+import kotlinx.coroutines.launch
 
 /**
  * Displays the Camply application and manages its startup screens
@@ -97,7 +100,7 @@ fun CamplyApp() {
     val campsiteDetailModel = remember { CampsiteDetailModel() }
     val campsiteDetailController = remember { CampsiteDetailController(campsiteDetailModel, campsiteRepository) }
     val campsiteDetailView = remember { CampsiteDetailView(campsiteDetailModel, campsiteDetailController) }
-    
+
     // Owner lottery registration. US 02.04.01, 02.04.03, 02.04.04, 02.04.05.
     val lotteryCreateModel = remember { LotteryCreateModel() }
     val lotteryRepository = remember { FirestoreLotteryRepository() }
@@ -160,12 +163,13 @@ fun CamplyApp() {
 
     //Campsite Owner Handling
     val campsiteListView = remember { CampsiteListView() }
+    val campsiteFormView = remember { CampsiteFormView() }
     var ownerDetailCampsiteId by remember { mutableStateOf<String?>(null) }
     var ownerShowForm by remember { mutableStateOf(false) }
     var ownerEditCampsite by remember { mutableStateOf<Campsite?>(null) }
     var ownerShowLottery by remember { mutableStateOf(false) }
     var ownerShowReservations by remember { mutableStateOf(false) }
-    
+
     // Shared notifications
     val notificationsModel = remember { NotificationsModel() }
     val notificationsController = remember {
@@ -204,6 +208,7 @@ fun CamplyApp() {
             val currentUser = userModel.getCurrentUser()
             android.util.Log.d("Camply", "startup=${userModel.getStartupState()} user=$currentUser role=${currentUser?.getRole()} isOwner=${currentUser is CampsiteOwnerUser}")
             val owner = currentUser as? CampsiteOwnerUser
+            val scope = rememberCoroutineScope()
             val ownerController = remember(owner) {
                 owner?.let { OwnerController(it, campsiteRepository) }
             }
@@ -232,7 +237,7 @@ fun CamplyApp() {
                     ) {
                         when (navigationModel.getCurrentScreen()) {
 
-                              Screen.BROWSE -> {
+                            Screen.BROWSE -> {
                                 val openId = selectedCampsiteId
                                 if (openId == null) {
                                     campsiteBrowseView.Display(onCampsiteClick = { selectedCampsiteId = it })
@@ -317,21 +322,37 @@ fun CamplyApp() {
                                         )
                                     } else if (ownerShowForm) {
                                         BackHandler {
+                                            ownerController.removeErrorsFromList()
                                             ownerShowForm = false
                                             ownerEditCampsite = null
                                         }
 
-                                        Column {
-                                            Text("Campsite form goes here")
-
-                                            SecondaryButton(
-                                                text = "Back",
-                                                onClick = {
-                                                    ownerShowForm = false
-                                                    ownerEditCampsite = null
+                                        campsiteFormView.Display(
+                                            campsite = ownerEditCampsite,
+                                            errors = ownerController.errors,
+                                            onSubmit = { name, location, description, amenities, occupancy, price, tags, rules, cancellation ->
+                                                scope.launch {
+                                                    val existing = ownerEditCampsite
+                                                    val ok = if (existing == null) {
+                                                        ownerController.registerCampsite(name, location, description, amenities, occupancy, price, tags, rules, cancellation)
+                                                    } else {
+                                                        ownerController.updateCampsite(existing, name, location, description, amenities, occupancy, price, tags, rules, cancellation)
+                                                    }
+                                                    if (ok) {
+                                                        ownerShowForm = false
+                                                        ownerEditCampsite = null
+                                                        ownerDetailCampsiteId = null
+                                                    }
                                                 }
-                                            )
-                                        }
+                                            },
+                                            onBack = {
+                                                ownerController.removeErrorsFromList()
+                                                ownerShowForm = false
+                                                ownerEditCampsite = null
+                                            },
+                                            navigationModel = navigationModel,
+                                            navigationController = navigationController
+                                        )
 
                                     } else if (detailId != null) {
                                         BackHandler { ownerDetailCampsiteId = null }
@@ -367,7 +388,7 @@ fun CamplyApp() {
                                     }
                                 }
                             }
-                            
+
                             Screen.PROFILE -> userProfileView.Display(currentUser, userController)
 
                             Screen.NOTIFICATIONS -> notificationsView.Display(currentUser.getUid(), currentUser.getRole())
