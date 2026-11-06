@@ -30,6 +30,10 @@ class CampsiteOwnerUser(
     val campsites: List<Campsite>
         get() = _campsites
 
+    fun loadExistingCampsite(loadedCampsites: List<Campsite>){
+        _campsites.clear()
+        _campsites.addAll(loadedCampsites)
+    }
     override fun registerCampsite(campsite: Campsite): Boolean {
         if (campsite.validationCheck().isNotEmpty()){
             return false
@@ -43,15 +47,24 @@ class CampsiteOwnerUser(
     }
 
     override fun updateExistingCampsite(campsite: Campsite, edit: Campsite): Boolean {
+        // if there is no existing campsites for this owner
+        if (!_campsites.contains((campsite))){
+            return false
+        }
         if (edit.validationCheck().isNotEmpty()){
             return false
         }
         campsite.name = edit.name
         campsite.location = edit.location
+        campsite.description = edit.description
         campsite.amenities = edit.amenities
+        campsite.cancellationPolicy = edit.cancellationPolicy
+        campsite.price = edit.price
         campsite.rules = edit.rules
         campsite.maxOccupancy = edit.maxOccupancy
         campsite.tags = edit.tags
+        campsite.images = edit.images
+
         return true
     }
 

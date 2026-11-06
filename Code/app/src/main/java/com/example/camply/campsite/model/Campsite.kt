@@ -50,32 +50,29 @@ class Campsite(
     var cancellationPolicy: String = "",
     val ownerId: String = "",
     var availability: List<DateRange> = emptyList(),
-    images: List<String> = emptyList(),
+    var images: List<String> = emptyList(),
 ) {
     /** US 01.01.01: case-insensitive partial name match. A blank query matches everything. */
     fun matchesName(query: String): Boolean =
         query.isBlank() || name.contains(query.trim(), ignoreCase = true)
 
     /** US 02.01.01: returns a copy with the image added; blank addresses are ignored. */
-    private val _images = mutableListOf<String>()
-    init {
-        for (uri in images){
-            addImage(uri)
-        }
-    }
-    val images: List<String>
-        get() = _images
+
     fun addImage(uri:String): Boolean{
         // "uri" reference: https://developer.android.com/reference/android/net/Uri
         if (uri.isBlank() || uri in images){
             return false
         }
-        _images.add(uri)
+        images = images + uri
         return true
     }
 
-    fun removeImage(uri: String) {
-        _images.remove(uri)
+    fun removeImage(uri: String): Boolean {
+        if(uri !in images) {
+            return false
+        }
+        images = images - uri
+        return true
     }
     /**
      * US 02.01.01 / 02.01.03: checks that the owner supplied the required details.
@@ -95,6 +92,9 @@ class Campsite(
         }
         if (maxOccupancy <= 0){
             errorList.add("Please enter a valid occupancy number")
+        }
+        if (price < 0){
+            errorList.add("Please enter a valid price")
         }
         return errorList
     }
