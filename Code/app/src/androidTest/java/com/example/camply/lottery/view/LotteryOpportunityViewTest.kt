@@ -136,6 +136,6 @@ class LotteryOpportunityViewTest {
     private companion object {
         const val LOTTERY_ID = "lottery1"
         const val ENTRANT_ID = "entrant1"
-        const val DECLINE_BUTTON = "Decline reservation opportunity"
+        const val DECLINE_BUTTON = "Decline"
     }
 }
