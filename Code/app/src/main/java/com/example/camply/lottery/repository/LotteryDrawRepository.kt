@@ -47,7 +47,7 @@ class FirestoreLotteryDrawRepository(
         return results
     }
     /**
-     * Draws this lottery when it is still OPEN and lotteryEnd has reached
+     * Draws this lottery when it is still OPEN and registrationEnd has reached
      * 23:59 Alberta time. Returns the people who won and lost.
      * Returns null when the lottery is missing, already drawn, or not due yet.
      */
@@ -61,11 +61,11 @@ class FirestoreLotteryDrawRepository(
         }
 
         val status = lottery.getString("status")
-        val lotteryEnd = lottery.getString("lotteryEnd") ?: ""
+        val registrationEnd = lottery.getString("registrationEnd") ?: ""
         if (status != "OPEN") {
             return null
         }
-        if (!isDrawDue(lotteryEnd, now)) {
+        if (!isDrawDue(registrationEnd, now)) {
             return null
         }
 

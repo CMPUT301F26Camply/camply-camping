@@ -5,6 +5,7 @@ import com.example.camply.lottery.repository.LotteryDrawRepository
 import com.example.camply.notification.service.NotificationService
 import kotlinx.coroutines.delay
 import java.time.ZonedDateTime
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * While Camply is open, checks for lotteries whose lotteryEnd has passed.
@@ -19,7 +20,13 @@ class LotteryDrawService(
     /** Checks once a minute for as long as the app stays open. */
     suspend fun keepChecking() {
         while (true) {
-            deliverDueLotteries()
+            try {
+                deliverDueLotteries()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // A failed check stays in the loop and runs again after the delay.
+            }
             delay(60_000)
         }
     }
