@@ -434,8 +434,6 @@ fun CamplyApp() {
                                                 ownerShowForm = false
                                                 ownerEditCampsite = null
                                             },
-                                            navigationModel = navigationModel,
-                                            navigationController = navigationController
                                         )
 
                                     } else if (detailId != null) {

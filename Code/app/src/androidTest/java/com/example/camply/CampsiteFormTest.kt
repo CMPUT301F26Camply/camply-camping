@@ -45,7 +45,6 @@ class CampsiteFormViewTest {
         campsite: Campsite? = null,
         onSubmit: (List<String>) -> Unit = {}
     ) {
-        val model = NavigationModel()
 
         composeRule.setContent {
             MaterialTheme {
@@ -78,14 +77,12 @@ class CampsiteFormViewTest {
                         )
                     },
                     onBack = {},
-                    navigationModel = model,
-                    navigationController = NavigationController(model)
                 )
             }
         }
     }
 
-    // Tests that the rules and policies dialog opens and closes correctly.
+    // Tests that the rules and policies dialog (pop-up) opens and closes correctly.
     @Test
     fun rulesAndPoliciesButton_opensAndClosesPopup() {
         setForm()
@@ -242,9 +239,7 @@ class CampsiteFormViewTest {
                             cancellationPolicy = cancellationPolicy
                         )
                     },
-                    onBack = {},
-                    navigationModel = model,
-                    navigationController = NavigationController(model)
+                    onBack = {}
                 )
             }
         }

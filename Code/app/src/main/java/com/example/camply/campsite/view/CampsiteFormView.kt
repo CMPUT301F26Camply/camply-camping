@@ -43,11 +43,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.camply.campsite.model.Campsite
-import com.example.camply.shared.navigation.controller.NavigationController
-import com.example.camply.shared.navigation.model.NavBarItem
-import com.example.camply.shared.navigation.model.NavigationModel
 
 class CampsiteFormView {
 
@@ -57,8 +53,6 @@ class CampsiteFormView {
         errors: List<String>,
         onSubmit: (String, String, String, String, String, String, String, String, String) -> Unit,
         onBack: () -> Unit,
-        navigationModel: NavigationModel,
-        navigationController: NavigationController
     ) {
         var name by remember(campsite) { mutableStateOf(campsite?.name ?: "") }
         var location by remember(campsite) { mutableStateOf(campsite?.location ?: "") }
@@ -304,15 +298,12 @@ class CampsiteFormView {
 @Preview(showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 fun CampsiteFormViewAddPreview() {
-    val model = NavigationModel()
     MaterialTheme {
         CampsiteFormView().Display(
             campsite = null,
             errors = emptyList(),
             onSubmit = { _, _, _, _, _, _, _, _, _ -> },
             onBack = {},
-            navigationModel = model,
-            navigationController = NavigationController(model)
         )
     }
 }
@@ -321,7 +312,6 @@ fun CampsiteFormViewAddPreview() {
 @Preview(showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 fun CampsiteFormViewEditPreview() {
-    val model = NavigationModel()
     MaterialTheme {
         CampsiteFormView().Display(
             campsite = Campsite(
@@ -339,8 +329,6 @@ fun CampsiteFormViewEditPreview() {
             errors = emptyList(),
             onSubmit = { _, _, _, _, _, _, _, _, _ -> },
             onBack = {},
-            navigationModel = model,
-            navigationController = NavigationController(model)
         )
     }
 }

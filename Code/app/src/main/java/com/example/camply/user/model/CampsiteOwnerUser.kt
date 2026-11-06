@@ -11,6 +11,8 @@ import com.example.camply.campsite.model.Campsite
  *
  * @param uid the user's Firebase Authentication UID
  * @param profile the user's personal profile information
+ *
+ * Covering US 02.01.01 - 02.01.03
  */
 class CampsiteOwnerUser(
     uid: String,

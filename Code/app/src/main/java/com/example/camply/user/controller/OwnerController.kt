@@ -10,7 +10,8 @@ import com.example.camply.user.model.CampsiteOwnerUser
 import kotlinx.coroutines.CancellationException
 
 /**
- * Handles campsite owner's actions and forwards them to the campsite owner model
+ * This class acts as a controller
+ * for campsite owner's actions and forwards them to the campsite owner model
  *
  * @param campsiteOwner representing the current owner
  * @param repository representing the current owner's campsite repository
@@ -200,6 +201,13 @@ class OwnerController(
         val occupancy = maxOccupancy.trim().toIntOrNull() ?: 0
         val priceForSite = price.trim().toDoubleOrNull() ?: 0.0
         //.map functionality: https://kotlinlang.org/docs/collection-transformations.html#map
+        //*
+        //   Author: Cristian https://stackoverflow.com/users/244296/cristian
+        //   Title: "Removing spaces from string"
+        //   Answer: https://stackoverflow.com/questions/6932163/removing-spaces-from-string
+        //   Date: 2011-07-03
+        //   License: CC-BY-SA 4.0 (International)
+        //*/
         val amenityList = amenities.split(",").map {
             it.trim()
         }.filter { it.isNotEmpty() }
