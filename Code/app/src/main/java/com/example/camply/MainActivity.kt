@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.example.camply.ui.theme.CamplyTheme
+import com.example.camply.ui.theme.CamplyThemePreset
 
 /**
  * Main entry point for the Camply Android application.
@@ -22,9 +23,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            CamplyTheme {
+            CamplyTheme(
+                preset = CamplyThemePreset.BLUE
+            ) {
                 CamplyApp()
             }
         }
+
     }
 }
