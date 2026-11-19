@@ -21,6 +21,7 @@ class NotificationsController(
     private val recipientNameRepository: RecipientNameRepository
 ) {
     private var stopListening: (() -> Unit)? = null
+    private var stopPopupListening: (() -> Unit)? = null
     private var observationVersion = 0
     private var observedUserId: String? = null
     private var observedRole: String? = null
@@ -75,6 +76,46 @@ class NotificationsController(
         stopListening?.invoke()
         stopListening = null
         model.reset()
+    }
+
+    /**
+     * This function enables device notification whenever a new notification arrives for the specified user.
+     *
+     * Separate from [startObserving], so it works for every role and keeps running while the
+     * notifications screen is closed.
+     *
+     * @param userId The user's Firebase user ID.
+     * @param show Shows a device notification with the given title and text.
+     */
+    fun startDeviceNotifications(userId: String, show: (title: String, body: String) -> Unit) {
+        stopDeviceNotifications()
+        val startedAt = System.currentTimeMillis()
+        var seenIds: Set<String>? = null
+
+        stopPopupListening = repository.observeReceived(
+            recipientId = userId,
+            onUpdate = { records ->
+                val seen = seenIds
+                // The first update is the existing inbox, so it never pops up.
+                if (seen != null) {
+                    records
+                        .filter { it.id !in seen && !it.isRead }
+                        // Ignores anything older than this session.
+                        // the following .filter implementation is designed with the help of Anthropic, Claude: "How to I stop past notifications from popping up in Kotlin?", 2026-11-18
+                        // 60_000 = 60 seconds
+                        .filter { (it.createdAt?.toDate()?.time ?: 0L) >= startedAt - 60_000 }
+                        .forEach { show(it.title, it.content) }
+                }
+                seenIds = records.map { it.id }.toSet()
+            },
+            onError = { }
+        )
+    }
+
+    // stops device notification
+    fun stopDeviceNotifications() {
+        stopPopupListening?.invoke()
+        stopPopupListening = null
     }
 
     /** Opens only a received record belonging to the active entrant. */
