@@ -213,7 +213,6 @@ fun CamplyApp() {
         )
     }
     val notificationsView = remember { NotificationsView(notificationsModel, notificationsController) }
-
     // Check for an existing Firebase user or sign in anonymously
     LaunchedEffect(Unit) {
         userModel.initializeUser()
@@ -284,6 +283,7 @@ fun CamplyApp() {
                     notificationsController.startObserving(currentUser.getUid(), currentUser.getRole())
                     onDispose { notificationsController.stopObserving() }
                 }
+                notificationsView.DeviceNotifications(currentUser.getUid())
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
