@@ -63,4 +63,5 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("androidx.compose.material:material-icons-core")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
+    implementation("com.google.firebase:firebase-messaging")
 }

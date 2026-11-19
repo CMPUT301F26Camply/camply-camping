@@ -40,6 +40,23 @@ import com.google.firebase.Timestamp
 import java.text.SimpleDateFormat
 import java.util.Locale
 import kotlinx.coroutines.launch
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import com.example.camply.MainActivity
+import com.example.camply.R
+import androidx.compose.ui.platform.LocalContext
 
 /**
  * Displays the shared notification screen (US 02.10.02).
@@ -117,6 +134,71 @@ class NotificationsView(
                 }
             }
         }
+    }
+
+    /**
+     * Shows a device notification whenever a new notification arrives for this user,
+     * for any role, while the app is running. Call once after login, outside the
+     * notifications screen, so it keeps running on every screen.
+     *
+     * @param userId The user's Firebase user ID.
+     */
+    @Composable
+    fun DeviceNotifications(userId: String) {
+        val context = LocalContext.current
+
+        // Android 13+ needs the notification permission at runtime.
+        val permissionLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { }
+        LaunchedEffect(Unit) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        DisposableEffect(userId) {
+            controller.startDeviceNotifications(userId) { title, body ->
+                showDeviceNotification(context.applicationContext, title, body)
+            }
+            onDispose { controller.stopDeviceNotifications() }
+        }
+    }
+
+    // Builds and shows one device notification. Tapping it opens the app.
+    // Implementation of device notification: https://developer.android.com/develop/ui/compose/notifications/create-notification
+    // and: https://www.geeksforgeeks.org/android/how-to-push-notification-in-android/
+    // The following function was developed with some help from Anthropic, Claude, "How do I design a device notification function using the following method?", 2026-11-18
+    private fun showDeviceNotification(context: Context, title: String, body: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                DEVICE_CHANNEL_ID, "Notifications", NotificationManager.IMPORTANCE_HIGH
+            )
+            context.getSystemService(NotificationManager::class.java)
+                .createNotificationChannel(channel)
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, DEVICE_CHANNEL_ID)
+            .setSmallIcon(R.drawable.push_notification_icon)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        if (ActivityCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) return
+
+        NotificationManagerCompat.from(context)
+            .notify(System.currentTimeMillis().toInt(), notification)
     }
 
     @Composable
@@ -256,5 +338,9 @@ class NotificationsView(
     private fun recipientCountText(notification: SentNotification): String {
         val count = notification.recipientCount
         return if (count == 1) "1 recipient" else "$count recipients"
+    }
+
+    private companion object {
+        const val DEVICE_CHANNEL_ID = "camply_notifications"
     }
 }
