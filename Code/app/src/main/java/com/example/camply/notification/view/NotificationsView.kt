@@ -138,8 +138,8 @@ class NotificationsView(
 
     /**
      * Shows a device notification whenever a new notification arrives for this user,
-     * for any role, while the app is running. Call once after login, outside the
-     * notifications screen, so it keeps running on every screen.
+     * for any role, while the app is running. this needs to be called outside the
+     * notifications screen.
      *
      * @param userId The user's Firebase user ID.
      */
