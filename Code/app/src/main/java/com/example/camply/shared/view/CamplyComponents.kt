@@ -1,35 +1,138 @@
 package com.example.camply.shared.view
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.camply.ui.theme.CamplyBackground
+import com.example.camply.ui.theme.CamplyBorder
+import com.example.camply.ui.theme.CamplyDanger
+import com.example.camply.ui.theme.CamplyInk
+import com.example.camply.ui.theme.CamplyMutedText
+import com.example.camply.ui.theme.CamplyOrange
+import com.example.camply.ui.theme.CamplyOrangeDark
+import com.example.camply.ui.theme.CamplyOrangeLight
+import com.example.camply.ui.theme.CamplySurface
+
+// CamplyComponents.kt - Shared UI Components Redesign
+//
+// AI Assistance Reference:
+// OpenAI ChatGPT 6
+// https://chatgpt.com/
+//
+// Purpose of AI assistance:
+// AI was used to help redesign and improve the existing
+// reusable Jetpack Compose UI components to create a more
+// consistent appearance throughout the Camply application.
+// This included assistance with applying Material 3 theme
+// colors, improving component layouts, and creating new
+// reusable input and selection components.
+//
+// Starting Prompt:
+// "Can you help me redesign my existing CamplyComponents.kt
+// file to give my Android Jetpack Compose app a cleaner,
+// more modern and consistent appearance? I want to replace
+// the old gradient backgrounds and orange cards with a
+// lighter design... I want to improve the styling of buttons,
+// cards, and text fields. I also want reusable input and selection
+// components while keeping compatibility with my existing screens."
+//
+// There were many follow-up prompts in order to design everything.
+//
+// Changes from the original implementation:
+// - Updated CamplyPalette to use shared theme color values.
+// - Retained legacy color names for compatibility.
+// - Redesigned CamplyScreen with a themed background and heading.
+// - Changed OrangeCard to use a light surface with rounded
+//   corners and a border while retaining its original name.
+// - Updated PrimaryButton, SecondaryButton and DangerButton
+//   with theme colors, rounded shapes and consistent sizing.
+// - Updated CardLabel, CenteredMessage and ErrorMessage styling.
+// - Updated text field colors to follow the active theme.
+// - Added CamplyTextField for reusable styled text inputs.
+// - Added CamplySelectionButton for selectable options with
+//   optional icons, subtitles and selected state styling.
+// - Expanded documentation for the reusable components.
+//
+// The existing shared component functions and their general
+// purposes were retained, while their visual styling was
+// updated to support the Camply redesign.
+
 
 /*
  * Reusable building blocks that match the storyboard styling.
  * Any phase can use these so every screen looks the same.
  */
 
+/**
+ * Shared compatibility palette for Camply views.
+ *
+ * Existing color names are maintained so older views
+ * can continue using the same references.
+ *
+ * New shared UI components should prefer MaterialTheme
+ * colors whenever possible.
+ */
 object CamplyPalette {
-    val Orange = Color(0xFFF29A4B)
-    val Cream = Color(0xFFFCF1DD)
-    val Black = Color(0xFF0B0B0B)
-    val Danger = Color(0xFF8B1E1E)
-    val GradientTop = Color(0xFFA67C52)
-    val GradientBottom = Color(0xFF6F6A33)
-    val Ink = Color(0xFF2A1A0B)
+    val Orange = CamplyOrange
+    val Cream = CamplyOrangeLight
+    val Black = CamplyInk
+    val Danger = CamplyDanger
+    val Ink = CamplyInk
+
+    // Legacy colors retained for compatibility.
+    val GradientTop = CamplyOrange
+    val GradientBottom = CamplyOrangeDark
+
+    // New neutral colors.
+    val Background = CamplyBackground
+    val Surface = CamplySurface
+    val Border = CamplyBorder
+    val MutedText = CamplyMutedText
 }
 
-/** Gradient background + black pill title bar, like every storyboard screen. */
+
+/**
+ * Displays a shared Camply screen layout.
+ *
+ * Provides a consistent background and page heading.
+ * The content is provided by the calling view so
+ * existing screen behavior remains unchanged.
+ *
+ * @param title The title displayed at the top.
+ * @param modifier Modifier applied to the screen.
+ * @param content Composable content displayed below the title.
+ */
 @Composable
 fun CamplyScreen(
     title: String,
@@ -39,101 +142,407 @@ fun CamplyScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(CamplyPalette.GradientTop, CamplyPalette.GradientBottom)))
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .background(
+                MaterialTheme.colorScheme.background
+            )
+            .padding(
+                horizontal = 20.dp,
+                vertical = 20.dp
+            )
     ) {
         Text(
             text = title,
-            color = Color.White,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(CamplyPalette.Black, RoundedCornerShape(24.dp))
-                .padding(vertical = 12.dp)
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.fillMaxWidth()
         )
-        Spacer(Modifier.height(12.dp))
+
+        Spacer(Modifier.height(20.dp))
+
         content()
     }
 }
 
+
+
+/**
+ * Displays content inside a shared Camply card.
+ *
+ * The existing function name is retained for
+ * compatibility with current views.
+ *
+ * @param modifier Modifier applied to the card.
+ * @param content Composable content inside the card.
+ */
 @Composable
-fun OrangeCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun OrangeCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(CamplyPalette.Orange, RoundedCornerShape(16.dp))
-            .padding(14.dp),
+            .background(
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(20.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
+                shape = RoundedCornerShape(20.dp)
+            )
+            .padding(18.dp),
         content = content
     )
 }
 
+/**
+ * Displays a small uppercase label above card content.
+ *
+ * @param text The label to display.
+ */
 @Composable
-fun CardLabel(text: String) = Text(
-    text = text.uppercase(),
-    fontSize = 10.sp,
-    letterSpacing = 1.sp,
-    color = CamplyPalette.Ink.copy(alpha = 0.7f)
-)
+fun CardLabel(text: String) {
+    Text(
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.primary,
+        letterSpacing = 1.sp
+    )
+}
 
+/**
+ * Displays the primary Camply action button.
+ *
+ * @param text Button label.
+ * @param onClick Called when the button is clicked.
+ * @param modifier Modifier applied to the button.
+ * @param enabled Whether the button can be clicked.
+ */
 @Composable
-fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) =
+fun PrimaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
     Button(
-        onClick = onClick, enabled = enabled, shape = RoundedCornerShape(24.dp),
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = CamplyPalette.Black, contentColor = Color.White,
-            disabledContainerColor = CamplyPalette.Black.copy(alpha = 0.5f),
-            disabledContentColor = Color.White.copy(alpha = 0.7f)
-        ),
-        modifier = modifier.fillMaxWidth().heightIn(min = 48.dp)
-    ) { Text(text) }
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            disabledContainerColor =
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+            disabledContentColor =
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+        )
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge
+        )
+    }
+}
 
+/**
+ * Displays a secondary Camply action button.
+ *
+ * @param text Button label.
+ * @param onClick Called when the button is clicked.
+ * @param modifier Modifier applied to the button.
+ */
 @Composable
-fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) =
+fun SecondaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Button(
-        onClick = onClick, shape = RoundedCornerShape(24.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = CamplyPalette.Cream, contentColor = CamplyPalette.Ink),
-        modifier = modifier.fillMaxWidth().heightIn(min = 48.dp)
-    ) { Text(text) }
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor =
+                MaterialTheme.colorScheme.primaryContainer,
+            contentColor =
+                MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge
+        )
+    }
+}
 
+/**
+ * Displays a destructive action button.
+ *
+ * @param text Button label.
+ * @param onClick Called when the button is clicked.
+ * @param modifier Modifier applied to the button.
+ */
 @Composable
-fun DangerButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) =
+fun DangerButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Button(
-        onClick = onClick, shape = RoundedCornerShape(24.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = CamplyPalette.Danger, contentColor = Color.White),
-        modifier = modifier.fillMaxWidth().heightIn(min = 48.dp)
-    ) { Text(text) }
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.error,
+            contentColor = MaterialTheme.colorScheme.onError
+        )
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge
+        )
+    }
+}
 
+
+
+/**
+ * Displays a centered message and an optional action.
+ *
+ * @param text Message displayed to the user.
+ * @param actionLabel Optional action button label.
+ * @param onAction Optional action callback.
+ */
 @Composable
-fun CenteredMessage(text: String, actionLabel: String? = null, onAction: (() -> Unit)? = null) {
-    Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text, color = Color.White, textAlign = TextAlign.Center)
+fun CenteredMessage(
+    text: String,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center
+        )
+
         if (actionLabel != null && onAction != null) {
-            Spacer(Modifier.height(12.dp))
-            SecondaryButton(actionLabel, onAction)
+            Spacer(Modifier.height(16.dp))
+
+            SecondaryButton(
+                text = actionLabel,
+                onClick = onAction
+            )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Provides consistent Material 3 text field colors.
+ */
 @Composable
 fun camplyTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedContainerColor = CamplyPalette.Cream, unfocusedContainerColor = CamplyPalette.Cream,
-    focusedTextColor = CamplyPalette.Ink, unfocusedTextColor = CamplyPalette.Ink,
-    focusedBorderColor = CamplyPalette.Black, unfocusedBorderColor = Color.Transparent,
-    cursorColor = CamplyPalette.Black
+    focusedContainerColor = MaterialTheme.colorScheme.surface,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+    disabledContainerColor = MaterialTheme.colorScheme.surface,
+    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+    focusedBorderColor = MaterialTheme.colorScheme.primary,
+    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+    errorBorderColor = MaterialTheme.colorScheme.error,
+    focusedLabelColor = MaterialTheme.colorScheme.primary,
+    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    cursorColor = MaterialTheme.colorScheme.primary
 )
 
 /**
- * Displays an error message using the Camply colour palette.
+ * Displays an error message using the Camply theme.
+ *
+ * @param message The error message displayed to the user.
  */
 @Composable
 fun ErrorMessage(message: String) {
     Text(
         text = message,
-        color = CamplyPalette.Danger,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.error,
         textAlign = TextAlign.Center,
         modifier = Modifier.fillMaxWidth()
     )
 }
+
+
+/**
+ * Displays a reusable Camply text input field.
+ *
+ * Uses the active Camply theme for colors and styling.
+ *
+ * @param value Current text field value.
+ * @param onValueChange Called when the text changes.
+ * @param label Label displayed above the text field.
+ * @param modifier Modifier applied to the text field.
+ * @param placeholder Optional placeholder text.
+ * @param enabled Whether the field can be edited.
+ * @param singleLine Whether the field accepts only one line.
+ * @param isError Whether the field is in an error state.
+ * @param keyboardOptions Keyboard configuration for the field.
+ */
+@Composable
+fun CamplyTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    placeholder: String = "",
+    enabled: Boolean = true,
+    singleLine: Boolean = true,
+    isError: Boolean = false,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            placeholder = {
+                if (placeholder.isNotEmpty()) {
+                    Text(placeholder)
+                }
+            },
+            enabled = enabled,
+            singleLine = singleLine,
+            isError = isError,
+            keyboardOptions = keyboardOptions,
+            colors = camplyTextFieldColors(),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+/**
+ * Displays a selectable Camply button with an optional icon and subtitle.
+ *
+ * Supports Material icons and drawable resources, allowing the button
+ * to display a small icon above its primary text.
+ *
+ * @param text Primary text displayed inside the button.
+ * @param selected Whether the button is selected.
+ * @param onClick Called when the button is clicked.
+ * @param modifier Modifier applied to the button.
+ * @param enabled Whether the button can be selected.
+ * @param icon Optional Material icon displayed above the text.
+ * @param subtitle Optional secondary text displayed below the title.
+ * @param iconSize Size of the icon, defaults to 18.dp.
+ * @param iconRes Optional drawable resource displayed instead of the Material icon.
+ */
+@Composable
+fun CamplySelectionButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    icon: ImageVector? = null,
+    subtitle: String? = null,
+    iconSize: Dp = 18.dp,
+    iconRes: Int? = null
+) {
+    val backgroundColor = if (selected) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+
+    val textColor = if (selected) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+
+    val borderColor = if (selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.outlineVariant
+    }
+
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.heightIn(min = 64.dp),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, borderColor),
+        contentPadding = PaddingValues(
+            horizontal = 10.dp,
+            vertical = 10.dp
+        ),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = backgroundColor,
+            contentColor = textColor
+        )
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            if (iconRes != null) {
+                Image(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = null,
+                    modifier = Modifier.size(iconSize)
+                )
+            } else if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(iconSize)
+                )
+            }
+
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                textAlign = TextAlign.Center,
+                maxLines = 2
+            )
+
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
+                )
+            }
+        }
+    }
+}
+
+
+
