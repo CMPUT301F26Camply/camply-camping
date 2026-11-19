@@ -3,8 +3,10 @@ package com.example.camply.shared.view
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -34,6 +36,7 @@ import androidx.compose.ui.unit.dp
  * @param onCategoryToggle Called when a category is selected or deselected.
  * @param modifier Optional modifier for the filter row.
  */
+
 @Composable
 fun FilterChips(
     categories: List<String>,
@@ -43,7 +46,7 @@ fun FilterChips(
 ) {
     LazyRow(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(categories) { category ->
             val selected = category in selectedCategories
@@ -51,14 +54,29 @@ fun FilterChips(
             FilterChip(
                 selected = selected,
                 onClick = { onCategoryToggle(category) },
-                label = { Text(category) },
+                label = {
+                    Text(
+                        text = category,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                },
+                shape = RoundedCornerShape(12.dp),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = selected,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    selectedBorderColor = MaterialTheme.colorScheme.primary,
+                    borderWidth = 1.dp,
+                    selectedBorderWidth = 1.dp
+                ),
                 colors = FilterChipDefaults.filterChipColors(
-                    containerColor = CamplyPalette.Cream,
-                    selectedContainerColor = CamplyPalette.Black,
-                    labelColor = CamplyPalette.Ink,
-                    selectedLabelColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    labelColor = MaterialTheme.colorScheme.onSurface,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
         }
     }
 }
+

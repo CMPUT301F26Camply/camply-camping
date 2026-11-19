@@ -1,16 +1,20 @@
+
 package com.example.camply.shared.navigation.view
 
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import com.example.camply.shared.navigation.controller.NavigationController
 import com.example.camply.shared.navigation.model.NavigationModel
 import com.example.camply.shared.navigation.model.Screen
@@ -30,10 +34,13 @@ class CamplyBottomNavBar(
      * Displays the bottom navigation bar for the specified user role.
      *
      * @param role the role used to determine which navigation items appear
+     * @param hasUnreadNotifications whether unread notifications exist
      */
     @Composable
-    fun Display(role: String, hasUnreadNotifications: Boolean = false) {
-
+    fun Display(
+        role: String,
+        hasUnreadNotifications: Boolean = false
+    ) {
         val items = navigationModel.getNavBarItems(role)
         val currentScreen = navigationModel.getCurrentScreen()
 
@@ -51,29 +58,60 @@ class CamplyBottomNavBar(
          * Implementation reviewed against the official Android documentation
          * and adapted for Camply's MVC navigation structure.
          */
-        NavigationBar {
+
+        NavigationBar(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            tonalElevation = 0.dp
+        ) {
             items.forEach { item ->
                 NavigationBarItem(
                     selected = currentScreen == item.id,
                     onClick = {
                         navigationController.onNavItemClick(item.id)
                     },
+                    enabled = item.id != Screen.BACK,
                     icon = {
-                        BadgedBox(badge = {
-                            if (item.id == Screen.NOTIFICATIONS && hasUnreadNotifications) {
-                                Badge(modifier = Modifier.semantics { contentDescription = "Unread notifications" })
+                        BadgedBox(
+                            badge = {
+                                if (
+                                    item.id == Screen.NOTIFICATIONS &&
+                                    hasUnreadNotifications
+                                ) {
+                                    Badge(
+                                        containerColor =
+                                            MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.semantics {
+                                            contentDescription =
+                                                "Unread notifications"
+                                        }
+                                    )
+                                }
                             }
-                        }) {
+                        ) {
                             Icon(
-                            painter = painterResource(id = item.iconId),
-                            contentDescription = item.label
+                                painter = painterResource(id = item.iconId),
+                                contentDescription = item.label
                             )
                         }
                     },
                     label = {
-                        Text(item.label)
+                        Text(
+                            text = item.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1
+                        )
                     },
-                    enabled = item.id != Screen.BACK
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        disabledIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                        disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    )
+
                 )
             }
         }

@@ -452,7 +452,7 @@ fun CamplyApp() {
                                         )
                                     } else {
                                         campsiteListView.Display(
-                                            ownerName = "Owner 1",
+                                            ownerName = currentUser.getProfile().getName(),
                                             campsites = ownerController.campsites,
                                             addCampsite = { ownerShowForm = true },
                                             editCampsite = {
