@@ -160,7 +160,7 @@ class CampsiteListView {
 
 
                     Text(
-                        text = "Manage your campground listings",
+                        text = "Manage your campsite listings",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

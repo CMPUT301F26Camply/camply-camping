@@ -104,7 +104,7 @@ class LotteryCreateView (
                 Text("Unable to load campsites, or you have no campsites yet", color = CamplyPalette.Ink)
             }else{
                 model.ownedCampsites.forEach { campsite ->
-                    val selected = campsite.id == model.selectedCampsiteId
+                    val selected = campsite.id in model.selectedCampsiteIds
                     Text(
                         text = if (selected) ". ${campsite.name}" else campsite.name,
                         color = CamplyPalette.Ink,
@@ -138,7 +138,7 @@ class LotteryCreateView (
         }
 
         Spacer(Modifier.height(12.dp))
-        val ready = model.selectedCampsiteId != null &&
+        val ready = model.selectedCampsiteIds.isNotEmpty() &&
                 model.stayFrom.isNotBlank() && model.stayTo.isNotBlank()&&model.registrationEnd.isNotBlank()&&model.registrationStart.isNotBlank()
         PrimaryButton("Next", onClick = onNext, enabled = ready)
 

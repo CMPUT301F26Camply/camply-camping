@@ -17,7 +17,7 @@ import org.junit.Test
  *
  * A mock repository replaces Firestore, so the tests run offline.
  */
-class DeviceNotificationsTest {
+class PopUpNotificationTest {
     private val userId = "entrant_1"
     private val repository = MockNotificationRepository()
     private val controller = NotificationsController(NotificationsModel(), repository, NoRecipientNames)
