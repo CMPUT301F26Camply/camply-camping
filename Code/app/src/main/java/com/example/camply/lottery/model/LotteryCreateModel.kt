@@ -1,6 +1,7 @@
 package com.example.camply.lottery.model
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.camply.campsite.model.Campsite
@@ -18,8 +19,9 @@ class LotteryCreateModel {
         private set
 
     /** Id of the one campsite the owner selected for this lottery. */
-    var selectedCampsiteId: String? by mutableStateOf(null)
-        private set
+    // Modifying this line for
+    // US 02.04.02: the owner should be able to list multiple campsites in a lottery
+    val selectedCampsiteIds = mutableStateListOf<String>()
 
     /** Registration period, typed as YYYY-MM-DD. US 02.04.03. */
     var registrationStart: String by mutableStateOf("")
@@ -55,7 +57,16 @@ class LotteryCreateModel {
     fun showOwnedCampsites(list: List<Campsite>) { ownedCampsites = list }
 
     /** @param id the campsite the owner chose */
-    fun selectCampsite(id: String) { selectedCampsiteId = id; errorMessage = null }
+    // modified to enable selection of multiple campsites
+    fun selectMultipleCampsites(id: String) {
+        // ability to remove a campsite from the listing: relates to US 02.04.06
+        if(id in selectedCampsiteIds) {
+            selectedCampsiteIds.remove(id)
+        } else {
+            selectedCampsiteIds.add(id)
+        }
+        errorMessage = null
+    }
 
     /** @param text the typed registration start date */
     fun updateRegistrationStart(text: String) { registrationStart = text }
