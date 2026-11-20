@@ -34,6 +34,25 @@ class UserModel {
     var profileSaved by mutableStateOf(false) // True after profile changes are saved successfully
         private set
 
+    // US 01.08.02: Profile image state
+
+    var profileImageBytes by mutableStateOf<ByteArray?>(null) // The current user's profile image, or null if none exists
+        private set
+
+    var isLoadingProfileImage by mutableStateOf(false) // True while the profile image is being loaded from Firestore
+        private set
+
+    var isSavingProfileImage by mutableStateOf(false) // True while the profile image is being saved or removed
+        private set
+
+    var profileImageError by mutableStateOf<String?>(null) // Error message from the most recent profile image operation
+        private set
+
+    var profileImageMessage by mutableStateOf<String?>(null) // Success message from the most recent profile image operation
+        private set
+
+    private var profileImageLoaded = false // Prevents repeated Firestore reads after the image has been loaded
+
     /**
      * Gets the Firebase UID associated with the current user.
      *
@@ -288,4 +307,110 @@ class UserModel {
         profileSaved = false
     }
 
+    /**
+     * Loads the current user's profile image from Firestore.
+     *
+     * Only retrieves the image if it has not already been loaded.
+     */
+    fun loadProfileImage() {
+        val user = loadedUser ?: return
+
+        if (profileImageLoaded || isLoadingProfileImage) return
+
+        profileImageError = null
+        isLoadingProfileImage = true
+
+        userRepository.getProfileImage(
+            user.getUid(),
+            onSuccess = { imageBytes ->
+                profileImageBytes = imageBytes
+                profileImageLoaded = true
+                isLoadingProfileImage = false
+            },
+            onFailure = {
+                isLoadingProfileImage = false
+                profileImageError = "Could not load profile image. Please try again later."
+            }
+        )
+    }
+
+    /**
+     * Saves or replaces the current user's profile image.
+     *
+     * @param imageBytes the image bytes to save in Firestore
+     */
+    fun saveProfileImage(imageBytes: ByteArray) {
+        val user = loadedUser ?: return
+
+        if (isSavingProfileImage || isLoadingProfileImage) return
+
+        profileImageError = null
+        profileImageMessage = null
+
+        // Prevent storing images larger than our allowed size (100,000 for now).
+        if (imageBytes.isEmpty() || imageBytes.size > 100000) {
+            profileImageError = "The selected image is too large."
+            return
+        }
+
+        isSavingProfileImage = true
+
+        userRepository.saveProfileImage(
+            user.getUid(),
+            imageBytes,
+            onSuccess = {
+                profileImageBytes = imageBytes
+                profileImageLoaded = true
+                isSavingProfileImage = false
+                profileImageMessage = "Profile image updated successfully."
+            },
+            onFailure = {
+                isSavingProfileImage = false
+                profileImageError = "Could not save your profile image. Please try again later."
+            }
+        )
+    }
+
+    /**
+     * Removes the current user's profile image from Firestore.
+     */
+    fun removeProfileImage() {
+        val user = loadedUser ?: return
+
+        if (isSavingProfileImage || isLoadingProfileImage) return
+
+        profileImageError = null
+        profileImageMessage = null
+        isSavingProfileImage = true
+
+        userRepository.removeProfileImage(
+            user.getUid(),
+            onSuccess = {
+                profileImageBytes = null
+                profileImageLoaded = true
+                isSavingProfileImage = false
+                profileImageMessage = "Profile image removed successfully."
+            },
+            onFailure = {
+                isSavingProfileImage = false
+                profileImageError = "Could not remove your profile image. Please try again later."
+            }
+        )
+    }
+
+    /**
+     * Sets an error message when a selected profile image cannot be processed.
+     */
+    fun showImageProcessingError() {
+        profileImageError = "Could not process image. Please try again or select another."
+        profileImageMessage = null
+    }
+
+    /**
+     * Clears messages from previous profile image operations.
+     */
+    fun clearProfileImageStatus() {
+        profileImageError = null
+        profileImageMessage = null
+    }
 }
