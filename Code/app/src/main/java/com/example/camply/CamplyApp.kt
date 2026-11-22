@@ -13,6 +13,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -58,6 +59,7 @@ import com.example.camply.reservations.controller.ReservationBookingController
 import com.example.camply.reservations.model.ActiveReservationsModel
 import com.example.camply.reservations.model.OwnerReservationsModel
 import com.example.camply.reservations.model.ReservationBookingModel
+import com.example.camply.reservations.model.ReservationStatus
 import com.example.camply.reservations.repository.FirestoreReservationRepository
 import com.example.camply.reservations.service.BookingService
 import com.example.camply.reservations.view.ActiveReservationsView
@@ -437,17 +439,23 @@ fun CamplyApp() {
                                         )
 
                                     } else if (detailId != null) {
-                                        BackHandler { ownerDetailCampsiteId = null }
-                                        campsiteDetailView.Display(
-                                            campsiteId = detailId,
-                                            onBack = { ownerDetailCampsiteId = null },
-                                            extraContent = { campsite ->
-                                                Button(onClick = {
-                                                    ownerEditCampsite = campsite
-                                                    ownerShowForm = true
-                                                }) {
-                                                    Text("Edit campsite")
-                                                }
+                                            campsiteDetailView.Display(
+                                                campsiteId = detailId,
+                                                onBack = { ownerDetailCampsiteId = null },
+                                                extraContent = { campsite ->
+                                                    val bookedDates by produceState(emptyList<DateRange>(), campsite.id) {
+                                                        value = reservationRepository.getReservationsForCampsite(campsite.id)
+                                                            .filter { it.status == ReservationStatus.CONFIRMED }
+                                                            .map { it.dates }
+                                                            .sortedBy { it.from }
+                                                    }
+                                                    campsiteListView.BookedDatesView(campsite, bookedDates)
+                                                    Button(onClick = {
+                                                        ownerEditCampsite = campsite
+                                                        ownerShowForm = true
+                                                    }) {
+                                                        Text("Edit campsite")
+                                                    }
                                             }
                                         )
                                     } else {

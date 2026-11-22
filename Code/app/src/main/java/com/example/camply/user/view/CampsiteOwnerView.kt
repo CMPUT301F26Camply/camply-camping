@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,6 +46,7 @@ import com.example.camply.shared.view.PrimaryButton
 import com.example.camply.shared.view.SecondaryButton
 import com.example.camply.ui.theme.CamplyTheme
 import com.example.camply.ui.theme.CamplyThemePreset
+import com.example.camply.campsite.model.DateRange
 
 // CampsiteOwnerView.kt - Campsite Owner Dashboard Redesign
 //
@@ -398,7 +400,7 @@ class CampsiteListView {
                     .fillMaxWidth()
                     .padding(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp,Alignment.CenterVertically)
+                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
             ) {
                 Box(
                     modifier = Modifier
@@ -433,7 +435,74 @@ class CampsiteListView {
             }
         }
     }
-
+    // This function covers the US 02.06.01.
+    // Using the updated UI style
+    @Composable
+    fun BookedDatesView(campsite: Campsite, bookedDates: List<DateRange>) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) { //section for dates booked. Using the DateRange class
+            Text(
+                text = "Booked Dates",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            if (bookedDates.isEmpty()) {
+                Text(
+                    text = "No Booked Dates for this campsite.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            bookedDates.forEach { range ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            MaterialTheme.colorScheme.errorContainer,
+                            RoundedCornerShape(12.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Booked from ${range.from} to ${range.to}",
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+            Text( //section to show all available dates
+                text = "Available dates",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            if (campsite.availability.isEmpty()) {
+                Text(
+                    text = "No availability dates have been set for this campsite.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            campsite.availability.forEach { range ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            RoundedCornerShape(12.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Dates Still Available from ${range.from} to ${range.to}",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+        }
+    }
 }
 
 
