@@ -17,7 +17,7 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Unit tests for owner reservation management (US 02.07.01).
+ * Unit tests for owner reservation management (US 02.07.01 and US 02.07.02).
  */
 class OwnerReservationsControllerTest {
 
@@ -231,10 +231,10 @@ class OwnerReservationsControllerTest {
     }
 
     /**
-     * Selecting a new campsite clears filters and reservation selection.
+     * Selecting another campsite preserves category filters and clears reservation selection.
      */
     @Test
-    fun onCampsiteSelected_resetsFilters() = runBlocking {
+    fun onCampsiteSelected_preservesFilters() = runBlocking {
         campsiteRepository.campsites = listOf(
             campsite("banff", "Banff Pines", ownerId),
             campsite("jasper", "Jasper Lake", ownerId)
@@ -256,7 +256,65 @@ class OwnerReservationsControllerTest {
 
         assertEquals("jasper", model.selectedCampsiteId)
         assertNull(model.selectedReservation)
-        assertTrue(model.selectedFilters.isEmpty())
+        assertEquals(setOf("Past"), model.selectedFilters)
+    }
+
+    /**
+     * Past includes only completed confirmed stays, with matching campsite counts.
+     */
+    @Test
+    fun pastFilter_limitsCampsitesAndCountsToCompletedStays() = runBlocking {
+        campsiteRepository.campsites = listOf(
+            campsite("banff", "Banff Pines", ownerId),
+            campsite("jasper", "Jasper Lake", ownerId),
+            campsite("empty", "Empty Campsite", ownerId)
+        )
+        reservationRepository.reservations = listOf(
+            reservation("past-1", "banff", "2027-06-01", "2027-06-05"),
+            reservation("past-2", "banff", "2027-06-06", "2027-06-09"),
+            reservation("ends-today", "banff", "2027-06-08", "2027-06-10"),
+            reservation("cancelled", "banff", "2027-06-01", "2027-06-05", ReservationStatus.CANCELLED),
+            reservation("rejected", "banff", "2027-06-01", "2027-06-05", ReservationStatus.REJECTED),
+            reservation("future", "jasper", "2027-07-01", "2027-07-05")
+        )
+
+        controller.loadAllReservations(ownerId)
+        controller.onFilterSelected("Past")
+
+        val entries = controller.getCampsitesWithReservations()
+        assertEquals(listOf("banff"), entries.map { it.campsite.id })
+        assertEquals(2, controller.getFilteredCount(entries.single()))
+        assertEquals(
+            listOf("past-1", "past-2"),
+            controller.getFilteredReservations(entries.single().reservations).map { it.id }
+        )
+
+        controller.onCampsiteSelected("banff")
+        controller.onReservationSelected(entries.single().reservations.first())
+        controller.onBack()
+        controller.onBack()
+        assertEquals(setOf("Past"), model.selectedFilters)
+        assertEquals(listOf("banff"), controller.getCampsitesWithReservations().map { it.campsite.id })
+
+        controller.onFilterSelected("All")
+        assertEquals(listOf("banff", "jasper"), controller.getCampsitesWithReservations().map { it.campsite.id })
+        assertEquals(5, controller.getFilteredCount(model.campsites.first()))
+    }
+
+    /**
+     * A category with no matching stays produces an empty overview.
+     */
+    @Test
+    fun pastFilter_withoutCompletedStaysReturnsNoCampsites() = runBlocking {
+        campsiteRepository.campsites = listOf(campsite("banff", "Banff Pines", ownerId))
+        reservationRepository.reservations = listOf(
+            reservation("future", "banff", "2027-07-01", "2027-07-05")
+        )
+        controller.loadAllReservations(ownerId)
+        controller.onFilterSelected("Past")
+
+        assertTrue(controller.getCampsitesWithReservations().isEmpty())
+        assertEquals(0, controller.getFilteredCount(model.campsites.single()))
     }
 
     /**

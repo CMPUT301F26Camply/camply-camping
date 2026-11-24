@@ -8,6 +8,19 @@ This README is a work in progress and will be updated as the project develops. A
 
 This section documents the use of generative AI tools during the development of Camply. Usage is recorded by project part and deliverable, including the tools used, their purpose, and the extent of their contribution.
 
+### Project Part 4
+
+**AI Provider:** OpenAI
+
+**Tool:** Codex
+
+**Date Used:** November 24, 2026
+
+#### Owner Past Reservations (US 02.07.02)
+
+- **Purpose:** Assisted with implementing category filtering on the owner campsite overview, matching reservation counts, and preserving filters through reservation navigation.
+- **Extent of Use:** Generated changes to the reservation controller, model, and Compose view, plus unit and UI tests for past reservations, empty categories, and navigation.
+
 ### Project Part 3
 
 **Contributor:** Ayesha Junaid (`junaidayesha92-code`)  
