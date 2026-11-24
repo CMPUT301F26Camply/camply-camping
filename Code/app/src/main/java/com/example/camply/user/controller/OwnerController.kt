@@ -1,13 +1,19 @@
 package com.example.camply.user.controller
 
+import android.content.Context
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteRepository
 import com.example.camply.campsite.model.DateRange
+import com.example.camply.campsite.service.CampsiteImageService
+import com.example.camply.campsite.service.PreparedCampsiteImages
 import com.example.camply.user.model.CampsiteOwnerUser
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * This class acts as a controller
@@ -23,6 +29,8 @@ class OwnerController(
     var campsites by mutableStateOf<List<Campsite>>(emptyList())
     var errors by mutableStateOf<List<String>>(emptyList())
     var loadingCheck by mutableStateOf(false)
+
+    private val imageService = CampsiteImageService()
 
     // load campsites for the owner from the firebase db
     suspend fun loadCampsite() {
@@ -55,6 +63,10 @@ class OwnerController(
         cancellationPolicy: String,
         images: List<String> = emptyList(),
         availability: List<DateRange> = emptyList(),
+        photosToSave: Map<String, Uri> = emptyMap(),
+        context: Context? = null,
+        latitude: Double? = null,
+        longitude: Double? = null
     ): Boolean {
         val campsite = buildCampsiteRecord(
             id = "",
@@ -69,6 +81,8 @@ class OwnerController(
             cancellationPolicy = cancellationPolicy,
             images = images,
             availability = availability,
+            latitude = latitude,
+            longitude = longitude
         )
 
         val problems = campsite.validationCheck()
@@ -79,7 +93,8 @@ class OwnerController(
 
         val newId: String
         try {
-            newId = repository.saveCampsite(campsite) // get the id of the new campsite from firestore
+            val preparedPhotos = preparePhotos(context, photosToSave)
+            newId = repository.saveCampsite(campsite, preparedPhotos)
         } catch (e: CancellationException){
             throw e
         } catch (e: Exception) {
@@ -100,6 +115,8 @@ class OwnerController(
             cancellationPolicy = cancellationPolicy,
             images = images,
             availability = availability,
+            latitude = latitude,
+            longitude = longitude
         )
 
         if(!campsiteOwner.registerCampsite(newCampsite)){
@@ -124,6 +141,10 @@ class OwnerController(
         cancellationPolicy: String,
         images: List<String> = existingSite.images,
         availability: List<DateRange> = existingSite.availability,
+        photosToSave: Map<String, Uri> = emptyMap(),
+        context: Context? = null,
+        latitude: Double? = existingSite.latitude,
+        longitude: Double? = existingSite.longitude
     ): Boolean {
         val edit = buildCampsiteRecord(
             id = existingSite.id,
@@ -138,6 +159,8 @@ class OwnerController(
             cancellationPolicy = cancellationPolicy,
             images = images,
             availability = availability,
+            latitude = latitude,
+            longitude = longitude
         )
 
         val problems = edit.validationCheck()
@@ -146,8 +169,12 @@ class OwnerController(
             return false
         }
 
+        // Find existing photos that are no longer in the edited campsite.
+        val photosToRemove = existingSite.images.filter { it !in images }
+
         try {
-            repository.saveCampsite(edit)
+            val preparedPhotos = preparePhotos(context, photosToSave)
+            repository.saveCampsite(edit, preparedPhotos, photosToRemove)
         } catch (e: CancellationException){
             throw e
         } catch (e: Exception){
@@ -183,6 +210,38 @@ class OwnerController(
         errors = emptyList()
     }
 
+
+    /**
+     * US 02.01.02 / 02.01.03: Prepares new or replacement campsite photos.
+     *
+     * Converts selected image URIs into full and display JPEG versions
+     * using CampsiteImageService. Existing unchanged photos are not processed.
+     *
+     * All images must be processed successfully before any Firestore
+     * changes are made. Processing runs off the main thread.
+     *
+     * @param context Android context for reading selected images
+     * @param photosToSave selected image URIs mapped by photo ID
+     * @return prepared JPEG images mapped by photo ID
+     * @throws IllegalArgumentException if an image cannot be processed
+     */
+    private suspend fun preparePhotos(
+        context: Context?,
+        photosToSave: Map<String, Uri>
+    ): Map<String, PreparedCampsiteImages> {
+        if (photosToSave.isEmpty()) {
+            return emptyMap()
+        }
+
+        val imageContext = requireNotNull(context) {"Image context is required to process campsite photos"}
+
+        return withContext(Dispatchers.IO) { photosToSave.mapValues { (_, uri) ->
+                imageService.prepareImage(imageContext, uri)
+                    ?: throw IllegalArgumentException("Could not process one of the selected campsite photos")
+            }
+        }
+    }
+
     private fun buildCampsiteRecord(
         id: String,
         name: String,
@@ -196,6 +255,8 @@ class OwnerController(
         cancellationPolicy: String,
         images: List<String>,
         availability: List<DateRange>,
+        latitude: Double?,
+        longitude: Double?
     ): Campsite {
         // The following function is from Anthropic, Claude, "How do I ensure that anything not valid turns into 0 so that my validation check can catch it?", 2026-11-05
         val occupancy = maxOccupancy.trim().toIntOrNull() ?: 0
@@ -230,6 +291,8 @@ class OwnerController(
             ownerId = campsiteOwner.getUid(),
             images = images,
             availability = availability,
+            latitude = latitude,
+            longitude = longitude
         )
         return campsite
     }

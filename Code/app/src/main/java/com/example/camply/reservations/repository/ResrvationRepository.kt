@@ -1,6 +1,8 @@
 package com.example.camply.reservations.repository
 
+import com.example.camply.lottery.model.LotteryEntry
 import com.example.camply.reservations.model.Reservation
+import com.example.camply.reservations.model.ReservationStatus
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
@@ -37,7 +39,7 @@ interface ReservationRepository {
  * Retrieves reservation information from Cloud Firestore.
  */
 class FirestoreReservationRepository(
-    db: FirebaseFirestore = FirebaseFirestore.getInstance()
+    private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) : ReservationRepository {
     private val reservations = db.collection("reservations")
 
@@ -49,11 +51,47 @@ class FirestoreReservationRepository(
         reservations.whereEqualTo("campsiteId", campsiteId).get().await()
             .toObjects(Reservation::class.java)
 
+
     /**
-     * Saves a reservation to Cloud Firestore.
+     * Atomically confirms a reservation and marks its lottery opportunity as booked.
+     *
+     * Both changes succeed together or neither is saved. This prevents concurrent
+     * booking or decline requests from consuming the same lottery opportunity twice.
+     *
+     * @param reservation The confirmed reservation to create.
+     * @return The new reservation document ID.
      */
     override suspend fun createReservation(reservation: Reservation): String {
-        val document = reservations.add(reservation).await()
-        return document.id
+        require(reservation.entrantId.isNotBlank() && '/' !in reservation.entrantId)
+        require(reservation.lotteryId.isNotBlank() && '/' !in reservation.lotteryId)
+        require(reservation.campsiteId.isNotBlank() && '/' !in reservation.campsiteId)
+        require(reservation.status == ReservationStatus.CONFIRMED)
+
+        val entryRef = db.collection("lotteries")
+            .document(reservation.lotteryId)
+            .collection("entries")
+            .document(reservation.entrantId)
+
+        val reservationRef = reservations.document()
+
+        db.runTransaction { transaction ->
+            val entry = transaction.get(entryRef).toObject(LotteryEntry::class.java)
+
+            if (entry?.canConfirmReservation() != true) {
+                throw IllegalStateException(
+                    "This lottery opportunity has already been used or is no longer available."
+                )
+            }
+
+            transaction.set(reservationRef, reservation)
+            transaction.update(
+                entryRef,
+                "opportunityStatus",
+                LotteryEntry.OPPORTUNITY_BOOKED
+            )
+        }.await()
+
+        return reservationRef.id
     }
+
 }

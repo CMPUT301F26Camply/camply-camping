@@ -7,12 +7,14 @@ import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.example.camply.campsite.model.DateRange
 import com.example.camply.lottery.controller.LotteryOpportunityController
 import com.example.camply.lottery.model.LotteryEntry
 import com.example.camply.lottery.model.LotteryOpportunityModel
 import com.example.camply.lottery.repository.DeclineResult
 import com.example.camply.lottery.repository.LotteryEntryRepository
 import com.example.camply.reservations.model.Reservation
+import com.example.camply.reservations.model.ReservationStatus
 import com.example.camply.reservations.repository.ReservationRepository
 import com.example.camply.reservations.service.BookingService
 import org.junit.Assert.assertEquals
@@ -29,6 +31,7 @@ class LotteryOpportunityViewTest {
     val compose = createComposeRule()
 
     private lateinit var entryRepository: TestLotteryEntryRepository
+    private lateinit var reservationRepository: TestReservationRepository
     private lateinit var view: LotteryOpportunityView
 
     /**
@@ -37,11 +40,13 @@ class LotteryOpportunityViewTest {
     @Before
     fun setUp() {
         entryRepository = TestLotteryEntryRepository()
+        reservationRepository = TestReservationRepository()
+
         val model = LotteryOpportunityModel()
         val controller = LotteryOpportunityController(
             model,
             entryRepository,
-            TestReservationRepository(),
+            reservationRepository,
             BookingService()
         )
         view = LotteryOpportunityView(model, controller)
@@ -56,7 +61,7 @@ class LotteryOpportunityViewTest {
 
         showView()
 
-        compose.onNodeWithText("Result: You won").assertIsDisplayed()
+        compose.onNodeWithText("Selected").assertIsDisplayed()
         compose.onNodeWithText(DECLINE_BUTTON).assertIsDisplayed()
     }
 
@@ -69,7 +74,7 @@ class LotteryOpportunityViewTest {
 
         showView()
 
-        compose.onNodeWithText("Result: Not selected").assertIsDisplayed()
+        compose.onNodeWithText("Not selected").assertIsDisplayed()
         compose.onNodeWithText(DECLINE_BUTTON).assertDoesNotExist()
     }
 
@@ -86,7 +91,7 @@ class LotteryOpportunityViewTest {
 
         compose.runOnIdle { assertEquals(0, entryRepository.declineCount) }
         compose.onNodeWithText(DECLINE_BUTTON).assertIsDisplayed()
-        compose.onNodeWithText("Opportunity declined").assertDoesNotExist()
+        compose.onNodeWithText("Declined").assertDoesNotExist()
     }
 
     /**
@@ -101,14 +106,104 @@ class LotteryOpportunityViewTest {
         // The card and the dialog both have a "Decline" button, so this targets the dialog's.
         compose.onNode(hasText("Decline") and hasAnyAncestor(isDialog())).performClick()
 
-        compose.onNodeWithText("Opportunity declined").assertIsDisplayed()
-        compose.onNodeWithText("Result: You won").assertIsDisplayed()
+        compose.onNodeWithText("Declined").assertIsDisplayed()
+        compose.onNodeWithText("Your result").assertIsDisplayed()
         compose.onNodeWithText(DECLINE_BUTTON).assertDoesNotExist()
         compose.runOnIdle { assertEquals(1, entryRepository.declineCount) }
     }
 
-    private fun showView() {
-        compose.setContent { view.Display(LOTTERY_ID, ENTRANT_ID) }
+    /**
+     * Checks that a winner can open the reservation booking screen.
+     */
+    @Test
+    fun display_unusedWin_bookButtonCallsCallback() {
+        entryRepository.entry = LotteryEntry(status = LotteryEntry.STATUS_WON)
+
+        var bookingOpened = false
+
+        showView(onBook = { bookingOpened = true })
+
+        compose.onNodeWithText("Book Reservation")
+            .assertIsDisplayed()
+            .performClick()
+
+        compose.runOnIdle {
+            assertEquals(true, bookingOpened)
+        }
+    }
+
+    /**
+     * A confirmed reservation displays Booked and prevents another booking.
+     */
+    @Test
+    fun display_confirmedReservation_showsBookedAndNoActions() {
+        showViewWithReservation(ReservationStatus.CONFIRMED)
+
+        compose.onNodeWithText("Booked").assertIsDisplayed()
+
+        compose.onNodeWithText("2027-06-01 to 2027-06-04")
+            .assertIsDisplayed()
+
+        compose.onNodeWithText("Book Reservation").assertDoesNotExist()
+        compose.onNodeWithText(DECLINE_BUTTON).assertDoesNotExist()
+    }
+
+    /**
+     * A cancelled reservation displays its status without booking actions.
+     */
+    @Test
+    fun display_cancelledReservation_showsCancelledAndNoActions() {
+        showViewWithReservation(ReservationStatus.CANCELLED)
+
+        compose.onNodeWithText("Cancelled").assertIsDisplayed()
+
+        compose.onNodeWithText("Book Reservation").assertDoesNotExist()
+        compose.onNodeWithText(DECLINE_BUTTON).assertDoesNotExist()
+    }
+
+    /**
+     * A rejected reservation displays its status without booking actions.
+     */
+    @Test
+    fun display_rejectedReservation_showsRejectedAndNoActions() {
+        showViewWithReservation(ReservationStatus.REJECTED)
+
+        compose.onNodeWithText("Rejected").assertIsDisplayed()
+
+        compose.onNodeWithText("Book Reservation").assertDoesNotExist()
+        compose.onNodeWithText(DECLINE_BUTTON).assertDoesNotExist()
+    }
+
+    private fun showView(onBook: () -> Unit = {}) {
+        compose.setContent {
+            view.Display(
+                lotteryId = LOTTERY_ID,
+                entrantId = ENTRANT_ID,
+                onBook = onBook
+            )
+        }
+        compose.waitForIdle()
+    }
+
+    /**
+     * Sets up a winning entry with an existing reservation of the given status.
+     */
+    private fun showViewWithReservation(status: ReservationStatus) {
+        entryRepository.entry = LotteryEntry(status = LotteryEntry.STATUS_WON)
+
+        reservationRepository.reservations = listOf(
+            Reservation(
+                entrantId = ENTRANT_ID,
+                lotteryId = LOTTERY_ID,
+                status = status,
+                dates = DateRange(
+                    from = "2027-06-01",
+                    to = "2027-06-04"
+                )
+            )
+        )
+
+        showView()
     }
 
     /**
@@ -127,10 +222,13 @@ class LotteryOpportunityViewTest {
     }
 
     /**
-     * Provides an empty reservation list without accessing Firestore.
+     * Provides configurable fake reservations without accessing Firestore.
      */
     private class TestReservationRepository : ReservationRepository {
-        override suspend fun getReservationsForEntrant(entrantId: String): List<Reservation> = emptyList()
+
+        var reservations: List<Reservation> = emptyList()
+
+        override suspend fun getReservationsForEntrant(entrantId: String): List<Reservation> = reservations
 
         override suspend fun getReservationsForCampsite(campsiteId: String): List<Reservation> = emptyList()
 

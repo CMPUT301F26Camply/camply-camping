@@ -2,6 +2,7 @@ package com.example.camply.lottery.controller
 
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteRepository
+import com.example.camply.campsite.service.PreparedCampsiteImages
 import com.example.camply.lottery.model.Lottery
 import com.example.camply.lottery.model.LotteryCreateModel
 import com.example.camply.lottery.model.LotteryStatus
@@ -163,7 +164,22 @@ class LotteryCreateControllerTest {
         override suspend fun getCampsite(id: String): Campsite? = owned.find { it.id == id }
         override suspend fun getCampsitesByOwner(ownerId: String): List<Campsite> =
             owned.filter { it.ownerId == ownerId }
-        override suspend fun saveCampsite(campsite: Campsite): String = error("not used")
+        override suspend fun saveCampsite(
+            campsite: Campsite,
+            photosToSave: Map<String, PreparedCampsiteImages>,
+            photosToRemove: List<String>
+        ): String = error("not used")
+
+        override suspend fun getCampsitePreview(
+            campsiteId: String,
+            photoId: String
+        ): ByteArray? = null
+
+        override suspend fun getCampsitePhoto(
+            campsiteId: String,
+            photoId: String
+        ): ByteArray? = null
+
         override suspend fun deleteCampsite(id: String) = error("not used")
     }
 }

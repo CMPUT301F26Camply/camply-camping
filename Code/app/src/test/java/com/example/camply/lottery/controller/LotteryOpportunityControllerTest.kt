@@ -51,7 +51,105 @@ class LotteryOpportunityControllerTest {
         controller.loadEntry(LOTTERY_ID, ENTRANT_ID)
 
         assertEquals(winningEntry(), model.entry)
+        assertNull(model.reservation)
         assertFalse(model.isLoading)
+        assertNull(model.errorMessage)
+    }
+
+
+    /**
+     * A confirmed reservation takes priority over a cancelled reservation for the same entrant and lottery.
+     */
+    @Test
+    fun loadEntry_confirmedReservation_takesPriority() = runBlocking {
+        entryRepository.entry = winningEntry()
+
+        val cancelled = Reservation(
+            entrantId = ENTRANT_ID,
+            lotteryId = LOTTERY_ID,
+            status = ReservationStatus.CANCELLED
+        )
+
+        val confirmed = Reservation(
+            entrantId = ENTRANT_ID,
+            lotteryId = LOTTERY_ID,
+            status = ReservationStatus.CONFIRMED
+        )
+
+        reservationRepository.reservations = listOf(cancelled, confirmed)
+
+        controller.loadEntry(LOTTERY_ID, ENTRANT_ID)
+
+        assertEquals(confirmed, model.reservation)
+        assertNull(model.errorMessage)
+    }
+
+    /**
+     * A cancelled reservation is still loaded so the entrant can see that their earlier booking was cancelled.
+     */
+    @Test
+    fun loadEntry_cancelledReservation_showsCancelledStatus() = runBlocking {
+        entryRepository.entry = winningEntry()
+
+        val cancelled = Reservation(
+            entrantId = ENTRANT_ID,
+            lotteryId = LOTTERY_ID,
+            status = ReservationStatus.CANCELLED
+        )
+
+        reservationRepository.reservations = listOf(cancelled)
+
+        controller.loadEntry(LOTTERY_ID, ENTRANT_ID)
+
+        assertEquals(cancelled, model.reservation)
+        assertFalse(model.isLoading)
+    }
+
+    /**
+     * A rejected reservation remains visible in the opportunity model.
+     */
+    @Test
+    fun loadEntry_rejectedReservation_showsRejectedStatus() = runBlocking {
+        entryRepository.entry = winningEntry()
+
+        val rejected = Reservation(
+            entrantId = ENTRANT_ID,
+            lotteryId = LOTTERY_ID,
+            status = ReservationStatus.REJECTED
+        )
+
+        reservationRepository.reservations = listOf(rejected)
+
+        controller.loadEntry(LOTTERY_ID, ENTRANT_ID)
+
+        assertEquals(rejected, model.reservation)
+        assertNull(model.errorMessage)
+    }
+
+    /**
+     * Reservations from other lotteries and uninitialized reservations are not treated as completed bookings.
+     */
+    @Test
+    fun loadEntry_ignoresUnrelatedAndUninitializedReservations() = runBlocking {
+        entryRepository.entry = winningEntry()
+
+        reservationRepository.reservations = listOf(
+            Reservation(
+                entrantId = ENTRANT_ID,
+                lotteryId = "anotherLottery",
+                status = ReservationStatus.CONFIRMED
+            ),
+            Reservation(
+                entrantId = ENTRANT_ID,
+                lotteryId = LOTTERY_ID,
+                status = ReservationStatus.UNINITIALIZED
+            )
+        )
+
+        controller.loadEntry(LOTTERY_ID, ENTRANT_ID)
+
+        assertNull(model.reservation)
+        assertEquals(winningEntry(), model.entry)
         assertNull(model.errorMessage)
     }
 
@@ -68,6 +166,7 @@ class LotteryOpportunityControllerTest {
         assertEquals(1, entryRepository.declineCount)
         assertEquals(LotteryEntry.OPPORTUNITY_DECLINED, model.entry?.opportunityStatus)
         assertEquals(LotteryEntry.STATUS_WON, model.entry?.status)
+        assertNull(model.reservation)
         assertNull(model.errorMessage)
     }
 
@@ -90,7 +189,55 @@ class LotteryOpportunityControllerTest {
 
         assertEquals(0, entryRepository.declineCount)
         assertNull(model.entry?.opportunityStatus)
-        assertEquals("You already have a reservation for this lottery.", model.errorMessage)
+        assertEquals("You have already used your winning opportunity for this lottery.", model.errorMessage)
+    }
+
+    /**
+     * A cancelled reservation does not restore the entrant's ability to decline an
+     * already used lottery opportunity.
+     */
+    @Test
+    fun declineOpportunity_cancelledReservation_doesNotDecline() = runBlocking {
+        entryRepository.entry = winningEntry()
+        val cancelled = Reservation(
+            entrantId = ENTRANT_ID,
+            lotteryId = LOTTERY_ID,
+            status = ReservationStatus.CANCELLED
+        )
+        reservationRepository.reservations = listOf(cancelled)
+
+        controller.loadEntry(LOTTERY_ID, ENTRANT_ID)
+        controller.declineOpportunity(LOTTERY_ID, ENTRANT_ID)
+
+        assertEquals(0, entryRepository.declineCount)
+        assertNull(model.entry?.opportunityStatus)
+        assertEquals(cancelled, model.reservation)
+        assertEquals("You have already used your winning opportunity for this lottery.", model.errorMessage)
+        assertFalse(model.isLoading)
+    }
+
+    /**
+     * A rejected reservation does not restore the entrant's ability to decline an
+     * already used lottery opportunity.
+     */
+    @Test
+    fun declineOpportunity_rejectedReservation_doesNotDecline() = runBlocking {
+        entryRepository.entry = winningEntry()
+        val rejected = Reservation(
+            entrantId = ENTRANT_ID,
+            lotteryId = LOTTERY_ID,
+            status = ReservationStatus.REJECTED
+        )
+        reservationRepository.reservations = listOf(rejected)
+
+        controller.loadEntry(LOTTERY_ID, ENTRANT_ID)
+        controller.declineOpportunity(LOTTERY_ID, ENTRANT_ID)
+
+        assertEquals(0, entryRepository.declineCount)
+        assertNull(model.entry?.opportunityStatus)
+        assertEquals(rejected, model.reservation)
+        assertEquals("You have already used your winning opportunity for this lottery.", model.errorMessage)
+        assertFalse(model.isLoading)
     }
 
     /**

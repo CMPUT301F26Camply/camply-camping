@@ -3,6 +3,7 @@ package com.example.camply.reservations.controller
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteRepository
 import com.example.camply.campsite.model.DateRange
+import com.example.camply.campsite.service.PreparedCampsiteImages
 import com.example.camply.reservations.model.ActiveReservationItem
 import com.example.camply.reservations.model.ActiveReservationsModel
 import com.example.camply.reservations.model.Reservation
@@ -237,9 +238,25 @@ class ActiveReservationsControllerTest {
         override suspend fun getCampsitesByOwner(ownerId: String): List<Campsite> =
             campsites.filter { it.ownerId == ownerId }
 
-        override suspend fun saveCampsite(campsite: Campsite): String = campsite.id
+
+        override suspend fun saveCampsite(
+            campsite: Campsite,
+            photosToSave: Map<String, PreparedCampsiteImages>,
+            photosToRemove: List<String>
+        ): String = campsite.id
+
+        override suspend fun getCampsitePreview(
+            campsiteId: String,
+            photoId: String
+        ): ByteArray? = null
+
+        override suspend fun getCampsitePhoto(
+            campsiteId: String,
+            photoId: String
+        ): ByteArray? = null
 
         override suspend fun deleteCampsite(id: String) = Unit
+
     }
 
     private companion object {

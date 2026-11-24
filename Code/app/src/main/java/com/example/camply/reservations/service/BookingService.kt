@@ -63,27 +63,23 @@ class BookingService {
     }
 
     /**
-     * Checks whether an entrant has already booked using a lottery win.
+     * Checks whether an entrant has already used their lottery win.
      *
      * @param entrantId The entrant's Firebase user ID.
      * @param lotteryId The lottery associated with the reservation.
      * @param reservations The entrant's existing reservations.
-     * @return True if the entrant already has a confirmed reservation for the lottery.
+     * @return True if a confirmed, cancelled, or rejected reservation exists for this lottery.
      */
     fun hasExistingLotteryReservation(
         entrantId: String,
         lotteryId: String,
         reservations: List<Reservation>
     ): Boolean {
-        for (reservation in reservations) {
-            if (reservation.entrantId == entrantId &&
-                reservation.lotteryId == lotteryId &&
-                reservation.status == ReservationStatus.CONFIRMED) {
-                return true
-            }
+        return reservations.any { reservation ->
+            reservation.entrantId == entrantId &&
+                    reservation.lotteryId == lotteryId &&
+                    reservation.status != ReservationStatus.UNINITIALIZED
         }
-
-        return false
     }
 
     /**

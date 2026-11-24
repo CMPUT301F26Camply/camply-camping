@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 
 // Theme.kt - Camply Theme Redesign
 //
+// Contributor: Filip Kosmajac (fkosmajac)
 // AI Assistance Reference:
 // OpenAI ChatGPT 6
 // https://chatgpt.com/
