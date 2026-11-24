@@ -89,7 +89,7 @@ import kotlinx.coroutines.launch
  * error screen depending on the current user state.
  */
 @Composable
-fun CamplyApp() {
+fun CamplyApp(scannedCampsiteId: String? = null) {
 
     // Create and retain the user model, controller, and user views.
     val userModel = remember { UserModel() }
@@ -285,6 +285,12 @@ fun CamplyApp() {
                     notificationsController.startObserving(currentUser.getUid(), currentUser.getRole())
                     onDispose { notificationsController.stopObserving() }
                 }
+                LaunchedEffect(scannedCampsiteId) {
+                    if (scannedCampsiteId != null) {
+                        navigationModel.navigateTo(Screen.BROWSE)
+                        selectedCampsiteId = scannedCampsiteId
+                    }
+                }
                 notificationsView.DeviceNotifications(currentUser.getUid())
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -442,6 +448,7 @@ fun CamplyApp() {
                                             campsiteDetailView.Display(
                                                 campsiteId = detailId,
                                                 onBack = { ownerDetailCampsiteId = null },
+                                                showQRbutton = true,
                                                 extraContent = { campsite ->
                                                     val bookedDates by produceState(emptyList<DateRange>(), campsite.id) {
                                                         value = reservationRepository.getReservationsForCampsite(campsite.id)

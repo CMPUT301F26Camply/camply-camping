@@ -1,9 +1,13 @@
 package com.example.camply
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.example.camply.ui.theme.CamplyTheme
 import com.example.camply.ui.theme.CamplyThemePreset
 
@@ -14,21 +18,26 @@ import com.example.camply.ui.theme.CamplyThemePreset
  */
 class MainActivity : ComponentActivity() {
 
-    /**
-     * Creates the activity and sets up the application's Compose interface
-     *
-     * @param savedInstanceState the previously saved activity state
-     */
+    private var scannedCampsiteId by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        scannedCampsiteId = campsiteIdFrom(intent)
         setContent {
-            CamplyTheme(
-                preset = CamplyThemePreset.BLUE
-            ) {
-                CamplyApp()
-            }
+            CamplyApp(scannedCampsiteId = scannedCampsiteId)
         }
+    }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        scannedCampsiteId = campsiteIdFrom(intent)
+    }
+
+    private fun campsiteIdFrom(intent: Intent?): String? {
+        val data = intent?.data ?: return null
+        if (data.scheme != "camply" || data.host != "campsite") {
+            return null
+        }
+        return data.lastPathSegment
     }
 }

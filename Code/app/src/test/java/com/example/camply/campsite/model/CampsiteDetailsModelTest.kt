@@ -1,6 +1,9 @@
 package com.example.camply.campsite.model
+import android.graphics.Bitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
+import junit.framework.TestCase.assertNotNull
 import junit.framework.TestCase.assertNull
 import org.junit.Before
 import org.junit.Test
