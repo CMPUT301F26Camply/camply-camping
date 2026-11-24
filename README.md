@@ -113,3 +113,23 @@ This section documents the use of generative AI tools during the development of 
 </details>
 
 Additional AI usage will be documented under the relevant project part and deliverables as the project progresses.
+
+## References and Attributions
+
+The following external libraries, services, and documentation were referenced or used during Camply's development.
+
+### Maps and Location
+
+- [MapLibre Native](https://github.com/maplibre/maplibre-native): Open source mapping library used to display interactive maps, manage campsite pins, and support map interactions. Licensed under the BSD 2-Clause License.
+- [MapLibre Android SDK Documentation](https://maplibre.org/maplibre-native/android/examples/): Reference for integrating MapLibre maps into Android applications.
+- [OpenFreeMap](https://openfreemap.org/): Provides the hosted map tiles and Liberty map style used by Camply.
+- [OpenFreeMap Terms of Service](https://openfreemap.org/tos/): Terms governing the use of the hosted map service.
+- [OpenStreetMap](https://www.openstreetmap.org/copyright): Provides the underlying geographic data, licensed under the Open Database License (ODbL). Map data is credited to OpenStreetMap contributors.
+- [OpenMapTiles](https://openmaptiles.org/): Map tile schema and attribution used by the OpenFreeMap service.
+- [Android Geocoder](https://developer.android.com/reference/kotlin/android/location/Geocoder): Android API used to retrieve location information from geographic coordinates.
+
+### Image Handling and Storage
+
+- [Android Photo Picker](https://developer.android.com/training/data-storage/shared/photopicker): Reference for selecting images from the device.
+- [AndroidX ExifInterface](https://developer.android.com/reference/androidx/exifinterface/media/ExifInterface): Used to read image orientation metadata and correct image rotation during processing.
+- [Firestore Blob Reference](https://firebase.google.com/docs/reference/kotlin/com/google/firebase/firestore/Blob): Reference for storing image data as binary values in Firestore documents.
