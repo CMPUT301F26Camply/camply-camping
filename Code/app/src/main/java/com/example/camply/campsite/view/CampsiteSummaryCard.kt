@@ -1,5 +1,7 @@
 package com.example.camply.campsite.view
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -14,19 +16,29 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.shared.view.CardLabel
 import com.example.camply.shared.view.OrangeCard
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.cancellation.CancellationException
 
 
 // CampsiteSummaryCard.kt - Campsite Card UI Redesign
 //
+// Contributor: Filip Kosmajac (fkosmajac)
 // AI Assistance Reference:
 // OpenAI ChatGPT 6
 // https://chatgpt.com/
@@ -78,38 +90,63 @@ class CampsiteSummaryCard {
      * Displays the campsite information and handles selection.
      *
      * @param campsite The campsite being displayed.
+     * @param loadPhotoPreview Loads the cover photo preview bytes using the campsite ID and
+     * photo ID, or returns null if unavailable.
      * @param onClick Called when the campsite is selected.
      */
     @Composable
     fun Display(
         campsite: Campsite,
+        loadPhotoPreview: suspend (String, String) -> ByteArray?,
         onClick: () -> Unit
     ) {
         OrangeCard(
             modifier = Modifier.clickable(onClick = onClick)
         ) {
-            val image = campsite.images.firstOrNull()
+            val photoId = campsite.images.firstOrNull()
 
-            // Campsite image or placeholder
-            if (!image.isNullOrBlank()) {
-                AsyncImage(
-                    model = image,
-                    contentDescription = "Photo of ${campsite.name}",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
+            var coverImage by remember(campsite.id, photoId) {
+                mutableStateOf<ImageBitmap?>(null)
+            }
+
+            // Retrieve the cover photo preview from Firestore.
+            LaunchedEffect(campsite.id, photoId) {
+                if (photoId != null && campsite.id.isNotBlank()) {
+                    try {
+                        val bytes = loadPhotoPreview(campsite.id, photoId)
+
+                        coverImage = withContext(Dispatchers.Default) {
+                            bytes?.let {
+                                BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap()
+                            }
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        coverImage = null
+                    }
+                }
+            }
+
+            // Display the cover image or a placeholder.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                val image = coverImage
+
+                if (image != null) {
+                    Image(
+                        bitmap = image,
+                        contentDescription = "Photo of ${campsite.name}",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxWidth().height(160.dp)
+                    )
+                } else {
                     Icon(
                         imageVector = Icons.Default.Home,
                         contentDescription = null,
@@ -147,11 +184,19 @@ class CampsiteSummaryCard {
 
             Spacer(Modifier.height(6.dp))
 
-            Text(
-                text = "Rating ${"%.1f".format(campsite.rating)} / 5",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
+            if (campsite.rating > 0.0 && campsite.rating <= 5.0) {
+                Text(
+                    text = "Rating ${"%.1f".format(campsite.rating)} / 5",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                Text(
+                    text = "Not yet rated",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 

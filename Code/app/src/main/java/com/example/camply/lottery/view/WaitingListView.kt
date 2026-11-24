@@ -2,9 +2,20 @@ package com.example.camply.lottery.view
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -14,8 +25,8 @@ import androidx.compose.ui.unit.dp
 import com.example.camply.lottery.controller.WaitingListController
 import com.example.camply.lottery.model.WaitingListModel
 import com.example.camply.lottery.model.WaitingListModel.JoinState
-import com.example.camply.shared.view.CamplyPalette
 import com.example.camply.shared.view.CamplyScreen
+import com.example.camply.shared.view.CardLabel
 import com.example.camply.shared.view.OrangeCard
 import com.example.camply.shared.view.PrimaryButton
 
@@ -60,27 +71,85 @@ private fun WaitingListContent(state: JoinState, onJoin: () -> Unit, onLeave: ()
         JoinState.ERROR -> "Unable to confirm your entry. Check your connection and try again."
     }
 
+    val statusLabel = when (state) {
+        JoinState.JOINED, JoinState.ALREADY_JOINED -> "Entered"
+        JoinState.JOINING -> "Joining"
+        JoinState.LEAVING -> "Leaving"
+        JoinState.LEFT -> "Withdrawn"
+        JoinState.REGISTRATION_CLOSED -> "Closed"
+        JoinState.FULL -> "Full"
+        JoinState.ENTRY_FINALIZED -> "Finalized"
+        JoinState.ERROR, JoinState.LEAVE_ERROR -> "Action needed"
+        JoinState.IDLE -> "Not entered"
+    }
+    val statusColor = when (state) {
+        JoinState.JOINED, JoinState.ALREADY_JOINED -> MaterialTheme.colorScheme.onPrimaryContainer
+        JoinState.ERROR, JoinState.LEAVE_ERROR -> MaterialTheme.colorScheme.onErrorContainer
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val statusBackground = when (state) {
+        JoinState.JOINED, JoinState.ALREADY_JOINED -> MaterialTheme.colorScheme.primaryContainer
+        JoinState.ERROR, JoinState.LEAVE_ERROR -> MaterialTheme.colorScheme.errorContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+
     OrangeCard {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(
-                "Campsite lottery",
-                style = MaterialTheme.typography.titleMedium,
-                color = CamplyPalette.Ink
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    CardLabel("Lottery")
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Campsite waiting list",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(50.dp),
+                    color = statusBackground
+                ) {
+                    Text(
+                        statusLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusColor,
+                        modifier = Modifier.padding(10.dp, 7.dp)
+                    )
+                }
+            }
+
             Text(
                 message,
-                style = MaterialTheme.typography.bodyLarge,
-                color = CamplyPalette.Ink,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
             )
-            PrimaryButton(
-                text = buttonLabel,
-                onClick = if (leaveAction) onLeave else onJoin,
-                enabled = leaveAction || state == JoinState.IDLE || state == JoinState.LEFT ||
-                    state == JoinState.ERROR || state == JoinState.FULL
-            )
+
+            if (leaveAction) {
+                OutlinedButton(
+                    onClick = onLeave,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                ) {
+                    Text(buttonLabel, style = MaterialTheme.typography.labelLarge)
+                }
+            } else {
+                PrimaryButton(
+                    text = buttonLabel,
+                    onClick = onJoin,
+                    enabled = state == JoinState.IDLE || state == JoinState.LEFT || state == JoinState.ERROR || state == JoinState.FULL
+                )
+            }
         }
     }
+
 }
 
 @Preview(name = "Waitlist - join", showBackground = true)

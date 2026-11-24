@@ -25,14 +25,22 @@ This section documents the use of generative AI tools during the development of 
 
 #### UI Redesign and Shared Component Implementation
 
-- **Prompts and References:** Multiple prompts and follow-up discussions were used throughout the UI redesign process. The relevant prompts, purpose of AI assistance, and implementation changes are documented directly in the following source files:
-  - [CamplyComponents.kt](Code/app/src/main/java/com/example/camply/shared/view/CamplyComponents.kt): Redesign of shared UI components, buttons, cards, and reusable inputs.
-  - [Theme.kt](Code/app/src/main/java/com/example/camply/ui/theme/Theme.kt): Material 3 theme redesign and support for multiple color presets.
-  - [CampsiteBrowseView.kt](Code/app/src/main/java/com/example/camply/campsite/view/CampsiteBrowseView.kt): Updates to campsite browsing, search results, filters, and layout styling.
-  - [CampsiteSummaryCard.kt](Code/app/src/main/java/com/example/camply/campsite/view/CampsiteSummaryCard.kt):  Redesign of campsite cards, including image previews and updated styling.
-  - [CampsiteOwnerView.kt](Code/app/src/main/java/com/example/camply/user/view/CampsiteOwnerView.kt): Redesign of the campsite owner dashboard and management components.
-- **Purpose:** Used ChatGPT to assist with redesigning portions of the Camply UI and improving the existing reusable Jetpack Compose components. This included updating layouts, improving visual consistency, implementing additional shared components, and applying the updated Material 3 theme across existing screens.
-- **Extent of Use:** Moderate assistance with UI design, Kotlin implementation, and code refinement. ChatGPT provided suggestions and implementation guidance, which were reviewed, adjusted, and tested before being incorporated into the project. The overall redesign direction was discussed and agreed upon by the team.
+- **Prompts and References:** Multiple prompts and follow-up discussions were used throughout the initial UI redesign and its continued development. The relevant prompts, purposes, and extent of AI assistance are documented directly in the following source files:
+  - [CamplyComponents.kt](Code/app/src/main/java/com/example/camply/shared/view/CamplyComponents.kt): Redesign of shared Jetpack Compose components, including buttons, cards, text fields, and reusable selection inputs.
+  - [Theme.kt](Code/app/src/main/java/com/example/camply/ui/theme/Theme.kt): Material 3 theme redesign, including four color presets and updated light/dark color schemes.
+  - [CampsiteBrowseView.kt](Code/app/src/main/java/com/example/camply/campsite/view/CampsiteBrowseView.kt): Visual updates to campsite browsing, search results, filters, dropdowns, and layout spacing.
+  - [CampsiteSummaryCard.kt](Code/app/src/main/java/com/example/camply/campsite/view/CampsiteSummaryCard.kt): Redesign of campsite summary cards, including promotional image previews, placeholders, and updated styling.
+  - [CampsiteOwnerView.kt](Code/app/src/main/java/com/example/camply/user/view/CampsiteOwnerView.kt): Redesign of the campsite owner dashboard, management action cards, and campsite listings.
+  - [CampsiteFormView.kt](Code/app/src/main/java/com/example/camply/campsite/view/CampsiteFormView.kt): Redesign of campsite registration and editing, including promotional photo management, cover-photo selection, validation feedback, rules and cancellation policies, and interactive campsite location selection.
+  - [CampsiteDetailView.kt](Code/app/src/main/java/com/example/camply/campsite/view/CampsiteDetailView.kt): Redesign of the campsite details screen, including photo display, saved map location, campsite information, and owner editing controls.
+  - [CampsiteMap.kt](Code/app/src/main/java/com/example/camply/campsite/view/CampsiteMap.kt): Assistance with researching mapping options and implementing a reusable MapLibre map component for campsite location selection and display.
+  - [CampsitePhotoGallery.kt](Code/app/src/main/java/com/example/camply/campsite/view/CampsitePhotoGallery.kt): Implementation assistance for a reusable photo gallery with thumbnails, Firestore image loading, full-screen viewing, zoom gestures, and photo navigation.
+  - [CampsiteImageService.kt](Code/app/src/main/java/com/example/camply/campsite/service/CampsiteImageService.kt): Assistance with campsite image processing, including bitmap decoding, resizing, JPEG compression, image orientation, and error handling.
+- **Testing Assistance:** Additional AI assistance is documented in the following test files:
+  - [CampsiteImageServiceTest.kt](Code/app/src/androidTest/java/com/example/camply/campsite/service/CampsiteImageServiceTest.kt): Assistance with Android instrumented tests for image compression, dimensions, aspect ratios, orientation, and error handling.
+  - [CampsiteFormTest.kt](Code/app/src/androidTest/java/com/example/camply/CampsiteFormTest.kt): Assistance with a Compose UI test helper for locating editable text fields inside tagged shared input components.
+- **Purpose:** Used ChatGPT to assist with continuing the Camply UI redesign, improving visual consistency across existing screens, and implementing selected campsite-related functionality. This included refining reusable Jetpack Compose components, updating Material 3 styling, improving campsite registration and detail screens, integrating campsite photo management and galleries, and supporting interactive map location selection.
+- **Extent of Use:** Substantive assistance with UI design, Kotlin/Jetpack Compose implementation, campsite image processing, map integration, and code refinement. Additional assistance was used for specific test implementations and troubleshooting, as documented in the corresponding test files. Suggested implementations were reviewed, adjusted, and manually tested before incorporation into the project. The overall redesign direction was discussed and agreed upon by the team.
 
 #### Profile Image Management (US 01.08.02)
 

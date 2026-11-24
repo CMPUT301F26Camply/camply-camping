@@ -43,6 +43,7 @@ import kotlinx.coroutines.launch
 
 // CampsiteBrowseView.kt - Campsite Browsing UI Redesign
 //
+// Contributor: Filip Kosmajac (fkosmajac)
 // AI Assistance Reference:
 // OpenAI ChatGPT 6
 // https://chatgpt.com/
@@ -94,9 +95,18 @@ class CampsiteBrowseView(
     private val filterPanel = CampsiteFilterPanel(model, controller)
     private val summaryCard = CampsiteSummaryCard()
 
-    /** [onCampsiteClick] is called with the campsite id when a dropdown row or list card is tapped. */
+    /**
+     * Displays the campsite browsing screen.
+     *
+     * @param onCampsiteClick Called with the campsite ID when a campsite is selected.
+     * @param loadPhotoPreview Fetches the preview image bytes for a campsite ID and photo ID,
+     * or returns null if unavailable.
+     */
     @Composable
-    fun Display(onCampsiteClick: (String) -> Unit) {
+    fun Display(
+        onCampsiteClick: (String) -> Unit,
+        loadPhotoPreview: suspend (String, String) -> ByteArray? = { _, _ -> null }
+    ) {
         val scope = rememberCoroutineScope()
         LaunchedEffect(Unit) { controller.loadCampsites() }
 
@@ -152,9 +162,11 @@ class CampsiteBrowseView(
                         contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
                         items(model.results, key = { it.id }) { campsite ->
-                            summaryCard.Display(campsite) {
-                                onCampsiteClick(campsite.id)
-                            }
+                            summaryCard.Display(
+                                campsite = campsite,
+                                loadPhotoPreview = loadPhotoPreview,
+                                onClick = { onCampsiteClick(campsite.id) }
+                            )
                         }
                     }
                 }
@@ -218,7 +230,7 @@ class CampsiteBrowseView(
                     items(model.suggestions.take(8), key = { it.id }) { campsite ->
                         Text(
                             text = "${campsite.name} · ${campsite.location}",
-                            color = CamplyPalette.Ink,
+                            color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { dropdownOpen = false; onCampsiteClick(campsite.id) }

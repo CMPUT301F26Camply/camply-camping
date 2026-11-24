@@ -28,7 +28,7 @@ class CampsiteListViewTest {
                 ownerName = "Owner 1",
                 campsites = emptyList(),
                 addCampsite = {}, viewCampsite = {}, editCampsite = {}, lotteryRegistration = {},
-                reservationList = {}, viewOrCreateLottery = {}
+                reservationList = {}, viewOrCreateLottery = {}, loadPhotoPreview = { _, _ -> null }
             )
         }
         composeRule.onNodeWithText("No Registered Campsites", substring = true).assertIsDisplayed()
@@ -45,7 +45,7 @@ class CampsiteListViewTest {
                     Campsite(id = "b", name = "Campsite B", location = "Location B")
                 ),
                 addCampsite = {}, viewCampsite = {}, editCampsite = {}, lotteryRegistration = {},
-                reservationList = {}, viewOrCreateLottery = {}
+                reservationList = {}, viewOrCreateLottery = {}, loadPhotoPreview = { _, _ -> null }
             )
         }
         composeRule.onNodeWithText("Campsite A").assertIsDisplayed()
@@ -63,7 +63,7 @@ class CampsiteListViewTest {
                 ownerName = "Owner 1",
                 campsites = emptyList(),
                 addCampsite = { clicked = true }, viewCampsite = {}, editCampsite = {}, lotteryRegistration = {},
-                reservationList = {}, viewOrCreateLottery = {}
+                reservationList = {}, viewOrCreateLottery = {}, loadPhotoPreview = { _, _ -> null }
             )
         }
         composeRule.onNodeWithContentDescription("Add campsite").performClick()
@@ -83,7 +83,7 @@ class CampsiteListViewTest {
                     Campsite(id = "b", name = "Campsite B", location = "Jasper, AB")
                 ),
                 addCampsite = {}, viewCampsite = {}, editCampsite = { edited = it }, lotteryRegistration = {},
-                reservationList = {}, viewOrCreateLottery = {}
+                reservationList = {}, viewOrCreateLottery = {}, loadPhotoPreview = { _, _ -> null }
             )
         }
         composeRule.onNodeWithContentDescription("Edit Campsite B").performClick()
@@ -101,10 +101,96 @@ class CampsiteListViewTest {
                 ownerName = "Owner 1",
                 campsites = many,
                 addCampsite = {}, viewCampsite = {}, editCampsite = {}, lotteryRegistration = {},
-                reservationList = {}, viewOrCreateLottery = {}
+                reservationList = {}, viewOrCreateLottery = {}, loadPhotoPreview = { _, _ -> null }
             )
         }
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Site 20"))
         composeRule.onNodeWithText("Site 20").assertIsDisplayed()
     }
+
+
+    /**
+     * Listing a campsite in a lottery passes the selected campsite.
+     */
+    @Test
+    fun lotteryButton_callsWithCorrectCampsite() {
+        var selected: Campsite? = null
+
+        composeRule.setContent {
+            CampsiteListView().Display(
+                ownerName = "Owner 1",
+                campsites = listOf(
+                    Campsite(id = "a", name = "Campsite A", location = "Banff")
+                ),
+                addCampsite = {},
+                viewCampsite = {},
+                editCampsite = {},
+                lotteryRegistration = { selected = it },
+                reservationList = {},
+                viewOrCreateLottery = {},
+                loadPhotoPreview = { _, _ -> null }
+            )
+        }
+
+        composeRule.onNodeWithText("List Campsite in Lottery")
+            .performClick()
+
+        assertEquals("a", selected?.id)
+    }
+
+
+    /**
+     * Selecting Reservations triggers the reservation management callback.
+     */
+    @Test
+    fun reservationsButton_callsReservationList() {
+        var clicked = false
+
+        composeRule.setContent {
+            CampsiteListView().Display(
+                ownerName = "Owner 1",
+                campsites = emptyList(),
+                addCampsite = {},
+                viewCampsite = {},
+                editCampsite = {},
+                lotteryRegistration = {},
+                reservationList = { clicked = true },
+                viewOrCreateLottery = {},
+                loadPhotoPreview = { _, _ -> null }
+            )
+        }
+
+        composeRule.onNodeWithText("Reservations").performClick()
+
+        assertEquals(true, clicked)
+    }
+
+
+    /**
+     * Selecting Lotteries triggers the lottery management callback.
+     */
+    @Test
+    fun lotteriesButton_callsLotteryManagement() {
+        var clicked = false
+
+        composeRule.setContent {
+            CampsiteListView().Display(
+                ownerName = "Owner 1",
+                campsites = emptyList(),
+                addCampsite = {},
+                viewCampsite = {},
+                editCampsite = {},
+                lotteryRegistration = {},
+                reservationList = {},
+                viewOrCreateLottery = { clicked = true },
+                loadPhotoPreview = { _, _ -> null }
+            )
+        }
+
+        composeRule.onNodeWithText("Lotteries").performClick()
+
+        assertEquals(true, clicked)
+    }
+
+
 }

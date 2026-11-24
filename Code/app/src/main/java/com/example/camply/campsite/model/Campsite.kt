@@ -1,6 +1,5 @@
 package com.example.camply.campsite.model
 
-import android.net.Uri
 import com.google.firebase.firestore.DocumentId
 
 /**
@@ -30,11 +29,15 @@ data class DateRange(
  * @param price price per night
  * @param rating average rating from entrants (not entered by the owner)
  * @param tags are a list of campsite tags (optional)
- * @param tags are a list of campsite tags (optional)
  * @param rules the campsite rules and policies
  * @param cancellationPolicy cancellation policy
  * @param ownerId uid of the owning campsite owner
  * @param availability date ranges the owner has made available
+ * @param images ordered list of Firestore photo document IDs (maximum 5). The first ID represents
+ * the campsite's cover photo. Each ID references a full image in the photos subcollection and a
+ * smaller display image in the previews subcollection.
+ * @param latitude Latitude of the campsite map pin, if selected
+ * @param longitude Longitude of the campsite map pin, if selected
  */
 class Campsite(
     @DocumentId val id: String = "",
@@ -51,29 +54,60 @@ class Campsite(
     val ownerId: String = "",
     var availability: List<DateRange> = emptyList(),
     var images: List<String> = emptyList(),
+    var latitude: Double? = null,
+    var longitude: Double? = null
 ) {
+    companion object {
+        // Maximum number of promotional photos allowed per campsite
+        const val MAX_IMAGES = 5
+    }
+
     /** US 01.01.01: case-insensitive partial name match. A blank query matches everything. */
     fun matchesName(query: String): Boolean =
         query.isBlank() || name.contains(query.trim(), ignoreCase = true)
 
-    /** US 02.01.01: returns a copy with the image added; blank addresses are ignored. */
-
-    fun addImage(uri:String): Boolean{
-        // "uri" reference: https://developer.android.com/reference/android/net/Uri
-        if (uri.isBlank() || uri in images){
+    /**
+     * US 02.01.02: Adds a promotional photo ID to the campsite.
+     *
+     * Photo IDs reference documents in the campsite's photos and
+     * previews subcollections in Firestore.
+     *
+     * Rejects blank IDs, duplicate IDs, and additions exceeding
+     * the maximum of five photos.
+     *
+     * This method only updates the local list of photo IDs.
+     * Uploading photo data is handled separately by the repository.
+     *
+     * @param photoId Firestore document ID of the photo to add
+     * @return true if the photo ID was added, false otherwise
+     */
+    fun addImage(photoId: String): Boolean {
+        if (photoId.isBlank() || photoId in images || images.size >= MAX_IMAGES) {
             return false
         }
-        images = images + uri
+
+        images = images + photoId
         return true
     }
 
-    fun removeImage(uri: String): Boolean {
-        if(uri !in images) {
+    /**
+     * US 02.01.03: Removes a promotional photo ID from the campsite.
+     *
+     * Only removes the ID from the local list. Deleting the corresponding Firestore
+     * photo and preview documents is handled separately by the repository.
+     *
+     * @param photoId Firestore document ID of the photo to remove
+     * @return true if the photo ID was removed, false if not found
+     */
+    fun removeImage(photoId: String): Boolean {
+        if (photoId !in images) {
             return false
         }
-        images = images - uri
+
+        images = images - photoId
         return true
     }
+
     /**
      * US 02.01.01 / 02.01.03: checks that the owner supplied the required details.
      *
@@ -81,21 +115,63 @@ class Campsite(
      */
     fun validationCheck(): List<String> {
         val errorList = mutableListOf<String>()
+
         if (name.isBlank()){
             errorList.add("Please enter campsite name")
         }
+
         if (location.isBlank()){
             errorList.add("Please enter campsite location")
         }
+
         if (rules.isBlank()){
             errorList.add("Please enter rules and policies for this campsite")
         }
+
         if (maxOccupancy <= 0){
             errorList.add("Please enter a valid occupancy number")
         }
+
         if (price <= 0){
             errorList.add("Please enter a valid price")
         }
+
+        if (images.size > MAX_IMAGES) {
+            errorList.add("A campsite can have at most $MAX_IMAGES photos")
+        }
+
+        if (images.any { it.isBlank() } || images.size != images.distinct().size) {
+            errorList.add("Campsite photos must have a unique, non blank IDs")
+        }
+
+        if ((latitude == null) != (longitude == null)) {
+            errorList.add("Campsite latitude and longitude must both be provided")
+        }
+
+        latitude?.let {
+            if (it !in -90.0..90.0) {
+                errorList.add("Please enter a valid latitude")
+            }
+        }
+
+        longitude?.let {
+            if (it !in -180.0..180.0) {
+                errorList.add("Please enter a valid longitude")
+            }
+        }
+
+        if (description.isBlank()) {
+            errorList.add("Please enter campsite description")
+        }
+
+        if (cancellationPolicy.isBlank()) {
+            errorList.add("Please enter campsite cancellation policy")
+        }
+
+        if (latitude == null && longitude == null) {
+            errorList.add("Please select a campsite location on the map")
+        }
+
         return errorList
     }
 }
