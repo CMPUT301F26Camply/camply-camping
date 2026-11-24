@@ -28,6 +28,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.camply.campsite.controller.CampsiteDetailController
@@ -39,7 +40,6 @@ import com.example.camply.shared.view.CenteredMessage
 import com.example.camply.shared.view.OrangeCard
 import com.example.camply.shared.view.SecondaryButton
 import kotlinx.coroutines.launch
-import java.util.Locale
 import kotlin.math.floor
 
 // CampsiteDetailView.kt - Campsite Details Redesign
@@ -162,6 +162,8 @@ class CampsiteDetailView(
         currentUserId: String?,
         onEdit: ((Campsite) -> Unit)?
     ) = OrangeCard {
+        val locale = LocalConfiguration.current.locales[0]
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -203,7 +205,7 @@ class CampsiteDetailView(
                     val fullStars = floor(campsite.rating).toInt().coerceIn(0, 5)
                     Text(
                         text = "★".repeat(fullStars) + "☆".repeat(5 - fullStars) +
-                                "  ${String.format(Locale.getDefault(), "%.1f", campsite.rating)} / 5",
+                                "  ${String.format(locale, "%.1f", campsite.rating)} / 5",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -217,9 +219,9 @@ class CampsiteDetailView(
             }
             Column(horizontalAlignment = Alignment.End) {
                 val priceText = if (campsite.price % 1.0 == 0.0) {
-                    String.format(Locale.getDefault(), "%.0f", campsite.price)
+                    String.format(locale, "%.0f", campsite.price)
                 } else {
-                    String.format(Locale.getDefault(), "%.2f", campsite.price)
+                    String.format(locale, "%.2f", campsite.price)
                 }
                 Text(
                     "$$priceText",
