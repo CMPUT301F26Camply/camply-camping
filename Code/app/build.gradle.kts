@@ -67,4 +67,5 @@ dependencies {
     // MapLibre Native Android SDK
     // BSD 2-Clause License: https://github.com/maplibre/maplibre-native
     implementation("org.maplibre.gl:android-sdk:13.7.1")
+    implementation("com.google.firebase:firebase-messaging")
 }
