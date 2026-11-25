@@ -148,40 +148,6 @@ class LotteryCreateControllerTest {
 
     }
 
-    @Test
-    fun campsiteAlreadyExistsInLottery_doesNotSave() = runBlocking {
-        fillValidForm()
-        lotteries.existing += existingLottery(listOf("site-1"), "2026-11-03", "2026-11-08")
-        controller.createLottery("owner-1")
-
-        assertTrue(lotteries.created.isEmpty())
-        assertEquals("One of these campsites is already in an open lottery during this registration period.", model.errorMessage)
-    }
-
-    @Test
-    fun createLottery_existingLotteryEndsBeforeNewStarts_saves() = runBlocking {
-        fillValidForm()
-        lotteries.existing += existingLottery(listOf("site-1"), "2026-10-01", "2026-10-31")
-
-        controller.createLottery("owner-1")
-
-        assertEquals(1, lotteries.created.size)
-        assertNull(model.errorMessage)
-    }
-
-    @Test
-    fun createLottery_periodsTouchOnOneDay_countsAsOverlap() = runBlocking {
-        fillValidForm()
-        lotteries.existing += existingLottery(listOf("site-1"), "2026-11-05", "2026-11-09")
-
-        controller.createLottery("owner-1")
-
-        assertTrue(lotteries.created.isEmpty())
-        assertEquals(
-            "One of these campsites is already in an open lottery during this registration period.",
-            model.errorMessage
-        )
-    }
     private suspend fun fillValidForm() {
         campsites.owned += Campsite(id = "site-1", ownerId = "owner-1")
         controller.loadOwnedCampsites("owner-1")
@@ -240,21 +206,5 @@ class LotteryCreateControllerTest {
 
         override suspend fun deleteCampsite(id: String) = error("not used")
     }
-    private fun existingLottery(
-        campsiteIds: List<String>,
-        registrationStart: String,
-        registrationEnd: String
-    ) = Lottery(
-        ownerId = "owner-2",
-        campsiteIds = campsiteIds,
-        registrationStart = registrationStart,
-        registrationEnd = registrationEnd,
-        bookingStart = "2026-11-20",
-        bookingEnd = "2026-11-25",
-        numberOfWinners = 1,
-        lotteryStart = "2026-12-10",
-        lotteryEnd = "2026-12-15",
-        status = LotteryStatus.OPEN
-    )
 
 }

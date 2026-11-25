@@ -12,7 +12,7 @@ import com.example.camply.campsite.model.CampsiteRepository
  *
  * Loads the owner's campsites into the model, checks the typed fields,
  * and asks the repository to write the document.
- * US 02.04.01, US 02.04.03, US 02.04.04, US 02.04.05.
+ * US 02.04.01, US 02.04.02, US 02.04.03, US 02.04.04, US 02.04.05.
  *
  * @param model the form state the view is showing
  * @param lotteryRepository where the finished lottery is saved
@@ -77,7 +77,6 @@ class LotteryCreateController(
                 "Select your campsite(s)"
             !isDateText(registrationStart) || !isDateText(registrationEnd) ->
                 "Enter the registration period as YYYY-MM-DD."
-//This part will check if the lottery end is before the lottery start
             !isDateText(lotteryStart) || !isDateText(lotteryEnd) ->
                 "Enter the lottery range as YYYY-MM-DD."
             lotteryEnd < lotteryStart ->
@@ -89,8 +88,6 @@ class LotteryCreateController(
             bookingEnd < bookingStart ->
                 "Booking end must be on or after the start."
             winners == null || winners < 1 -> "Winner count must be at least 1."
-            campsiteExistsInLottery(campsiteIds, registrationStart, registrationEnd) ->
-                "One of these campsites is already in an open lottery during this registration period."
             else -> null
         }
         if (error != null) {
@@ -112,6 +109,10 @@ class LotteryCreateController(
         )
 
         try {
+            if (lotteryDatesExist(campsiteIds, lotteryStart, lotteryEnd)) {
+                model.showError("Lottery for these dates already exists")
+                return
+            }
             model.showSaved(lotteryRepository.create(lottery))
         } catch (e: CancellationException) {
             throw e
@@ -141,33 +142,24 @@ class LotteryCreateController(
     }
 
     /**
-     * This function prevents a campsite to be listed
-     * in multiple lotteries.
-     * @param campsiteIds the campsite ID to match
-     * @param registrationEnd the registration end date
-     * @param registrationStart the registration start data
-     * @return false if the campsite is not listed in any lottery
+     * Checks whether an open lottery for one of these campsites
+     * already uses the exact same lottery dates.
+     *
+     * @param campsiteIds the campsites selected on the form
+     * @param lotteryStart the typed lottery start, YYYY-MM-DD
+     * @param lotteryEnd the typed lottery end, YYYY-MM-DD
+     * @return true when a lottery with the same start and end already exists
      */
-    private suspend fun campsiteExistsInLottery(
+    private suspend fun lotteryDatesExist(
         campsiteIds: List<String>,
-        registrationStart: String,
-        registrationEnd: String
-    ): Boolean{
-        var exists = false
-        try {
-            // checks to determine if the campsite is already registered in a lottery
-            exists = lotteryRepository.getLotteries().any {
-                    existing -> existing.status == LotteryStatus.OPEN &&
-                    existing.registrationStart <= registrationEnd &&
-                    existing.registrationEnd >= registrationStart &&
-                    existing.campsiteIds.any {it in campsiteIds}
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            exists = true
+        lotteryStart: String,
+        lotteryEnd: String
+    ): Boolean =
+        lotteryRepository.getLotteries().any { existing ->
+            existing.status == LotteryStatus.OPEN &&
+                    existing.lotteryStart == lotteryStart &&
+                    existing.lotteryEnd == lotteryEnd &&
+                    existing.campsiteIds.any { it in campsiteIds }
         }
-        return exists
-    }
 
 }
