@@ -8,6 +8,7 @@ import com.example.camply.campsite.service.PreparedCampsiteImages
 import com.example.camply.reservations.model.OwnerReservationsModel
 import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationStatus
+import com.example.camply.reservations.repository.ReservationCancellationResult
 import com.example.camply.reservations.repository.ReservationRepository
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
@@ -407,5 +408,11 @@ class OwnerReservationsControllerTest {
         ): String {
             return reservation.id
         }
+
+        override suspend fun cancelReservation(
+            reservationId: String,
+            entrantId: String,
+            today: String
+        ): ReservationCancellationResult = ReservationCancellationResult.NOT_ELIGIBLE
     }
 }

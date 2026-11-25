@@ -2,26 +2,37 @@ package com.example.camply.reservations.view
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteRepository
 import com.example.camply.campsite.model.DateRange
 import com.example.camply.campsite.service.PreparedCampsiteImages
+import com.example.camply.notification.model.NewNotification
+import com.example.camply.notification.model.Notification
+import com.example.camply.notification.model.SendResult
+import com.example.camply.notification.repository.NotificationRepository
+import com.example.camply.notification.service.NotificationService
 import com.example.camply.reservations.controller.ActiveReservationsController
 import com.example.camply.reservations.model.ActiveReservationsModel
 import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationStatus
+import com.example.camply.reservations.repository.ReservationCancellationResult
 import com.example.camply.reservations.repository.ReservationRepository
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
 /**
- * Compose UI tests for the active reservations list and details (US 01.06.01).
+ * Compose UI tests for the reservations list, details and cancellation
+ * (US 01.06.01, US 01.06.02, US 01.07.01).
  */
 class ActiveReservationsViewTest {
 
@@ -34,6 +45,7 @@ class ActiveReservationsViewTest {
     private val campsite = Campsite(
         id = CAMPSITE_ID,
         name = "Banff Pines",
+        ownerId = "owner1",
         location = "Banff",
         rules = "Quiet hours are from 10 PM to 7 AM.",
         cancellationPolicy = "Cancel at least 7 days before arrival."
@@ -288,6 +300,56 @@ class ActiveReservationsViewTest {
         compose.onNodeWithText("2027-06-01 to 2027-06-05").assertIsDisplayed()
     }
 
+    /**
+     * Checks that confirming cancellation updates the reservation status and removes the
+     * cancellation button.
+     */
+    @Test
+    fun cancelReservation_confirm_showsCancelledStatus() {
+        campsiteRepository.campsites = listOf(campsite)
+        reservationRepository.reservations = listOf(
+            reservation("active", "2027-06-12", "2027-06-15")
+        )
+
+        showScreen()
+        compose.onNodeWithText("Banff Pines").performClick()
+
+        compose.onNodeWithText("Cancel reservation").performScrollTo().performClick()
+
+        compose.onNodeWithText("Cancel reservation?").assertIsDisplayed()
+        compose.onNode(hasText("Cancel reservation") and hasAnyAncestor(isDialog())).performClick()
+
+        compose.onNodeWithText("Reservation details").assertIsDisplayed()
+        compose.onNodeWithText("Cancelled").assertIsDisplayed()
+        compose.onNodeWithText("Active").assertDoesNotExist()
+        compose.onNodeWithText("Cancel reservation").assertDoesNotExist()
+    }
+
+    /**
+     * Checks that dismissing the cancellation dialog leaves the reservation active.
+     */
+    @Test
+    fun cancelReservation_dismiss_keepsActiveStatus() {
+        campsiteRepository.campsites = listOf(campsite)
+        reservationRepository.reservations = listOf(
+            reservation("active", "2027-06-12", "2027-06-15")
+        )
+
+        showScreen()
+        compose.onNodeWithText("Banff Pines").performClick()
+
+        compose.onNodeWithText("Cancel reservation").performScrollTo().performClick()
+
+        compose.onNodeWithText("Cancel reservation?").assertIsDisplayed()
+        compose.onNodeWithText("Keep reservation").performClick()
+
+        compose.onNodeWithText("Cancel reservation?").assertDoesNotExist()
+        compose.onNodeWithText("Reservation details").assertIsDisplayed()
+        compose.onNodeWithText("Active").assertIsDisplayed()
+        compose.onNodeWithText("Cancelled").assertDoesNotExist()
+        compose.onNodeWithText("Cancel reservation").assertExists()
+    }
+
 
     private fun showScreen() {
         val model = ActiveReservationsModel()
@@ -295,6 +357,7 @@ class ActiveReservationsViewTest {
             model,
             reservationRepository,
             campsiteRepository,
+            NotificationService(TestNotificationRepository()),
             today = { "2027-06-10" }
         )
         val view = ActiveReservationsView(model, controller)
@@ -328,6 +391,29 @@ class ActiveReservationsViewTest {
             reservations.filter { it.campsiteId == campsiteId }
 
         override suspend fun createReservation(reservation: Reservation): String = "testReservationId"
+
+        override suspend fun cancelReservation(
+            reservationId: String,
+            entrantId: String,
+            today: String
+        ): ReservationCancellationResult {
+            val reservation = reservations.firstOrNull { it.id == reservationId }
+
+            if (reservation == null || reservation.entrantId != entrantId ||
+                !reservation.isActive(today)) {
+                return ReservationCancellationResult.NOT_ELIGIBLE
+            }
+
+            reservations = reservations.map {
+                if (it.id == reservationId) {
+                    it.copy(status = ReservationStatus.CANCELLED)
+                } else {
+                    it
+                }
+            }
+
+            return ReservationCancellationResult.CANCELLED
+        }
     }
 
     /**
@@ -360,6 +446,28 @@ class ActiveReservationsViewTest {
         ): ByteArray? = null
 
         override suspend fun deleteCampsite(id: String) = Unit
+    }
+
+    /**
+     * Provides notification functionality without accessing Firestore.
+     */
+    private class TestNotificationRepository : NotificationRepository {
+        override suspend fun createIfAbsent(id: String, notification: NewNotification): SendResult = SendResult.CREATED
+
+        override fun observeReceived(
+            recipientId: String,
+            onUpdate: (List<Notification>) -> Unit,
+            onError: (Exception) -> Unit
+        ): () -> Unit = error("Not used by view tests")
+
+        override fun observeSent(
+            senderId: String,
+            onUpdate: (List<Notification>) -> Unit,
+            onError: (Exception) -> Unit
+        ): () -> Unit = error("Not used by view tests")
+
+        override suspend fun markAsRead(notificationId: String, recipientId: String) =
+            error("Not used by view tests")
     }
 
     private companion object {

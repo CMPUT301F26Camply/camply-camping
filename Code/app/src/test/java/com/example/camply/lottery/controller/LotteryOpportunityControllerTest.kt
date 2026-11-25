@@ -6,6 +6,7 @@ import com.example.camply.lottery.repository.DeclineResult
 import com.example.camply.lottery.repository.LotteryEntryRepository
 import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationStatus
+import com.example.camply.reservations.repository.ReservationCancellationResult
 import com.example.camply.reservations.repository.ReservationRepository
 import com.example.camply.reservations.service.BookingService
 import junit.framework.TestCase.assertEquals
@@ -313,6 +314,12 @@ class LotteryOpportunityControllerTest {
             reservations.filter { it.campsiteId == campsiteId }
 
         override suspend fun createReservation(reservation: Reservation): String = "testReservationId"
+
+        override suspend fun cancelReservation(
+            reservationId: String,
+            entrantId: String,
+            today: String
+        ): ReservationCancellationResult = ReservationCancellationResult.NOT_ELIGIBLE
     }
 
     private companion object {
