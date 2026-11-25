@@ -2,6 +2,7 @@
 package com.example.camply.reservations.view
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -22,7 +23,7 @@ import org.junit.Test
 import kotlin.collections.filter
 
 /**
- * Compose UI tests for owner reservation management (US 02.07.01).
+ * Compose UI tests for owner reservation management (US 02.07.01 and US 02.07.02).
  */
 class OwnerReservationsViewTest {
 
@@ -207,10 +208,10 @@ class OwnerReservationsViewTest {
     }
 
     /**
-     * Selecting another campsite resets the reservation filters.
+     * Overview filters remain selected when returning from a campsite.
      */
     @Test
-    fun changingCampsite_resetsFilters() {
+    fun returningToOverview_preservesFilters() {
         campsiteRepository.campsites = listOf(
             campsite("banff", "Banff Pines"),
             campsite("jasper", "Jasper Lake")
@@ -226,9 +227,62 @@ class OwnerReservationsViewTest {
         compose.onAllNodesWithText("Active").onFirst().performClick()
 
         compose.onNodeWithText("Back to Campsites").performClick()
+        compose.onNodeWithText("Active").assertIsSelected()
+        compose.onNodeWithText("Jasper Lake").assertDoesNotExist()
+        compose.onNodeWithText("All").performClick()
         compose.onNodeWithText("Jasper Lake").performClick()
 
         compose.onNodeWithText("2027-06-01 to 2027-06-05").assertIsDisplayed()
+    }
+
+    /**
+     * Owners can browse past campsites, inspect a completed stay, and return to the category.
+     */
+    @Test
+    fun pastCategory_filtersOverviewCountsAndReservationDetails() {
+        campsiteRepository.campsites = listOf(
+            campsite("banff", "Banff Pines"),
+            campsite("jasper", "Jasper Lake")
+        )
+        reservationRepository.reservations = listOf(
+            reservation("completed-stay", "banff", "2027-06-01", "2027-06-05"),
+            reservation("ends-today", "banff", "2027-06-08", "2027-06-10"),
+            reservation("future", "jasper", "2027-07-01", "2027-07-05")
+        )
+
+        showScreen()
+        compose.onNodeWithText("Past").performClick()
+        compose.onNodeWithText("Past reservations: 1").assertIsDisplayed()
+        compose.onNodeWithText("Jasper Lake").assertDoesNotExist()
+        compose.onNodeWithText("Banff Pines").performClick()
+        compose.onNodeWithText("2027-06-08 to 2027-06-10").assertDoesNotExist()
+        compose.onNodeWithText("Entrant: test-entrant").assertIsDisplayed()
+        compose.onNodeWithText("2027-06-01 to 2027-06-05").performClick()
+        compose.onNodeWithText("Reservation ID: completed-stay").assertIsDisplayed()
+        compose.onNodeWithText("Back to Reservations").performClick()
+        compose.onNodeWithText("Back to Campsites").performClick()
+        compose.onNodeWithText("Past").assertIsSelected()
+        compose.onNodeWithText("Past reservations: 1").assertIsDisplayed()
+        compose.onNodeWithText("Jasper Lake").assertDoesNotExist()
+        compose.onNodeWithText("All").performClick()
+        compose.onNodeWithText("Jasper Lake").assertIsDisplayed()
+    }
+
+    /**
+     * An empty past category explains why no campsites appear and allows resetting it.
+     */
+    @Test
+    fun pastCategory_withoutMatchesShowsEmptyState() {
+        campsiteRepository.campsites = listOf(campsite("banff", "Banff Pines"))
+        reservationRepository.reservations = listOf(
+            reservation("future", "banff", "2027-07-01", "2027-07-05")
+        )
+        showScreen()
+        compose.onNodeWithText("Past").performClick()
+        compose.onNodeWithText("No campsites match the selected reservation filters.").assertIsDisplayed()
+        compose.onNodeWithText("Banff Pines").assertDoesNotExist()
+        compose.onNodeWithText("All").performClick()
+        compose.onNodeWithText("Banff Pines").assertIsDisplayed()
     }
 
     /**

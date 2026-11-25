@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
 /**
  * Displays the owner's campsites and their reservations.
  *
- * US 02.07.01.
+ * US 02.07.01 and US 02.07.02.
  */
 class OwnerReservationsView(
     private val model: OwnerReservationsModel,
@@ -82,6 +82,15 @@ class OwnerReservationsView(
         }
 
         CamplyScreen(title = title) {
+            if (!model.isLoading && model.errorMessage == null && model.selectedReservation == null) {
+                FilterChips(
+                    categories = listOf("All", "Active", "Past", "Cancelled", "Rejected"),
+                    selectedCategories = model.selectedFilters.ifEmpty { setOf("All") },
+                    onCategoryToggle = controller::onFilterSelected
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+
             when {
                 model.isLoading -> {
                     Box(
@@ -122,20 +131,6 @@ class OwnerReservationsView(
                 }
 
                 else -> {
-                    FilterChips(
-                        categories = listOf(
-                            "All", "Active", "Past", "Cancelled", "Rejected"
-                        ),
-                        selectedCategories = if (model.selectedFilters.isEmpty()) {
-                            setOf("All")
-                        } else {
-                            model.selectedFilters
-                        },
-                        onCategoryToggle = controller::onFilterSelected
-                    )
-
-                    Spacer(Modifier.height(12.dp))
-
                     ReservationList(selectedCampsite)
 
                     Spacer(Modifier.height(12.dp))
@@ -150,8 +145,7 @@ class OwnerReservationsView(
     }
 
     /**
-     * Displays owned campsites that have reservations,
-     * including their active and total reservation counts.
+     * Displays owned campsites with matching reservations and category counts.
      */
     @Composable
     private fun ColumnScope.CampsitesWithReservationsList() {
@@ -169,6 +163,8 @@ class OwnerReservationsView(
                     color = CamplyPalette.Cream,
                     textAlign = TextAlign.Center
                 )
+            } else if (model.selectedFilters.isNotEmpty()) {
+                CenteredMessage("No campsites match the selected reservation filters.")
             } else {
                 CenteredMessage(
                     "None of your campsites have reservations."
@@ -207,8 +203,13 @@ class OwnerReservationsView(
 
                         Spacer(Modifier.height(8.dp))
 
+                        val countLabel = when (model.selectedFilters.size) {
+                            0 -> "Active reservations: ${controller.getActiveCount(entry)}"
+                            1 -> "${model.selectedFilters.single()} reservations: ${controller.getFilteredCount(entry)}"
+                            else -> "Matching reservations: ${controller.getFilteredCount(entry)}"
+                        }
                         Text(
-                            "Active reservations: ${controller.getActiveCount(entry)}",
+                            countLabel,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = CamplyPalette.Ink

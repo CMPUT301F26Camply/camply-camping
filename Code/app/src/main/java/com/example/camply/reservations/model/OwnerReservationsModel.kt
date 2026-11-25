@@ -16,7 +16,7 @@ data class OwnerCampsiteReservations(
 /**
  * Stores the state of the owner's reservation management screen.
  *
- * US 02.07.01.
+ * US 02.07.01 and US 02.07.02.
  */
 class OwnerReservationsModel {
 
@@ -85,14 +85,13 @@ class OwnerReservationsModel {
     }
 
     /**
-     * Updates the currently selected campsite.
+     * Updates the selected campsite while preserving the overview's category filters.
      *
      * @param campsiteId The campsite to display reservations for.
      */
     fun updateSelectedCampsite(campsiteId: String) {
         selectedCampsiteId = campsiteId
         selectedReservation = null
-        selectedFilters = emptySet()
     }
 
     /**

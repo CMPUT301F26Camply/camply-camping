@@ -12,7 +12,7 @@ import kotlin.coroutines.cancellation.CancellationException
 /**
  * Handles owner reservation loading, filtering, and navigation.
  *
- * US 02.07.01.
+ * US 02.07.01 and US 02.07.02.
  */
 class OwnerReservationsController(
     private val model: OwnerReservationsModel,
@@ -113,15 +113,24 @@ class OwnerReservationsController(
     }
 
     /**
-     * Returns the owner's campsites that have at least one reservation.
+     * Returns the owner's campsites that have reservations matching the selected filters.
      *
-     * @return Campsites with reservations.
+     * @return Campsites with at least one matching reservation.
      */
     fun getCampsitesWithReservations(): List<OwnerCampsiteReservations> {
         return model.campsites.filter {
-            it.reservations.isNotEmpty()
+            getFilteredReservations(it.reservations).isNotEmpty()
         }
     }
+
+    /**
+     * Counts reservations matching the selected categories for a campsite.
+     *
+     * @param entry The campsite and its reservations.
+     * @return The number of matching reservations, or the total when All is selected.
+     */
+    fun getFilteredCount(entry: OwnerCampsiteReservations): Int =
+        getFilteredReservations(entry.reservations).size
 
     /**
      * Counts active reservations for a campsite.
