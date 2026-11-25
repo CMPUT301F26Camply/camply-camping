@@ -1,4 +1,5 @@
 package com.example.camply.lottery.controller
+import android.util.Log.e
 import com.example.camply.lottery.repository.LotteryRepository
 import com.example.camply.lottery.model.Lottery
 import com.example.camply.lottery.model.LotteryCreateModel
@@ -37,7 +38,7 @@ class LotteryCreateController(
         }
     }
     /** @param id the campsite the owner tapped */
-    fun onCampsiteSelected(id: String) = model.selectCampsite(id)
+    fun onCampsiteSelected(id: String) = model.selectMultipleCampsites(id)
     /** @param text the typed registration start, YYYY-MM-DD */
     fun onRegistrationStart(text: String) = model.updateRegistrationStart(text)
     /** @param text the typed registration end, YYYY-MM-DD */
@@ -60,7 +61,7 @@ class LotteryCreateController(
      * @param ownerId the Firebase uid stored on the lottery
      */
     suspend fun createLottery(ownerId: String) {
-        val campsiteId = model.selectedCampsiteId
+        val campsiteIds = model.selectedCampsiteIds.toList()
         val registrationStart = model.registrationStart.trim()
         val registrationEnd = model.registrationEnd.trim()
         val bookingStart = model.bookingStart.trim()
@@ -70,8 +71,8 @@ class LotteryCreateController(
         val winners = model.winnerCount.toIntOrNull()
 
         val error = when {
-            campsiteId == null || model.ownedCampsites.none { it.id == campsiteId } ->
-                "Select one of your campsites."
+            campsiteIds.isEmpty() ->
+                "Select your campsite(s)"
             !isDateText(registrationStart) || !isDateText(registrationEnd) ->
                 "Enter the registration period as YYYY-MM-DD."
 //This part will check if the lottery end is before the lottery start
@@ -86,6 +87,8 @@ class LotteryCreateController(
             bookingEnd < bookingStart ->
                 "Booking end must be on or after the start."
             winners == null || winners < 1 -> "Winner count must be at least 1."
+            campsiteExistsInLottery(campsiteIds, registrationStart, registrationEnd) ->
+                "One of these campsites is already in an open lottery during this registration period."
             else -> null
         }
         if (error != null) {
@@ -95,7 +98,7 @@ class LotteryCreateController(
 
         val lottery = Lottery(
             ownerId = ownerId,
-            campsiteIds = listOf(campsiteId!!),
+            campsiteIds = campsiteIds,
             registrationStart = registrationStart,
             registrationEnd = registrationEnd,
             bookingStart = bookingStart,
@@ -133,6 +136,36 @@ class LotteryCreateController(
             else -> 31
         }
         return day in 1..daysInMonth
+    }
+
+    /**
+     * This function prevents a campsite to be listed
+     * in multiple lotteries.
+     * @param campsiteIds the campsite ID to match
+     * @param registrationEnd the registration end date
+     * @param registrationStart the registration start data
+     * @return false if the campsite is not listed in any lottery
+     */
+    private suspend fun campsiteExistsInLottery(
+        campsiteIds: List<String>,
+        registrationStart: String,
+        registrationEnd: String
+    ): Boolean{
+        var exists = false
+        try {
+            // checks to determine if the campsite is already registered in a lottery
+            exists = lotteryRepository.getLotteries().any {
+                    existing -> existing.status == LotteryStatus.OPEN &&
+                    existing.registrationStart <= registrationEnd &&
+                    existing.registrationEnd >= registrationStart &&
+                    existing.campsiteIds.any {it in campsiteIds}
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            exists = true
+        }
+        return exists
     }
 
 }
