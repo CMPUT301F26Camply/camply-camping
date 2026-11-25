@@ -20,4 +20,21 @@ class CampsiteDetailController(
             model.showError(e.message ?: "Could not load campsite.")
         }
     }
+
+    /**
+     * Re-reads the campsite without the loading state, so the screen keeps its place
+     * and sections such as ratings and reviews are not rebuilt. Used after an entrant's rating
+     * changes the average shown in the header (US 01.13.01). A failed refresh keeps what is shown.
+     *
+     * @param campsiteId The campsite's Firestore document ID.
+     */
+    suspend fun refreshCampsite(campsiteId: String) {
+        try {
+            repository.getCampsite(campsiteId)?.let(model::showCampsite)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // The details already on screen stay valid, so a failed refresh is not an error.
+        }
+    }
 }

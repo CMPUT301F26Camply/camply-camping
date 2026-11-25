@@ -19,7 +19,8 @@ enum class Screen {
     WAIT_LIST,
     INBOX,
     PROFILE,
-    NOTIFICATIONS
+    NOTIFICATIONS,
+    SETTINGS // entrant settings and app policy (US 01.11.01)
 }
 
 /**
@@ -43,7 +44,7 @@ class NavigationModel {
         // TODO :In here for now but need to change flow of notifications to be inside inbox...
         NavBarItem(Screen.NOTIFICATIONS, "Notifications", R.drawable.inbox_icon)
     )
-    
+
     private val ownerNavBarItems = listOf(
         //NavBarItem(Screen.BACK, "Back", R.drawable.back_arrow_icon),
         NavBarItem(Screen.PROFILE, "Profile", R.drawable.profile_icon),
@@ -53,7 +54,7 @@ class NavigationModel {
         // TODO: In here for now but need to change flow of notifications to be inside inbox...
         NavBarItem(Screen.NOTIFICATIONS, "Notifications", R.drawable.inbox_icon)
     )
-    
+
     private val adminNavBarItems = listOf(
         // TODO: In here for now but need to change flow of notifications to be inside inbox...
         NavBarItem(Screen.NOTIFICATIONS, "Inbox", R.drawable.inbox_icon)
