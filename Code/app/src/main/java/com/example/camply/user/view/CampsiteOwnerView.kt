@@ -1,10 +1,13 @@
 package com.example.camply.user.view
 
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import com.example.camply.campsite.model.DateRange
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,18 +26,23 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.example.camply.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -43,12 +51,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.camply.campsite.model.Campsite
-import com.example.camply.campsite.model.CampsiteRepository
 import com.example.camply.shared.view.PrimaryButton
 import com.example.camply.shared.view.SecondaryButton
 import com.example.camply.ui.theme.CamplyTheme
 import com.example.camply.ui.theme.CamplyThemePreset
-import com.example.camply.campsite.model.DateRange
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.cancellation.CancellationException
 
 // CampsiteOwnerView.kt - Campsite Owner Dashboard Redesign
 //
@@ -134,7 +143,8 @@ class CampsiteListView {
         viewCampsite: (Campsite) -> Unit,
         lotteryRegistration: (Campsite) -> Unit,
         reservationList: () -> Unit,
-        viewOrCreateLottery: () -> Unit
+        viewOrCreateLottery: () -> Unit,
+        loadPhotoPreview: suspend (String, String) -> ByteArray?
     ) {
         Column(
             modifier = Modifier
@@ -240,7 +250,8 @@ class CampsiteListView {
                             campsite = campsite,
                             viewInfo = viewCampsite,
                             onEdit = editCampsite,
-                            addInLottery = lotteryRegistration
+                            addInLottery = lotteryRegistration,
+                            loadPhotoPreview = loadPhotoPreview
                         )
                     }
                 }
@@ -265,7 +276,9 @@ class CampsiteListView {
         campsite: Campsite,
         viewInfo: (Campsite) -> Unit,
         onEdit: (Campsite) -> Unit,
-        addInLottery: (Campsite) -> Unit
+        addInLottery: (Campsite) -> Unit,
+        loadPhotoPreview: suspend (String, String) -> ByteArray?
+
     ) {
         Column(
             modifier = Modifier
@@ -284,10 +297,46 @@ class CampsiteListView {
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Campsite image or placeholder
-                val image = campsite.images.firstOrNull()
 
-                if (image.isNullOrBlank()) {
+                // Load the cover photo's smaller Firestore preview.
+                val photoId = campsite.images.firstOrNull()
+
+                var previewImage by remember(campsite.id, photoId) {
+                    mutableStateOf<ImageBitmap?>(null)
+                }
+
+                LaunchedEffect(campsite.id, photoId) {
+                    if (photoId != null && campsite.id.isNotBlank()) {
+                        try {
+                            val bytes = loadPhotoPreview(campsite.id, photoId)
+
+                            previewImage = withContext(Dispatchers.Default) {
+                                bytes?.let {
+                                    BitmapFactory.decodeByteArray(
+                                        it, 0, it.size
+                                    )?.asImageBitmap()
+                                }
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            previewImage = null
+                        }
+                    }
+                }
+
+                val image = previewImage
+
+                if (image != null) {
+                    Image(
+                        bitmap = image,
+                        contentDescription = "Photo of ${campsite.name}",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(width = 104.dp, height = 112.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                    )
+                } else {
                     Icon(
                         imageVector = Icons.Default.Home,
                         contentDescription = "Campsite image",
@@ -299,15 +348,6 @@ class CampsiteListView {
                                 MaterialTheme.colorScheme.primaryContainer
                             )
                             .padding(30.dp)
-                    )
-                } else {
-                    AsyncImage(
-                        model = image,
-                        contentDescription = "photo of campsite",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(width = 104.dp, height = 112.dp)
-                            .clip(RoundedCornerShape(12.dp))
                     )
                 }
 
@@ -402,7 +442,7 @@ class CampsiteListView {
                     .fillMaxWidth()
                     .padding(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
+                verticalArrangement = Arrangement.spacedBy(6.dp,Alignment.CenterVertically)
             ) {
                 Box(
                     modifier = Modifier
@@ -550,7 +590,8 @@ fun CampsiteListViewPreview() {
             viewCampsite = {},
             lotteryRegistration = {},
             reservationList = {},
-            viewOrCreateLottery = {}
+            viewOrCreateLottery = {},
+            loadPhotoPreview = { _, _ -> null }
         )
     }
 }

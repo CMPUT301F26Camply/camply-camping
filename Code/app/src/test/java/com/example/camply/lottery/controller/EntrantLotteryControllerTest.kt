@@ -76,6 +76,46 @@ class EntrantLotteryControllerTest {
     }
 
     /**
+     * Successfully retrying after a repository error clears the old error and displays
+     * the newly loaded lotteries.
+     */
+    @Test
+    fun loadLotteries_afterError_successClearsError() = runBlocking {
+        repository.shouldFail = true
+        controller.loadLotteries("entrant1")
+
+        assertEquals("Could not load lotteries.", model.errorMessage)
+
+        repository.shouldFail = false
+        val lottery = Lottery(id = "lottery2")
+        repository.lotteries.add(lottery)
+
+        controller.loadLotteries("entrant1")
+
+        assertEquals(listOf(lottery), model.lotteries)
+        assertFalse(model.isLoading)
+        assertNull(model.errorMessage)
+    }
+
+    /**
+     * Loading new lottery results replaces outdated entries in the model rather than keeping both lists.
+     */
+    @Test
+    fun loadLotteries_newResults_replacePreviousResults() = runBlocking {
+        model.showLotteries(listOf(Lottery(id = "oldLottery")))
+
+        val newLottery = Lottery(id = "newLottery")
+        repository.lotteries.add(newLottery)
+
+        controller.loadLotteries("entrant1")
+
+        assertEquals(listOf(newLottery), model.lotteries)
+        assertEquals("entrant1", repository.requestedEntrantId)
+        assertFalse(model.isLoading)
+        assertNull(model.errorMessage)
+    }
+
+    /**
      * Provides predefined lottery data to test the controller without Firestore.
      * Entrant membership filtering is handled by the real Firestore repository.
      */

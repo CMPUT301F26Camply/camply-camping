@@ -229,16 +229,53 @@ class BookingServiceTest {
     }
 
     /**
-     * Checks that cancelled reservations do not count as active lottery bookings.
+     * Checks that cancelling a reservation does not restore the entrant's lottery opportunity
      */
     @Test
-    fun hasExistingLotteryReservation_cancelledReservation_returnsFalse() {
+    fun hasExistingLotteryReservation_cancelledReservation_returnsTrue() {
         val reservations = listOf(
             Reservation(entrantId = "entrant1", lotteryId = "lottery1", status = ReservationStatus.CANCELLED)
         )
 
+        assertTrue(bookingService.hasExistingLotteryReservation("entrant1", "lottery1", reservations))
+    }
+
+    /**
+     * Checks that a rejected reservation does not restore the entrant's lottery opportunity
+     */
+    @Test
+    fun hasExistingLotteryReservation_rejectedReservation_returnsTrue() {
+        val reservations = listOf(
+            Reservation(entrantId = "entrant1", lotteryId = "lottery1", status = ReservationStatus.REJECTED)
+        )
+
+        assertTrue(bookingService.hasExistingLotteryReservation("entrant1", "lottery1", reservations))
+    }
+
+    /**
+     * Checks that an uninitialized reservation does not count as a used lottery opportunity
+     */
+    @Test
+    fun hasExistingLotteryReservation_uninitializedReservation_returnsFalse() {
+        val reservations = listOf(
+            Reservation(entrantId = "entrant1", lotteryId = "lottery1", status = ReservationStatus.UNINITIALIZED)
+        )
+
         assertFalse(bookingService.hasExistingLotteryReservation("entrant1", "lottery1", reservations))
     }
+
+    /**
+     * Checks that another entrant's reservation cannot block this entrant's lottery opportunity
+     */
+    @Test
+    fun hasExistingLotteryReservation_differentEntrant_returnsFalse() {
+        val reservations = listOf(
+            Reservation(entrantId = "entrant2", lotteryId = "lottery1", status = ReservationStatus.CONFIRMED)
+        )
+
+        assertFalse(bookingService.hasExistingLotteryReservation("entrant1", "lottery1", reservations))
+    }
+
 
 
 

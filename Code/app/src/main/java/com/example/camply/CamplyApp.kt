@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import com.example.camply.campsite.controller.CampsiteBrowseController
 import com.example.camply.campsite.controller.CampsiteDetailController
 import com.example.camply.campsite.model.Campsite
@@ -71,13 +72,11 @@ import com.example.camply.shared.navigation.model.Screen
 import com.example.camply.shared.navigation.view.CamplyBottomNavBar
 import com.example.camply.shared.view.ErrorView
 import com.example.camply.shared.view.LoadingView
-import com.example.camply.shared.view.PrimaryButton
-import com.example.camply.shared.view.SecondaryButton
 import com.example.camply.user.controller.OwnerController
 import com.example.camply.user.controller.UserController
 import com.example.camply.user.model.CampsiteOwnerUser
 import com.example.camply.user.model.UserModel
-import com.example.camply.user.view.CampsiteFormView
+import com.example.camply.campsite.view.CampsiteFormView
 import com.example.camply.user.view.CampsiteListView
 import com.example.camply.user.view.UserProfileView
 import com.example.camply.user.view.UserSignUpView
@@ -87,6 +86,7 @@ import kotlinx.coroutines.launch
  * Displays the Camply application and manages its startup screens
  * Shows the loading screen, signup screen, main application, or
  * error screen depending on the current user state.
+ * @param scannedCampsiteId campsite id from a scanned QR code. When set, the app opens that campsite's details.
  */
 @Composable
 fun CamplyApp(scannedCampsiteId: String? = null) {
@@ -204,6 +204,7 @@ fun CamplyApp(scannedCampsiteId: String? = null) {
     var ownerEditCampsite by remember { mutableStateOf<Campsite?>(null) }
     var ownerShowLottery by remember { mutableStateOf(false) }
     var ownerShowReservations by remember { mutableStateOf(false) }
+    var ownerSaving by remember { mutableStateOf(false) }
 
     // Shared notifications
     val notificationsModel = remember { NotificationsModel() }
@@ -311,7 +312,12 @@ fun CamplyApp(scannedCampsiteId: String? = null) {
                             Screen.BROWSE -> {
                                 val openId = selectedCampsiteId
                                 if (openId == null) {
-                                    campsiteBrowseView.Display(onCampsiteClick = { selectedCampsiteId = it })
+                                    campsiteBrowseView.Display(
+                                        onCampsiteClick = { selectedCampsiteId = it },
+                                        loadPhotoPreview = { campsiteId, photoId ->
+                                            campsiteRepository.getCampsitePreview(campsiteId, photoId)
+                                        }
+                                    )
                                 } else {
                                     BackHandler { selectedCampsiteId = null }
                                     campsiteDetailView.Display(
@@ -327,6 +333,12 @@ fun CamplyApp(scannedCampsiteId: String? = null) {
                                                 }
                                                 lotteryView.Display()
                                             }
+                                        },
+                                        loadPhotoPreview = { campsiteId, photoId ->
+                                            campsiteRepository.getCampsitePreview(campsiteId, photoId)
+                                        },
+                                        loadPhoto = { campsiteId, photoId ->
+                                            campsiteRepository.getCampsitePhoto(campsiteId, photoId)
                                         }
                                     )
                                 }
@@ -413,56 +425,116 @@ fun CamplyApp(scannedCampsiteId: String? = null) {
                                             onDone = { ownerShowLottery = false }
                                         )
                                     } else if (ownerShowForm) {
-                                        BackHandler {
+                                        BackHandler(enabled = !ownerSaving) {
                                             ownerController.removeErrorsFromList()
                                             ownerShowForm = false
                                             ownerEditCampsite = null
                                         }
 
+                                        val context = LocalContext.current
+
                                         campsiteFormView.Display(
                                             campsite = ownerEditCampsite,
                                             errors = ownerController.errors,
-                                            onSubmit = { name, location, description, amenities, occupancy, price, tags, rules, cancellation ->
-                                                scope.launch {
-                                                    val existing = ownerEditCampsite
-                                                    val ok = if (existing == null) {
-                                                        ownerController.registerCampsite(name, location, description, amenities, occupancy, price, tags, rules, cancellation)
-                                                    } else {
-                                                        ownerController.updateCampsite(existing, name, location, description, amenities, occupancy, price, tags, rules, cancellation)
-                                                    }
-                                                    if (ok) {
-                                                        ownerShowForm = false
-                                                        ownerEditCampsite = null
-                                                        ownerDetailCampsiteId = null
+                                            isSaving = ownerSaving,
+
+                                            onSubmit = {
+                                                    name, location, description, amenities, occupancy, price, tags,
+                                                rules, cancellation, images, photosToSave, latitude, longitude ->
+
+                                                if (!ownerSaving) {
+                                                    ownerSaving = true
+
+                                                    scope.launch {
+                                                        try {
+                                                            val existing = ownerEditCampsite
+
+                                                            val ok = if (existing == null) {
+                                                                ownerController.registerCampsite(
+                                                                    name = name,
+                                                                    location = location,
+                                                                    description = description,
+                                                                    amenities = amenities,
+                                                                    maxOccupancy = occupancy,
+                                                                    price = price,
+                                                                    tags = tags,
+                                                                    rules = rules,
+                                                                    cancellationPolicy = cancellation,
+                                                                    images = images,
+                                                                    photosToSave = photosToSave,
+                                                                    context = context,
+                                                                    latitude = latitude,
+                                                                    longitude = longitude
+                                                                )
+                                                            } else {
+                                                                ownerController.updateCampsite(
+                                                                    existingSite = existing,
+                                                                    name = name,
+                                                                    location = location,
+                                                                    description = description,
+                                                                    amenities = amenities,
+                                                                    maxOccupancy = occupancy,
+                                                                    price = price,
+                                                                    tags = tags,
+                                                                    rules = rules,
+                                                                    cancellationPolicy = cancellation,
+                                                                    images = images,
+                                                                    photosToSave = photosToSave,
+                                                                    context = context,
+                                                                    latitude = latitude,
+                                                                    longitude = longitude
+                                                                )
+                                                            }
+
+                                                            if (ok) {
+                                                                ownerShowForm = false
+                                                                ownerEditCampsite = null
+                                                                ownerDetailCampsiteId = null
+                                                            }
+                                                        } finally {
+                                                            ownerSaving = false
+                                                        }
                                                     }
                                                 }
                                             },
                                             onBack = {
-                                                ownerController.removeErrorsFromList()
-                                                ownerShowForm = false
-                                                ownerEditCampsite = null
+                                                if (!ownerSaving) {
+                                                    ownerController.removeErrorsFromList()
+                                                    ownerShowForm = false
+                                                    ownerEditCampsite = null
+                                                }
                                             },
+                                            loadPhotoPreview = { campsiteId, photoId ->
+                                                campsiteRepository.getCampsitePreview(campsiteId, photoId)
+                                            }
                                         )
 
+
                                     } else if (detailId != null) {
-                                            campsiteDetailView.Display(
-                                                campsiteId = detailId,
-                                                onBack = { ownerDetailCampsiteId = null },
-                                                showQRbutton = true,
-                                                extraContent = { campsite ->
-                                                    val bookedDates by produceState(emptyList<DateRange>(), campsite.id) {
-                                                        value = reservationRepository.getReservationsForCampsite(campsite.id)
-                                                            .filter { it.status == ReservationStatus.CONFIRMED }
-                                                            .map { it.dates }
-                                                            .sortedBy { it.from }
-                                                    }
-                                                    campsiteListView.BookedDatesView(campsite, bookedDates)
-                                                    Button(onClick = {
-                                                        ownerEditCampsite = campsite
-                                                        ownerShowForm = true
-                                                    }) {
-                                                        Text("Edit campsite")
-                                                    }
+                                        BackHandler { ownerDetailCampsiteId = null }
+                                        campsiteDetailView.Display(
+                                            campsiteId = detailId,
+                                            onBack = { ownerDetailCampsiteId = null },
+                                            currentUserId = currentUser.getUid(),
+                                            showQRbutton = true,
+                                            extraContent = { campsite ->
+                                                val bookedDates by produceState(emptyList<DateRange>(), campsite.id) {
+                                                    value = reservationRepository.getReservationsForCampsite(campsite.id)
+                                                        .filter { it.status == ReservationStatus.CONFIRMED }
+                                                        .map { it.dates }
+                                                        .sortedBy { it.from }
+                                                }
+                                                campsiteListView.BookedDatesView(campsite, bookedDates)
+                                            },
+                                            onEdit = { campsite ->
+                                                ownerEditCampsite = campsite
+                                                ownerShowForm = true
+                                            },
+                                            loadPhotoPreview = { campsiteId, photoId ->
+                                                campsiteRepository.getCampsitePreview(campsiteId, photoId)
+                                            },
+                                            loadPhoto = { campsiteId, photoId ->
+                                                campsiteRepository.getCampsitePhoto(campsiteId, photoId)
                                             }
                                         )
                                     } else {
@@ -480,7 +552,14 @@ fun CamplyApp(scannedCampsiteId: String? = null) {
                                                 ownerShowLottery = true
                                             },
                                             reservationList = { ownerShowReservations = true },
-                                            viewOrCreateLottery = { ownerShowLottery = true }
+                                            viewOrCreateLottery = {ownerShowLottery = true},
+                                            loadPhotoPreview = { campsiteId, photoId ->
+                                                campsiteRepository.getCampsitePreview(
+                                                    campsiteId,
+                                                    photoId
+                                                )
+                                            }
+
                                         )
                                     }
                                 }

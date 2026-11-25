@@ -41,4 +41,34 @@ class LotteryRegistrationTest {
     fun invalidDateIsRejected() {
         lottery.copy(registrationStart = "2026-02-30").isRegistrationOpen("2026-11-05")
     }
+
+    /**
+     * Registration includes February 29 when the year is a leap year.
+     */
+    @Test
+    fun leapYear_allowsFebruary29() {
+        val leapLottery = lottery.copy(
+            registrationStart = "2028-02-28",
+            registrationEnd = "2028-03-01"
+        )
+
+        assertTrue(leapLottery.isRegistrationOpen("2028-02-29"))
+        assertFalse(leapLottery.isRegistrationOpen("2028-03-02"))
+    }
+
+    /**
+     * Registration checks reject dates that do not use YYYY-MM-DD.
+     */
+    @Test(expected = IllegalArgumentException::class)
+    fun incorrectlyFormattedDate_isRejected() {
+        lottery.isRegistrationOpen("2026/11/05")
+    }
+
+    /**
+     * Registration checks reject impossible calendar dates.
+     */
+    @Test(expected = java.text.ParseException::class)
+    fun impossibleCurrentDate_isRejected() {
+        lottery.isRegistrationOpen("2026-11-31")
+    }
 }

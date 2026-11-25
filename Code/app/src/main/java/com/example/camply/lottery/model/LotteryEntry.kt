@@ -9,7 +9,7 @@ package com.example.camply.lottery.model
  * @property entrantId The entrant's Firebase user ID.
  * @property lotteryId The ID of the lottery the entry belongs to.
  * @property status The entry's draw status, such as "waiting" or "won".
- * @property opportunityStatus What the winner did with their opportunity, or null if it is unused.
+ * @property opportunityStatus Whether the opportunity was booked, declined, or remains unused (null).
  */
 data class LotteryEntry(
     val entrantId: String = "",
@@ -34,5 +34,6 @@ data class LotteryEntry(
     companion object {
         const val STATUS_WON = "won"
         const val OPPORTUNITY_DECLINED = "declined"
+        const val OPPORTUNITY_BOOKED = "booked"
     }
 }

@@ -1,7 +1,5 @@
 package com.example.camply
 
-import android.graphics.Bitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -10,11 +8,11 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import com.example.camply.campsite.controller.CampsiteDetailController
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteDetailModel
 import com.example.camply.campsite.model.CampsiteRepository
+import com.example.camply.campsite.service.PreparedCampsiteImages
 import com.example.camply.campsite.view.CampsiteDetailView
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.MultiFormatReader
@@ -22,10 +20,7 @@ import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
-import junit.framework.TestCase.assertNotNull
-import junit.framework.TestCase.assertNull
 import junit.framework.TestCase.assertTrue
-import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -36,7 +31,7 @@ class CampsiteDetailViewTest {
     val composeRule = createComposeRule()
 
     private lateinit var model: CampsiteDetailModel
-    private lateinit var repository: FakeCampsiteRepository
+    private lateinit var repository: MockCampsiteRepository
     private lateinit var controller: CampsiteDetailController
     private lateinit var view: CampsiteDetailView
 
@@ -54,7 +49,7 @@ class CampsiteDetailViewTest {
     @Before
     fun setUp() {
         model = CampsiteDetailModel()
-        repository = FakeCampsiteRepository()
+        repository = MockCampsiteRepository()
         controller = CampsiteDetailController(model, repository)
         view = CampsiteDetailView(model, controller)
     }
@@ -89,9 +84,14 @@ class CampsiteDetailViewTest {
         show()
         waitForCampsite()
 
-        composeRule.onNodeWithText("Banff", ignoreCase = true).assertExists()
-        composeRule.onNodeWithText("Up to 6 guests", substring = true).assertExists()
-        composeRule.onNodeWithText("$45 / night").assertExists()
+        assertTrue(
+            composeRule.onAllNodesWithText("Banff", ignoreCase = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        )
+        composeRule.onNodeWithText("Up to 6 guests").assertExists()
+        composeRule.onNodeWithText("$45").assertExists()
+        composeRule.onNodeWithText("per night").assertExists()
+        composeRule.onNodeWithText("Not yet rated").assertExists()
         composeRule.onNodeWithText("Lakeside sites").assertExists()
         composeRule.onNodeWithText("Quiet hours 10pm").assertExists()
         composeRule.onNodeWithText("48 hours notice").assertExists()
@@ -117,7 +117,7 @@ class CampsiteDetailViewTest {
         show(onBack = { backCalled = true })
         waitForCampsite()
 
-        composeRule.onNodeWithText("Back").performScrollTo().performClick()
+        composeRule.onNodeWithText("Back").performClick()
 
         assertTrue(backCalled)
     }
@@ -149,7 +149,6 @@ class CampsiteDetailViewTest {
         composeRule.onNodeWithContentDescription("QR code for Banff Pines").assertDoesNotExist()
     }
 
-
     // Scanning the QR code gives the campsite link
     @Test
     fun generateQrCode_containsCampsiteLink() {
@@ -179,18 +178,30 @@ class CampsiteDetailViewTest {
         return MultiFormatReader().decode(BinaryBitmap(HybridBinarizer(source))).text
     }
 
-    private class FakeCampsiteRepository : CampsiteRepository {
+    private class MockCampsiteRepository : CampsiteRepository {
         val stored = mutableListOf<Campsite>()
         var fail = false
 
         override suspend fun getCampsites(): List<Campsite> = stored
+
         override suspend fun getCampsite(id: String): Campsite? {
             if (fail) throw RuntimeException("offline")
             return stored.find { it.id == id }
         }
+
         override suspend fun getCampsitesByOwner(ownerId: String): List<Campsite> =
             stored.filter { it.ownerId == ownerId }
-        override suspend fun saveCampsite(campsite: Campsite): String = error("not used")
+
+        override suspend fun saveCampsite(
+            campsite: Campsite,
+            photosToSave: Map<String, PreparedCampsiteImages>,
+            photosToRemove: List<String>
+        ): String = error("not used")
+
         override suspend fun deleteCampsite(id: String) = error("not used")
+
+        override suspend fun getCampsitePreview(campsiteId: String, photoId: String): ByteArray? = null
+
+        override suspend fun getCampsitePhoto(campsiteId: String, photoId: String): ByteArray? = null
     }
 }

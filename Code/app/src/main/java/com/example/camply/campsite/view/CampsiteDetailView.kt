@@ -1,13 +1,13 @@
 package com.example.camply.campsite.view
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,12 +18,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,25 +37,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import com.example.camply.R
 import com.example.camply.campsite.controller.CampsiteDetailController
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteDetailModel
-import com.example.camply.shared.view.CamplyPalette
 import com.example.camply.shared.view.CamplyScreen
 import com.example.camply.shared.view.CardLabel
 import com.example.camply.shared.view.CenteredMessage
 import com.example.camply.shared.view.OrangeCard
 import com.example.camply.shared.view.SecondaryButton
 import kotlinx.coroutines.launch
-import androidx.core.net.toUri
-import com.example.camply.R
+import kotlin.math.floor
 
 /**
  * Campsite details (US 01.01.05): name, location, description, maximum occupancy, map location,
@@ -66,99 +66,119 @@ class CampsiteDetailView(
     private val controller: CampsiteDetailController
 ) {
 
+    /**
+     * Displays a campsite's details and promotional photo gallery.
+     *
+     * @param campsiteId ID of the campsite to display.
+     * @param onBack Called when returning to the previous screen.
+     * @param showQRbutton Shows the button that generates the campsite's QR code.
+     * @param extraContent Additional content such as owner or entrant actions.
+     * @param loadPhotoPreview Retrieves a smaller Firestore photo preview.
+     * @param loadPhoto Retrieves the full photo when the user enlarges it.
+     * @param currentUserId Current user ID, used to show Edit only to the owner.
+     * @param onEdit Opens the existing owner edit form when the owner taps Edit.
+     */
     @Composable
     fun Display(
         campsiteId: String,
         onBack: () -> Unit,
         showQRbutton: Boolean = false,
-        extraContent: @Composable (Campsite) -> Unit = {}
+        extraContent: @Composable (Campsite) -> Unit = {},
+        loadPhotoPreview: suspend (String, String) -> ByteArray? = { _, _ -> null },
+        loadPhoto: suspend (String, String) -> ByteArray? = { _, _ -> null },
+        currentUserId: String? = null,
+        onEdit: ((Campsite) -> Unit)? = null
     ) {
         val scope = rememberCoroutineScope()
         LaunchedEffect(campsiteId) { controller.loadCampsite(campsiteId) }
 
         CamplyScreen(title = "Campsite details") {
-            val campsite = model.campsite
-            when {
-                model.isLoading -> Box(
-                    Modifier.fillMaxWidth().padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) { CircularProgressIndicator(color = Color.White) }
+            // Avoid displaying details for the previous campsite while a new one loads.
+            val campsite = model.campsite?.takeIf { it.id == campsiteId }
 
-                model.errorMessage != null -> {
-                    CenteredMessage(model.errorMessage!!, "Try again") {
-                        scope.launch { controller.loadCampsite(campsiteId) }
-                    }
-                    SecondaryButton("Back", onBack)
-                }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                when {
+                    model.isLoading || (model.errorMessage == null && campsite == null) -> Box(
+                        Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) }
 
-                campsite != null -> {
-                    Column(
-                        Modifier.weight(1f).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        CampsiteImage(campsite)
-                        SummarySection(campsite)
-                        DescriptionSection(campsite)
-                        RulesSection(campsite)
-                        extraContent(campsite)
-                        SecondaryButton("Back", onBack)
-                        Spacer(Modifier.height(16.dp))
+                    model.errorMessage != null -> {
+                        CenteredMessage(model.errorMessage!!, "Try again") {
+                            scope.launch { controller.loadCampsite(campsiteId) }
+                        }
                     }
-                    if (showQRbutton) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(15.dp),
-                            horizontalArrangement = Arrangement.End
+
+                    campsite != null -> {
+                        Column(
+                            Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            FloatingActionButton(onClick = { controller.generateQRcode(campsite) }) {
+                            SummarySection(campsite, currentUserId, onEdit)
+                            DescriptionSection(campsite)
+                            CampsitePhotoGallery(campsite, loadPhotoPreview, loadPhoto)
+                            LocationSection(campsite)
+                            extraContent(campsite)
+                            RulesSection(campsite)
+                            Spacer(Modifier.height(80.dp))
+                        }
+
+                        if (showQRbutton) {
+                            FloatingActionButton(
+                                onClick = { controller.generateQRcode(campsite) },
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(15.dp)
+                            ) {
                                 Icon(
                                     painter = painterResource(R.drawable.qr_code),
                                     contentDescription = "Generate QR code"
                                 )
                             }
                         }
-                    }
 
-                    val qrCode = model.qrCode
-                    if (qrCode != null) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.5f))
-                                .clickable { controller.closeQRcode() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Card(
+                        val qrCode = model.qrCode
+                        if (qrCode != null) {
+                            Box(
                                 modifier = Modifier
-                                    .padding(24.dp)
-                                    .clickable(enabled = false) {},
-                                shape = RoundedCornerShape(16.dp),
-                                elevation = CardDefaults.cardElevation(8.dp)
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.5f))
+                                    .clickable { controller.closeQRcode() },
+                                contentAlignment = Alignment.Center
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(24.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
+                                Card(
+                                    modifier = Modifier
+                                        .padding(24.dp)
+                                        .clickable(enabled = false) {},
+                                    shape = RoundedCornerShape(16.dp),
+                                    elevation = CardDefaults.cardElevation(8.dp)
                                 ) {
-                                    Text(
-                                        text = campsite.name,
-                                        style = MaterialTheme.typography.titleLarge
-                                    )
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Image(
-                                        bitmap = qrCode,
-                                        contentDescription = "QR code for ${campsite.name}",
-                                        modifier = Modifier.size(256.dp)
-                                    )
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    TextButton(
-                                        onClick = { controller.closeQRcode() }
+                                    Column(
+                                        modifier = Modifier.padding(24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        Text("Close")
+                                        Text(
+                                            text = campsite.name,
+                                            style = MaterialTheme.typography.titleLarge
+                                        )
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        Image(
+                                            bitmap = qrCode,
+                                            contentDescription = "QR code for ${campsite.name}",
+                                            modifier = Modifier.size(256.dp)
+                                        )
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        TextButton(onClick = { controller.closeQRcode() }) {
+                                            Text("Close")
+                                        }
                                     }
                                 }
                             }
@@ -166,48 +186,162 @@ class CampsiteDetailView(
                     }
                 }
             }
+
+            Spacer(Modifier.height(12.dp))
+
+            SecondaryButton(
+                text = "Back",
+                onClick = onBack
+            )
         }
     }
 
     @Composable
-    private fun CampsiteImage(campsite: Campsite) {
-        // "firstOrNull" Implementation: https://www.educative.io/answers/how-to-use-the-firstornull-method-of-arraylist-in-kotlin
-        val imageUrl = campsite.images.firstOrNull()
-        //if there are no images, return
-        if (imageUrl.isNullOrBlank()){
-            return
-        }
-        AsyncImage(
-            model = imageUrl,
-            contentDescription = "Photo of ${campsite.name}",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(16.dp))
-        )
-    }
+    private fun SummarySection(
+        campsite: Campsite,
+        currentUserId: String?,
+        onEdit: ((Campsite) -> Unit)?
+    ) = OrangeCard {
+        val locale = LocalConfiguration.current.locales[0]
 
-    @Composable
-    private fun SummarySection(campsite: Campsite) = OrangeCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                campsite.name,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+
+            if (!currentUserId.isNullOrBlank() && campsite.ownerId == currentUserId && onEdit != null) {
+                IconButton(onClick = { onEdit(campsite) }) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit campsite",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
         CardLabel(campsite.location)
-        Text(campsite.name, fontWeight = FontWeight.Bold, fontSize = 22.sp, color = CamplyPalette.Ink)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "Up to ${campsite.maxOccupancy} guests · Rating ${"%.1f".format(campsite.rating)} / 5",
-            fontSize = 13.sp, color = CamplyPalette.Ink
-        )
-        Text("$${"%.0f".format(campsite.price)} / night", fontSize = 13.sp, color = CamplyPalette.Ink)
-        if (campsite.tags.isNotEmpty()) {
-            Text(campsite.tags.joinToString(" · "), fontSize = 12.sp, color = CamplyPalette.Ink)
+
+        Spacer(Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    "Up to ${campsite.maxOccupancy} guests",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (campsite.rating > 0.0 && campsite.rating <= 5.0) {
+                    val fullStars = floor(campsite.rating).toInt().coerceIn(0, 5)
+                    Text(
+                        text = "★".repeat(fullStars) + "☆".repeat(5 - fullStars) +
+                                "  ${String.format(locale, "%.1f", campsite.rating)} / 5",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    Text(
+                        "Not yet rated",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                val priceText = if (campsite.price % 1.0 == 0.0) {
+                    String.format(locale, "%.0f", campsite.price)
+                } else {
+                    String.format(locale, "%.2f", campsite.price)
+                }
+                Text(
+                    "$$priceText",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "per night",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 
+    @OptIn(ExperimentalLayoutApi::class)
     @Composable
     private fun DescriptionSection(campsite: Campsite) {
-        val context = LocalContext.current
         OrangeCard {
             CardLabel("Description & amenities")
+            Spacer(Modifier.height(10.dp))
             Text(
                 campsite.description.ifBlank { "No description provided." },
-                fontSize = 14.sp, color = CamplyPalette.Ink
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            if (campsite.amenities.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                Text("Amenities", style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(8.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    campsite.amenities.forEach { amenity -> DetailChip(amenity) }
+                }
+            }
+
+            if (campsite.tags.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                Text("Tags", style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(8.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    campsite.tags.forEach { tag -> DetailChip(tag, highlighted = true) }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun LocationSection(campsite: Campsite) = OrangeCard {
+        CardLabel("Location")
+        Spacer(Modifier.height(6.dp))
+        Text(
+            campsite.location,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(12.dp))
+
+        if (campsite.latitude != null && campsite.longitude != null) {
+            CampsiteMap(
+                latitude = campsite.latitude,
+                longitude = campsite.longitude,
+                editable = false,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .clip(RoundedCornerShape(14.dp))
+            )
+        } else {
+            Text(
+                "Map location has not been set for this campsite.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -215,11 +349,39 @@ class CampsiteDetailView(
     @Composable
     private fun RulesSection(campsite: Campsite) = OrangeCard {
         CardLabel("Rules & cancellation policy")
-        Text(campsite.rules.ifBlank { "No rules listed." }, fontSize = 14.sp, color = CamplyPalette.Ink)
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(10.dp))
+        Text("Campsite rules", style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            campsite.rules.ifBlank { "No rules listed." },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("Cancellation policy", style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.height(4.dp))
         Text(
             campsite.cancellationPolicy.ifBlank { "No cancellation policy listed." },
-            fontSize = 14.sp, color = CamplyPalette.Ink
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
+
+    @Composable
+    private fun DetailChip(value: String, highlighted: Boolean = false) {
+        Surface(
+            color = if (highlighted) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(50)
+        ) {
+            Text(
+                text = value,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (highlighted) MaterialTheme.colorScheme.onPrimaryContainer
+                else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+
 }

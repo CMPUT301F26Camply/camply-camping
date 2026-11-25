@@ -46,6 +46,7 @@ import com.example.camply.ui.theme.CamplySurface
 
 // CamplyComponents.kt - Shared UI Components Redesign
 //
+// Contributor: Filip Kosmajac (fkosmajac)
 // AI Assistance Reference:
 // OpenAI ChatGPT 6
 // https://chatgpt.com/

@@ -26,14 +26,17 @@ class CampsiteDetailController(
         }
     }
     /**
-     * Function to generate QR code for each campsite
+     * Function to generate QR code for each campsite.
+     * The code holds the link "camply://campsite/<campsite id>". The id is the campsite's
+     * Firestore document id, so every registered campsite gets a different code.
+     * Scanning the link opens that campsite's details screen.
      * @param campsite which is the selected campsite
      * Covers US 02.02.01*/
     fun generateQRcode(campsite: Campsite){
         if (campsite.id.isBlank()){
             return
         }
-
+        //Barcode Encoder Implementation: https://github.com/journeyapps/zxing-android-embedded
         val bitmap = BarcodeEncoder().encodeBitmap(
             "camply://campsite/${campsite.id}",
             BarcodeFormat.QR_CODE,

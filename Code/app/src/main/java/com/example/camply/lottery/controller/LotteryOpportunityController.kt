@@ -4,6 +4,7 @@ import com.example.camply.lottery.model.LotteryEntry
 import com.example.camply.lottery.model.LotteryOpportunityModel
 import com.example.camply.lottery.repository.DeclineResult
 import com.example.camply.lottery.repository.LotteryEntryRepository
+import com.example.camply.reservations.model.ReservationStatus
 import com.example.camply.reservations.repository.ReservationRepository
 import com.example.camply.reservations.service.BookingService
 import kotlin.coroutines.cancellation.CancellationException
@@ -24,7 +25,7 @@ class LotteryOpportunityController(
 ) {
 
     /**
-     * Loads an entrant's entry in a lottery.
+     * Loads an entrant's lottery entry and associated reservation.
      *
      * @param lotteryId The lottery's document ID.
      * @param entrantId The entrant's Firebase user ID.
@@ -33,7 +34,23 @@ class LotteryOpportunityController(
         model.showLoading()
 
         try {
-            model.showEntry(entryRepository.getEntry(lotteryId, entrantId))
+            val entry = entryRepository.getEntry(lotteryId, entrantId)
+            val reservations = reservationRepository.getReservationsForEntrant(entrantId)
+
+            val lotteryReservations = reservations.filter { reservation ->
+                reservation.lotteryId == lotteryId && reservation.entrantId == entrantId
+            }
+
+            val confirmedReservation = lotteryReservations.firstOrNull { reservation ->
+                reservation.status == ReservationStatus.CONFIRMED
+            }
+
+            val reservation = confirmedReservation
+                ?: lotteryReservations.firstOrNull {
+                    it.status != ReservationStatus.UNINITIALIZED
+                }
+
+            model.showEntry(entry, reservation)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -54,18 +71,19 @@ class LotteryOpportunityController(
             val reservations = reservationRepository.getReservationsForEntrant(entrantId)
 
             if (bookingService.hasExistingLotteryReservation(entrantId, lotteryId, reservations)) {
-                model.showError("You already have a reservation for this lottery.")
+                model.showError("You have already used your winning opportunity for this lottery.")
                 return
             }
 
             when (entryRepository.declineOpportunity(lotteryId, entrantId)) {
                 // The decline is already saved, so a failed re-read must not make it look unsaved.
                 DeclineResult.DECLINED -> model.showEntry(
-                    model.entry?.copy(opportunityStatus = LotteryEntry.OPPORTUNITY_DECLINED)
+                    model.entry?.copy(opportunityStatus = LotteryEntry.OPPORTUNITY_DECLINED),
+                    model.reservation
                 )
 
                 DeclineResult.NOT_ELIGIBLE -> {
-                    model.showEntry(entryRepository.getEntry(lotteryId, entrantId))
+                    model.showEntry(entryRepository.getEntry(lotteryId, entrantId), model.reservation)
                     model.showError("This opportunity can no longer be declined.")
                 }
             }

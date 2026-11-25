@@ -16,13 +16,20 @@ class CampsiteDetailModel {
     var errorMessage: String? by mutableStateOf(null)
         private set
 
+    /**
+     * Holds the QR code image shown on the CampsiteDetailScreen.
+     * US 02.02.01 (QR code for each campsite).
+     */
     var qrCode: ImageBitmap? by mutableStateOf(null)
     private set
 
     fun showLoading() { campsite = null; isLoading = true; errorMessage = null }
     fun showCampsite(value: Campsite) { campsite = value; isLoading = false; errorMessage = null }
     fun showError(message: String) { campsite = null; isLoading = false; errorMessage = message }
-    //US 02.02.01: QR code generation. Need to both show and hide qr code as necessary
+    /**
+     * US 02.02.01: QR code generation. Need to both show and hide qr code as necessary
+     * @param image the QR code image to show
+     */
     fun showQRcode(image: ImageBitmap){
         qrCode = image
     }
