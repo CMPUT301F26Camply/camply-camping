@@ -285,6 +285,79 @@ class OwnerReservationsViewTest {
         compose.onNodeWithText("Banff Pines").assertIsDisplayed()
     }
 
+    /** Cancelling confirmation leaves the reservation active and does not write. */
+    @Test
+    fun rejectReservation_cancelKeepsBooking() {
+        openActiveReservation()
+        compose.onNodeWithText("Reject reservation").performClick()
+        compose.onNodeWithText("Reject this reservation?").assertIsDisplayed()
+        org.junit.Assert.assertEquals(0, reservationRepository.rejectionCalls)
+        compose.onNodeWithText("Keep reservation").performClick()
+        compose.onNodeWithText("Reject this reservation?").assertDoesNotExist()
+        compose.onNodeWithText("Active").assertIsDisplayed()
+        org.junit.Assert.assertEquals(0, reservationRepository.rejectionCalls)
+    }
+
+    /** Rejection moves the reservation out of Active and into Rejected. */
+    @Test
+    fun rejectReservation_confirmUpdatesCategories() {
+        openActiveReservation()
+        compose.onNodeWithText("Reject reservation").performClick()
+        compose.onNodeWithText("Reject").performClick()
+        compose.onNodeWithText("Rejected").assertIsDisplayed()
+        compose.onNodeWithText("Reject reservation").assertDoesNotExist()
+        compose.onNodeWithText("Back to Reservations").performClick()
+        compose.onNodeWithText("Active").performClick()
+        compose.onNodeWithText("No reservations match the selected filters.").assertIsDisplayed()
+        compose.onNodeWithText("All").performClick()
+        compose.onAllNodesWithText("Rejected").onFirst().performClick()
+        compose.onNodeWithText("2027-06-12 to 2027-06-15").assertIsDisplayed()
+        compose.onNodeWithText("Back to Campsites").performClick()
+        compose.onNodeWithText("Rejected reservations: 1").assertIsDisplayed()
+        org.junit.Assert.assertEquals(1, reservationRepository.rejectionCalls)
+        org.junit.Assert.assertEquals(ReservationStatus.REJECTED, reservationRepository.reservations.single().status)
+    }
+
+    /** Failed writes keep the current details and allow a confirmed retry. */
+    @Test
+    fun rejectReservation_failureShowsErrorAndAllowsRetry() {
+        openActiveReservation()
+        reservationRepository.rejectionFailure = IllegalStateException("Could not save rejection.")
+        compose.onNodeWithText("Reject reservation").performClick()
+        compose.onNodeWithText("Reject").performClick()
+        compose.onNodeWithText("Could not save rejection.").assertIsDisplayed()
+        compose.onNodeWithText("Active").assertIsDisplayed()
+        reservationRepository.rejectionFailure = null
+        compose.onNodeWithText("Reject reservation").performClick()
+        compose.onNodeWithText("Reject").performClick()
+        compose.onNodeWithText("Rejected").assertIsDisplayed()
+        compose.onNodeWithText("Could not save rejection.").assertDoesNotExist()
+    }
+
+    /** Completed reservations have no rejection action. */
+    @Test
+    fun rejectReservation_pastStayHasNoAction() {
+        campsiteRepository.campsites = listOf(campsite("banff", "Banff Pines"))
+        reservationRepository.reservations = listOf(
+            reservation("past", "banff", "2027-06-01", "2027-06-05")
+        )
+        showScreen()
+        compose.onNodeWithText("Banff Pines").performClick()
+        compose.onNodeWithText("2027-06-01 to 2027-06-05").performClick()
+        compose.onNodeWithText("Reject reservation").assertDoesNotExist()
+    }
+
+    /** Opens an owned active reservation through the real view navigation. */
+    private fun openActiveReservation() {
+        campsiteRepository.campsites = listOf(campsite("banff", "Banff Pines"))
+        reservationRepository.reservations = listOf(
+            reservation("booking", "banff", "2027-06-12", "2027-06-15")
+        )
+        showScreen()
+        compose.onNodeWithText("Banff Pines").performClick()
+        compose.onNodeWithText("2027-06-12 to 2027-06-15").performClick()
+    }
+
     /**
      * Displays the screen with in-memory repositories.
      */
@@ -385,6 +458,24 @@ class OwnerReservationsViewTest {
      * Fake reservation repository matching the real project interface.
      */
     private class FakeReservationRepository : ReservationRepository {
+
+        var rejectionFailure: Exception? = null
+        var rejectionCalls = 0
+        var beforeReject: (suspend () -> Unit)? = null
+
+        override suspend fun rejectReservation(
+            reservationId: String, ownerId: String, today: String
+        ): Reservation {
+            rejectionCalls++
+            beforeReject?.invoke()
+            rejectionFailure?.let { throw it }
+            val current = reservations.first { it.id == reservationId }
+            require(current.isActive(today)) { "Only active reservations can be rejected." }
+            val saved = current.copy(status = ReservationStatus.REJECTED)
+            reservations = reservations.map { if (it.id == reservationId) saved else it }
+            return saved
+        }
+
 
         var reservations: List<Reservation> = emptyList()
 

@@ -16,7 +16,7 @@ data class OwnerCampsiteReservations(
 /**
  * Stores the state of the owner's reservation management screen.
  *
- * US 02.07.01 and US 02.07.02.
+ * US 02.07.01, US 02.07.02, and US 02.08.01.
  */
 class OwnerReservationsModel {
 
@@ -44,6 +44,47 @@ class OwnerReservationsModel {
     var errorMessage: String? by mutableStateOf(null)
         private set
 
+    /** Reservation awaiting the owner's confirmation; no save occurs until confirmed. */
+    var pendingRejection: Reservation? by mutableStateOf(null)
+        private set
+
+    /** Whether a rejection is currently being saved. */
+    var isRejecting: Boolean by mutableStateOf(false)
+        private set
+
+    /** Save error shown on the details screen without discarding its data. */
+    var rejectionError: String? by mutableStateOf(null)
+        private set
+
+    /** Opens or dismisses rejection confirmation for [reservation]. */
+    fun updatePendingRejection(reservation: Reservation?) {
+        pendingRejection = reservation
+        rejectionError = null
+    }
+
+    /** Begins saving a confirmed rejection and closes the confirmation dialog. */
+    fun beginRejection() {
+        pendingRejection = null
+        rejectionError = null
+        isRejecting = true
+    }
+
+    /** Replaces [reservation] in the overview and details only after a successful save. */
+    fun updateSavedReservation(reservation: Reservation) {
+        campsites = campsites.map { entry ->
+            entry.copy(reservations = entry.reservations.map {
+                if (it.id == reservation.id) reservation else it
+            })
+        }
+        if (selectedReservation?.id == reservation.id) selectedReservation = reservation
+    }
+
+    /** Ends the save, retaining [message] for retry when it failed. */
+    fun finishRejection(message: String? = null) {
+        isRejecting = false
+        rejectionError = message
+    }
+
     /**
      * Updates the model to indicate that reservations are loading.
      */
@@ -52,6 +93,8 @@ class OwnerReservationsModel {
         errorMessage = null
         selectedCampsiteId = null
         selectedReservation = null
+        pendingRejection = null
+        rejectionError = null
     }
 
     /**
@@ -92,6 +135,7 @@ class OwnerReservationsModel {
     fun updateSelectedCampsite(campsiteId: String) {
         selectedCampsiteId = campsiteId
         selectedReservation = null
+        updatePendingRejection(null)
     }
 
     /**
@@ -101,6 +145,7 @@ class OwnerReservationsModel {
      */
     fun updateSelectedReservation(reservation: Reservation) {
         selectedReservation = reservation
+        updatePendingRejection(null)
     }
 
     /**
@@ -108,6 +153,7 @@ class OwnerReservationsModel {
      */
     fun clearSelectedReservation() {
         selectedReservation = null
+        updatePendingRejection(null)
     }
 
     /**
@@ -116,6 +162,7 @@ class OwnerReservationsModel {
     fun clearSelectedCampsite() {
         selectedCampsiteId = null
         selectedReservation = null
+        updatePendingRejection(null)
     }
 
 }
