@@ -3,11 +3,15 @@ package com.example.camply.reservations.view
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteRepository
 import com.example.camply.campsite.model.DateRange
@@ -23,7 +27,7 @@ import org.junit.Test
 import kotlin.collections.filter
 
 /**
- * Compose UI tests for owner reservation management (US 02.07.01 and US 02.07.02).
+ * Compose UI tests for owner reservation management (US 02.07.01, US 02.07.02, and US 02.07.03).
  */
 class OwnerReservationsViewTest {
 
@@ -285,6 +289,41 @@ class OwnerReservationsViewTest {
         compose.onNodeWithText("Banff Pines").assertIsDisplayed()
     }
 
+    @Test
+    fun cancelledCategory_filtersOwnedCampsitesCountsAndReservationDetails() {
+        campsiteRepository.campsites = listOf(
+            campsite("banff", "Banff Pines"),
+            campsite("jasper", "Jasper Lake"),
+            campsite("yoho", "Yoho Falls", owningUserId = "other-owner")
+        )
+        reservationRepository.reservations = listOf(
+            reservation("cancelled-before-stay", "banff", "2027-07-01", "2027-07-05", ReservationStatus.CANCELLED)
+                .copy(entrantId = "cancelled-entrant"),
+            reservation("cancelled-older-stay", "banff", "2027-06-01", "2027-06-05", ReservationStatus.CANCELLED),
+            reservation("active-stay", "banff", "2027-06-12", "2027-06-15"),
+            reservation("jasper-rejected", "jasper", "2027-07-10", "2027-07-12", ReservationStatus.REJECTED),
+            reservation("yoho-cancelled", "yoho", "2027-07-20", "2027-07-25", ReservationStatus.CANCELLED)
+        )
+
+        showScreen()
+        compose.onNode(hasScrollToIndexAction() and hasAnyDescendant(hasText("All")))
+            .performScrollToIndex(3)
+        compose.onNodeWithText("Cancelled").performClick()
+        compose.onNodeWithText("Cancelled").assertIsSelected()
+        compose.onNodeWithText("Cancelled reservations: 2").assertIsDisplayed()
+        compose.onNodeWithText("Jasper Lake").assertDoesNotExist()
+        compose.onNodeWithText("Yoho Falls").assertDoesNotExist()
+
+        compose.onNodeWithText("Banff Pines").performClick()
+        compose.onNodeWithText("2027-06-01 to 2027-06-05").assertIsDisplayed()
+        compose.onNodeWithText("2027-06-12 to 2027-06-15").assertDoesNotExist()
+        compose.onNodeWithText("Entrant: cancelled-entrant").assertIsDisplayed()
+        compose.onNodeWithText("2027-07-01 to 2027-07-05").performClick()
+
+        compose.onNodeWithText("Reservation Details").assertIsDisplayed()
+        compose.onNodeWithText("Reservation ID: cancelled-before-stay").assertIsDisplayed()
+    }
+
     /** Cancelling confirmation leaves the reservation active and does not write. */
     @Test
     fun rejectReservation_cancelKeepsBooking() {
@@ -385,12 +424,13 @@ class OwnerReservationsViewTest {
      */
     private fun campsite(
         id: String,
-        name: String
+        name: String,
+        owningUserId: String = ownerId
     ) = Campsite(
         id = id,
         name = name,
         location = "Alberta",
-        ownerId = ownerId,
+        ownerId = owningUserId,
         rules = "Quiet hours after 10 PM",
         cancellationPolicy = "Cancel seven days ahead"
     )
