@@ -30,21 +30,25 @@ import com.example.camply.lottery.controller.EntrantLotteryController
 import com.example.camply.lottery.controller.LotteryBookingController
 import com.example.camply.lottery.controller.LotteryOpportunityController
 import com.example.camply.lottery.controller.LotteryCreateController
+import com.example.camply.lottery.controller.OwnerWaitlistController
 import com.example.camply.lottery.model.CampsiteLotteryModel
 import com.example.camply.lottery.model.EntrantLotteryModel
 import com.example.camply.lottery.model.Lottery
 import com.example.camply.lottery.model.LotteryBookingModel
 import com.example.camply.lottery.model.LotteryOpportunityModel
 import com.example.camply.lottery.model.LotteryCreateModel
+import com.example.camply.lottery.model.OwnerWaitlistModel
 import com.example.camply.lottery.repository.FirestoreLotteryEntryRepository
 import com.example.camply.lottery.repository.FirestoreLotteryDrawRepository
 import com.example.camply.lottery.repository.FirestoreLotteryRepository
+import com.example.camply.lottery.repository.FirestoreOwnerWaitlistRepository
 import com.example.camply.lottery.repository.FirestoreWaitingListRepository
 import com.example.camply.lottery.service.LotteryDrawService
 import com.example.camply.lottery.view.CampsiteLotteryView
 import com.example.camply.lottery.view.EntrantLotteryView
 import com.example.camply.lottery.view.LotteryOpportunityView
 import com.example.camply.lottery.view.LotteryCreateView
+import com.example.camply.lottery.view.OwnerWaitlistView
 import com.example.camply.notification.controller.NotificationsController
 import com.example.camply.notification.model.NotificationsModel
 import com.example.camply.notification.repository.FirestoreNotificationRepository
@@ -190,6 +194,18 @@ fun CamplyApp() {
             ownerReservationsController
         )
     }
+
+    // Owner lottery waitlists (US 02.09.01)
+    val ownerWaitlistModel = remember { OwnerWaitlistModel() }
+    val ownerWaitlistController = remember {
+        OwnerWaitlistController(
+            ownerWaitlistModel,
+            FirestoreOwnerWaitlistRepository(),
+            campsiteRepository,
+            FirestoreRecipientNameRepository()
+        )
+    }
+    val ownerWaitlistView = remember { OwnerWaitlistView(ownerWaitlistModel, ownerWaitlistController) }
 
     //Campsite Owner Handling
     val campsiteListView = remember { CampsiteListView() }
@@ -543,6 +559,8 @@ fun CamplyApp() {
                                     }
                                 }
                             }
+
+                            Screen.WAIT_LIST -> ownerWaitlistView.Display(currentUser.getUid())
 
                             Screen.PROFILE -> userProfileView.Display(currentUser, userController)
 
