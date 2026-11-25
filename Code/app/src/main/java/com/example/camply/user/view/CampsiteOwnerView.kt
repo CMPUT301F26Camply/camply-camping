@@ -144,7 +144,11 @@ class CampsiteListView {
         lotteryRegistration: (Campsite) -> Unit,
         reservationList: () -> Unit,
         viewOrCreateLottery: () -> Unit,
-        loadPhotoPreview: suspend (String, String) -> ByteArray?
+        loadPhotoPreview: suspend (String, String) -> ByteArray?,
+        // Admin browse reuses this page. readOnly hides create, edit, and lottery controls
+        // because an admin-only account is looking at someone else's campsites.
+        readOnly: Boolean = false,
+        onBack: (()-> Unit)?=null
     ) {
         Column(
             modifier = Modifier
@@ -174,30 +178,31 @@ class CampsiteListView {
 
 
                     Text(
-                        text = "Manage your campground listings",
+                        text = "Manage your campsite listings",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-
-                IconButton(
-                    onClick = addCampsite,
-                    modifier = Modifier
-                        .size(52.dp)
-                        .background(
-                            MaterialTheme.colorScheme.primary,
-                            RoundedCornerShape(14.dp)
+                if (!readOnly) {
+                    IconButton(
+                        onClick = addCampsite,
+                        modifier = Modifier
+                            .size(52.dp)
+                            .background(
+                                MaterialTheme.colorScheme.primary,
+                                RoundedCornerShape(14.dp)
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add campsite",
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add campsite",
-                        tint = MaterialTheme.colorScheme.onPrimary
-                    )
+                    }
                 }
             }
 
-
+            if(!readOnly){
             // Owner management actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -219,6 +224,7 @@ class CampsiteListView {
                     modifier = Modifier.weight(1f)
                 )
             }
+                }
 
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -234,8 +240,11 @@ class CampsiteListView {
             // Campsite list
             if (campsites.isEmpty()) {
                 Text(
-                    text = "No Registered Campsites. Press the '+' button to add campsites",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = if (readOnly) {
+                        "This owner has no campsites."
+                    } else {
+                        "No Registered Campsites. Press the '+' button to add campsites"
+                    },                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 20.dp)
                 )
@@ -251,11 +260,22 @@ class CampsiteListView {
                             viewInfo = viewCampsite,
                             onEdit = editCampsite,
                             addInLottery = lotteryRegistration,
-                            loadPhotoPreview = loadPhotoPreview
+                            loadPhotoPreview = loadPhotoPreview,
+                            readOnly = readOnly
                         )
                     }
+
+                }
+                if (onBack != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SecondaryButton(
+                        text = "Back",
+                        onClick = onBack
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
             }
+
         }
     }
 
@@ -278,7 +298,8 @@ class CampsiteListView {
         viewInfo: (Campsite) -> Unit,
         onEdit: (Campsite) -> Unit,
         addInLottery: (Campsite) -> Unit,
-        loadPhotoPreview: suspend (String, String) -> ByteArray?
+        loadPhotoPreview: suspend (String, String) -> ByteArray?,
+        readOnly: Boolean =false
 
     ) {
         Column(
@@ -383,27 +404,29 @@ class CampsiteListView {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-
-                // Edit campsite
-                IconButton(
-                    onClick = { onEdit(campsite) },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit ${campsite.name}",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                if (!readOnly) {
+                    // Edit campsite
+                    IconButton(
+                        onClick = { onEdit(campsite) },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit ${campsite.name}",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-
-            // Lottery registration
-            PrimaryButton(
-                text = "List Campsite in Lottery",
-                onClick = { addInLottery(campsite) }
-            )
+            if (!readOnly) {
+                // Lottery registration
+                PrimaryButton(
+                    text = "List Campsite in Lottery",
+                    onClick = { addInLottery(campsite) }
+                )
+            }
         }
     }
 

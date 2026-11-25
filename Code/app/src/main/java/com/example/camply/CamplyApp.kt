@@ -73,6 +73,11 @@ import com.example.camply.user.controller.UserController
 import com.example.camply.user.model.CampsiteOwnerUser
 import com.example.camply.user.model.UserModel
 import com.example.camply.campsite.view.CampsiteFormView
+import com.example.camply.user.model.AdminUser
+import com.example.camply.user.model.Profile
+import com.example.camply.user.model.User
+import com.example.camply.user.repository.UserRepository
+import com.example.camply.user.view.AdminOwnerListView
 import com.example.camply.user.view.CampsiteListView
 import com.example.camply.user.view.UserProfileView
 import com.example.camply.user.view.UserSignUpView
@@ -200,7 +205,16 @@ fun CamplyApp() {
     var ownerShowLottery by remember { mutableStateOf(false) }
     var ownerShowReservations by remember { mutableStateOf(false) }
     var ownerSaving by remember { mutableStateOf(false) }
-
+    // Which owner the admin opened, that owner's campsites, and a campsite opened from that list.
+    // Separate from ownerDetailCampsiteId so an admin browsing someone else does not reuse the owner editor state.
+    var adminOwners by remember { mutableStateOf<List<User>>(emptyList()) }
+    var adminCampsiteCounts by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var adminSelectedOwner by remember { mutableStateOf<User?>(null) }
+    var adminOwnerCampsites by remember { mutableStateOf<List<Campsite>>(emptyList()) }
+    var adminDetailCampsiteId by remember { mutableStateOf<String?>(null) }
+    val adminOwnerListView = remember { AdminOwnerListView() }
+    // UserRepository inside UserModel is private. This second instance is only for the admin owner query.
+    val userRepository = remember { UserRepository() }
     // Shared notifications
     val notificationsModel = remember { NotificationsModel() }
     val notificationsController = remember {
@@ -273,6 +287,33 @@ fun CamplyApp() {
                 if (ownerController != null) {
                     navigationModel.navigateTo(Screen.CAMPSITE_LIST)
                     ownerController.loadCampsite()
+                }
+            }
+            // An admin is not a CampsiteOwnerUser, so the effect above does nothing for them.
+            // Open Campsites and load every user whose Firestore role is still "owner".
+            LaunchedEffect(currentUser) {
+                if (currentUser is AdminUser) {
+                    navigationModel.navigateTo(Screen.CAMPSITE_LIST)
+                    userRepository.getUsersByRole(
+                        role = "owner",
+                        onSuccess = { documents ->
+                            adminOwners = documents.mapNotNull { document ->
+                                val name = document.getString("name") ?: return@mapNotNull null
+                                val email = document.getString("email") ?: ""
+                                val phone = document.getString("phoneNumber") ?: ""
+                                CampsiteOwnerUser(document.id, Profile(name, email, phone))
+                            }
+                        },
+                        onFailure = { adminOwners = emptyList() }
+                    )
+                    try {
+                        adminCampsiteCounts = campsiteRepository.getCampsites()
+                            .groupingBy { it.ownerId }
+                            .eachCount()
+                    } catch (e: Exception) {
+                        if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+                        adminCampsiteCounts = emptyMap()
+                    }
                 }
             }
             if (currentUser != null)
@@ -396,7 +437,62 @@ fun CamplyApp() {
                             Screen.RESERVATIONS -> activeReservationsView.Display(currentUser.getUid())
 
                             Screen.CAMPSITE_LIST -> {
-                                if (ownerController != null) {
+                                if (currentUser is AdminUser) {
+                                    val selectedOwner = adminSelectedOwner
+                                    val detailId = adminDetailCampsiteId
+                                    when {
+                                        // Third page: the existing campsite details. onEdit is null, and the
+                                        // details view also hides the pencil unless the signed-in id owns the campsite.
+                                        detailId != null -> {
+                                            BackHandler { adminDetailCampsiteId = null }
+                                            campsiteDetailView.Display(
+                                                campsiteId = detailId,
+                                                onBack = { adminDetailCampsiteId = null },
+                                                currentUserId = currentUser.getUid(),
+                                                onEdit = null,
+                                                loadPhotoPreview = { campsiteId, photoId ->
+                                                    campsiteRepository.getCampsitePreview(campsiteId, photoId)
+                                                },
+                                                loadPhoto = { campsiteId, photoId ->
+                                                    campsiteRepository.getCampsitePhoto(campsiteId, photoId)
+                                                }
+                                            )
+                                        }
+                                        // Second page: one owner's campsites. readOnly removes plus, pencil, and lottery.
+                                        selectedOwner != null -> {
+                                            BackHandler { adminSelectedOwner = null }
+                                            campsiteListView.Display(
+                                                ownerName = selectedOwner.getProfile().getName(),
+                                                campsites = adminOwnerCampsites,
+                                                readOnly = true,
+                                                addCampsite = {},
+                                                editCampsite = {},
+                                                viewCampsite = { adminDetailCampsiteId = it.id },
+                                                lotteryRegistration = {},
+                                                reservationList = {},
+                                                viewOrCreateLottery = {},
+                                                loadPhotoPreview = { campsiteId, photoId ->
+                                                    campsiteRepository.getCampsitePreview(campsiteId, photoId)
+                                                },
+                                                onBack = { adminSelectedOwner = null },
+                                            )
+                                        }
+                                        // First page: every owner. Tapping one loads that owner's campsites.
+                                        else -> {
+                                            adminOwnerListView.Display(
+                                                owners = adminOwners,
+                                                campsiteCounts = adminCampsiteCounts,
+                                                onOwnerClick = { owner ->
+                                                    adminSelectedOwner = owner
+                                                    scope.launch {
+                                                        adminOwnerCampsites =
+                                                            campsiteRepository.getCampsitesByOwner(owner.getUid())
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                                } else if (ownerController != null) {
                                     val detailId = ownerDetailCampsiteId
 
                                     if (ownerShowReservations) {

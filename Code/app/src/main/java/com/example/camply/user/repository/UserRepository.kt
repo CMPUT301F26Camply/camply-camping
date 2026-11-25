@@ -1,5 +1,6 @@
 package com.example.camply.user.repository
 
+import androidx.compose.ui.semantics.Role
 import com.example.camply.user.model.User
 import com.google.firebase.Firebase
 import com.google.firebase.firestore.Blob
@@ -165,6 +166,15 @@ class UserRepository {
     ) {
         db.collection("profileImages").document(uid).delete()
             .addOnSuccessListener { onSuccess() }
+            .addOnFailureListener { onFailure() }
+    }
+    fun getUsersByRole(
+        role: String,
+        onSuccess: (List<DocumentSnapshot>) -> Unit,
+        onFailure: () -> Unit
+    ){
+        db.collection("users").whereEqualTo("role",role).get()
+            .addOnSuccessListener { onSuccess(it.documents) }
             .addOnFailureListener { onFailure() }
     }
 }
