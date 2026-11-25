@@ -92,7 +92,7 @@ class ReservationBookingController(
         val reservations = repository.getReservationsForEntrant(reservation.entrantId)
 
         if (bookingService.hasExistingLotteryReservation(reservation.entrantId, reservation.lotteryId, reservations)) {
-            return "You have already confirmed a reservation for this lottery."
+            return "You have already used your winning opportunity for this lottery."
         }
 
         return null

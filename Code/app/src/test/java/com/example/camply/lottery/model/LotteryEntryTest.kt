@@ -41,4 +41,51 @@ class LotteryEntryTest {
 
         assertFalse(entry.canConfirmReservation())
     }
+
+    /**
+     * A winner who already declined their opportunity cannot decline again.
+     */
+    @Test
+    fun canDecline_alreadyDeclined_returnsFalse() {
+        val entry = LotteryEntry(
+            status = LotteryEntry.STATUS_WON,
+            opportunityStatus = LotteryEntry.OPPORTUNITY_DECLINED
+        )
+
+        assertFalse(entry.canDecline())
+    }
+
+    /**
+     * A winner with an unused opportunity can proceed to booking.
+     */
+    @Test
+    fun canConfirmReservation_unusedWin_returnsTrue() {
+        val entry = LotteryEntry(status = LotteryEntry.STATUS_WON)
+
+        assertTrue(entry.canConfirmReservation())
+    }
+
+    /**
+     * An entrant who has not won cannot confirm a reservation.
+     */
+    @Test
+    fun canConfirmReservation_notWinner_returnsFalse() {
+        val entry = LotteryEntry(status = "waiting")
+
+        assertFalse(entry.canConfirmReservation())
+    }
+
+    /**
+     * A booked lottery opportunity cannot be used to book again or declined.
+     */
+    @Test
+    fun bookedOpportunity_cannotBookOrDecline() {
+        val entry = LotteryEntry(
+            status = LotteryEntry.STATUS_WON,
+            opportunityStatus = LotteryEntry.OPPORTUNITY_BOOKED
+        )
+
+        assertFalse(entry.canConfirmReservation())
+        assertFalse(entry.canDecline())
+    }
 }

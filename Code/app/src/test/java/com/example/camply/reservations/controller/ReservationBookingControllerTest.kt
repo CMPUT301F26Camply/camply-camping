@@ -375,6 +375,35 @@ class ReservationBookingControllerTest {
     }
 
     /**
+     * Checks that a winner cannot reuse an opportunity already marked as booked (US 01.04.01).
+     */
+    @Test
+    fun confirmReservation_bookedWinner_doesNotSave() = runBlocking {
+        val model = ReservationBookingModel()
+        lotteryRepository.lottery = bookingLottery()
+        lotteryEntryRepository.entry = LotteryEntry(
+            status = LotteryEntry.STATUS_WON,
+            opportunityStatus = LotteryEntry.OPPORTUNITY_BOOKED
+        )
+
+        val bookingController = ReservationBookingController(
+            bookingService = BookingService(),
+            repository = repository,
+            notificationService = notificationService(),
+            lotteryRepository = lotteryRepository,
+            lotteryEntryRepository = lotteryEntryRepository,
+            model = model
+        )
+
+        val result = bookingController.confirmReservation(campsite, bookingReservation())
+
+        assertNull(result)
+        assertEquals("You do not have an available winning opportunity.", model.errorMessage)
+        assertTrue(repository.reservations.isEmpty())
+        assertFalse(model.reservationConfirmed)
+    }
+
+    /**
      * Checks that the same lottery win cannot be used for another reservation.
      * US 01.04.01.
      */
@@ -404,11 +433,27 @@ class ReservationBookingControllerTest {
 
         assertNull(result)
         assertEquals(
-            "You have already confirmed a reservation for this lottery.",
+            "You have already used your winning opportunity for this lottery.",
             model.errorMessage
         )
         assertEquals(1, repository.reservations.size)
         assertFalse(model.reservationConfirmed)
+    }
+
+    /**
+     * Cancelling a reservation does not allow the same lottery win to be reused.
+     */
+    @Test
+    fun confirmReservation_cancelledLotteryReservation_doesNotSave() = runBlocking {
+        assertUsedLotteryOpportunityBlocked(ReservationStatus.CANCELLED)
+    }
+
+    /**
+     * Rejection of a reservation does not allow the same lottery win to be reused.
+     */
+    @Test
+    fun confirmReservation_rejectedLotteryReservation_doesNotSave() = runBlocking {
+        assertUsedLotteryOpportunityBlocked(ReservationStatus.REJECTED)
     }
 
     /**
@@ -439,6 +484,41 @@ class ReservationBookingControllerTest {
         assertEquals("The lottery booking period is not open.", model.errorMessage)
         assertTrue(repository.reservations.isEmpty())
         assertFalse(model.reservationConfirmed)
+    }
+
+    /**
+     * Verifies that a previously used lottery win cannot create another booking.
+     */
+    private suspend fun assertUsedLotteryOpportunityBlocked(status: ReservationStatus) {
+        val model = ReservationBookingModel()
+        val notifications = TestNotificationRepository()
+
+        lotteryRepository.lottery = bookingLottery()
+        lotteryEntryRepository.entry = LotteryEntry(status = LotteryEntry.STATUS_WON)
+
+        repository.reservations = listOf(
+            bookingReservation().copy(
+                dates = DateRange("2027-06-01", "2027-06-02"),
+                status = status
+            )
+        )
+
+        val bookingController = ReservationBookingController(
+            bookingService = BookingService(),
+            repository = repository,
+            notificationService = NotificationService(notifications),
+            lotteryRepository = lotteryRepository,
+            lotteryEntryRepository = lotteryEntryRepository,
+            model = model
+        )
+
+        val result = bookingController.confirmReservation(campsite, bookingReservation())
+
+        assertNull(result)
+        assertEquals("You have already used your winning opportunity for this lottery.", model.errorMessage)
+        assertEquals(1, repository.reservations.size)
+        assertFalse(model.reservationConfirmed)
+        assertTrue(notifications.records.isEmpty())
     }
 
     /**

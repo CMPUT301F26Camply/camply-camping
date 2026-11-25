@@ -45,6 +45,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.exifinterface)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -63,5 +64,8 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("androidx.compose.material:material-icons-core")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
+    // MapLibre Native Android SDK
+    // BSD 2-Clause License: https://github.com/maplibre/maplibre-native
+    implementation("org.maplibre.gl:android-sdk:13.7.1")
     implementation("com.google.firebase:firebase-messaging")
 }

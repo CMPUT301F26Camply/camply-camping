@@ -2,6 +2,7 @@ package com.example.camply.user.repository
 
 import com.example.camply.user.model.User
 import com.google.firebase.Firebase
+import com.google.firebase.firestore.Blob
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.firestore
 
@@ -102,6 +103,67 @@ class UserRepository {
         )
 
         db.collection("users").document(uid).update(profileData)
+            .addOnSuccessListener { onSuccess() }
+            .addOnFailureListener { onFailure() }
+    }
+
+
+    // https://firebase.google.com/docs/reference/kotlin/com/google/firebase/firestore/Blob
+    /**
+     * Retrieves the current user's profile image from Firestore.
+     *
+     * @param uid the Firebase UID identifying the user's image document
+     * @param onSuccess called with the image bytes, or null if no image exists
+     * @param onFailure called if retrieving the image fails
+     */
+    fun getProfileImage(
+        uid: String,
+        onSuccess: (ByteArray?) -> Unit,
+        onFailure: () -> Unit
+    ) {
+        db.collection("profileImages").document(uid).get()
+            .addOnSuccessListener { document ->
+                val imageBytes = document.getBlob("image")?.toBytes()
+                onSuccess(imageBytes)
+            }
+            .addOnFailureListener { onFailure() }
+    }
+
+    //https://firebase.google.com/docs/reference/kotlin/com/google/firebase/firestore/Blob
+    /**
+     * Saves a  profile image in a separate Firestore document.
+     *
+     * @param uid the Firebase UID identifying the user's image document
+     * @param imageBytes the compressed image bytes to save
+     * @param onSuccess called after the image is saved
+     * @param onFailure called if saving fails
+     */
+    fun saveProfileImage(
+        uid: String,
+        imageBytes: ByteArray,
+        onSuccess: () -> Unit,
+        onFailure: () -> Unit
+    ) {
+        val imageData = hashMapOf("image" to Blob.fromBytes(imageBytes))
+
+        db.collection("profileImages").document(uid).set(imageData)
+            .addOnSuccessListener { onSuccess() }
+            .addOnFailureListener { onFailure() }
+    }
+
+    /**
+     * Removes the user's profile image document from Firestore.
+     *
+     * @param uid the Firebase UID identifying the user's image document
+     * @param onSuccess called after the image is removed
+     * @param onFailure called if removal fails
+     */
+    fun removeProfileImage(
+        uid: String,
+        onSuccess: () -> Unit,
+        onFailure: () -> Unit
+    ) {
+        db.collection("profileImages").document(uid).delete()
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { onFailure() }
     }

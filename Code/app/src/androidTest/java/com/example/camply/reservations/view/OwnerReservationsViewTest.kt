@@ -11,6 +11,7 @@ import androidx.compose.ui.test.performClick
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteRepository
 import com.example.camply.campsite.model.DateRange
+import com.example.camply.campsite.service.PreparedCampsiteImages
 import com.example.camply.reservations.controller.OwnerReservationsController
 import com.example.camply.reservations.model.OwnerReservationsModel
 import com.example.camply.reservations.model.Reservation
@@ -357,9 +358,23 @@ class OwnerReservationsViewTest {
             return campsites.filter { it.ownerId == ownerId }
         }
 
-        override suspend fun saveCampsite(campsite: Campsite): String {
+        override suspend fun saveCampsite(
+            campsite: Campsite,
+            photosToSave: Map<String, PreparedCampsiteImages>,
+            photosToRemove: List<String>
+        ): String {
             return campsite.id
         }
+
+        override suspend fun getCampsitePreview(
+            campsiteId: String,
+            photoId: String
+        ): ByteArray? = null
+
+        override suspend fun getCampsitePhoto(
+            campsiteId: String,
+            photoId: String
+        ): ByteArray? = null
 
         override suspend fun deleteCampsite(id: String) {
             // Not needed by these tests.

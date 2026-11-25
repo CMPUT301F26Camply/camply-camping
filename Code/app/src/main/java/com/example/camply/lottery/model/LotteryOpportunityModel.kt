@@ -3,13 +3,18 @@ package com.example.camply.lottery.model
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.example.camply.reservations.model.Reservation
 
 /**
- * Stores the state of one entrant's reservation opportunity for a lottery (US 01.04.03).
+ * Stores the state of one entrant's reservation opportunity for a lottery (US 01.04.03),
+ * including their lottery entry and any associated reservation.
  */
 class LotteryOpportunityModel {
 
     var entry: LotteryEntry? by mutableStateOf(null)
+        private set
+
+    var reservation: Reservation? by mutableStateOf(null)
         private set
 
     var isLoading: Boolean by mutableStateOf(false)
@@ -27,12 +32,14 @@ class LotteryOpportunityModel {
     }
 
     /**
-     * Updates the model with the entrant's lottery entry.
+     * Updates the model with the entrant's lottery entry and associated reservation.
      *
      * @param value The entry, or null if the entrant has no entry in the lottery.
+     * @param newReservation The associated reservation, or null if none exists.
      */
-    fun showEntry(value: LotteryEntry?) {
+    fun showEntry(value: LotteryEntry?, newReservation: Reservation? = null) {
         entry = value
+        reservation = newReservation
         isLoading = false
         errorMessage = null
     }

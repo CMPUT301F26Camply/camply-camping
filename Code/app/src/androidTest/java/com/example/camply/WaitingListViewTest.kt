@@ -55,6 +55,71 @@ class WaitingListViewTest {
         compose.onNodeWithText("Check availability again").assertIsEnabled()
     }
 
+    /**
+     * An entrant who is already registered sees their existing membership and can choose to leave the waiting list.
+     */
+    @Test
+    fun alreadyJoined_showsMembershipAndLeaveButton() {
+        val repository = TestRepository()
+        showView(repository, alreadyJoined = true)
+
+        compose.onNodeWithText("Entered").assertIsDisplayed()
+        compose.onNodeWithText("You already have an entry in this lottery.").assertIsDisplayed()
+        compose.onNodeWithText("Leave waiting list").assertIsEnabled()
+    }
+
+    /**
+     * When registration is closed, the entrant cannot retry joining.
+     */
+    @Test
+    fun registrationClosed_disablesJoinButton() {
+        val repository = TestRepository()
+        showView(repository)
+
+        compose.onNodeWithText("Join waiting list").performClick()
+        compose.runOnIdle { repository.joinComplete(WaitingList.JoinResult.REGISTRATION_CLOSED) }
+
+        compose.onNodeWithText("Closed").assertIsDisplayed()
+        compose.onNodeWithText("This lottery is not accepting entries.").assertIsDisplayed()
+        compose.onNodeWithText("Registration closed").assertIsNotEnabled()
+    }
+
+    /**
+     * An entrant with a finalized lottery result cannot withdraw their entry or rejoin the waiting list.
+     */
+    @Test
+    fun finalizedEntry_preventsFurtherActions() {
+        val repository = TestRepository()
+        showView(repository, alreadyJoined = true)
+
+        compose.onNodeWithText("Leave waiting list").performClick()
+        compose.runOnIdle { repository.leaveComplete(WaitingList.LeaveResult.ENTRY_FINALIZED) }
+
+        compose.onNodeWithText("Finalized").assertIsDisplayed()
+        compose.onNodeWithText("This entry has a lottery result and cannot be removed from the waiting list.")
+            .assertIsDisplayed()
+        compose.onNodeWithText("Entry finalized").assertIsNotEnabled()
+    }
+
+    /**
+     * A failed join displays an error and allows the entrant to retry the registration.
+     */
+    @Test
+    fun failedJoin_showsErrorAndAllowsRetry() {
+        val repository = TestRepository()
+        showView(repository)
+
+        compose.onNodeWithText("Join waiting list").performClick()
+        compose.runOnIdle { repository.failure(Exception("Offline")) }
+
+        compose.onNodeWithText("Action needed").assertIsDisplayed()
+        compose.onNodeWithText("Unable to confirm your entry. Check your connection and try again.")
+            .assertIsDisplayed()
+
+        compose.onNodeWithText("Try again").assertIsEnabled().performClick()
+        compose.onNodeWithText("Joining…").assertIsNotEnabled()
+    }
+
     private fun showView(repository: TestRepository, alreadyJoined: Boolean = false) {
         val model = WaitingListModel(repository, "lottery", "entrant", alreadyJoined)
         val view = WaitingListView(model, WaitingListController(model))
