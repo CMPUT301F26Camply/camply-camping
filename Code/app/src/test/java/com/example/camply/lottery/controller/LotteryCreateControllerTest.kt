@@ -16,7 +16,7 @@ import org.junit.Test
 
 /**
  * Unit tests for creating an owner lottery.
- * US 02.04.01, US 02.04.03, US 02.04.04, US 02.04.05.
+ * US 02.04.01, US 02.04.02, US 02.04.03, US 02.04.04, US 02.04.05.
  */
 class LotteryCreateControllerTest {
 
@@ -69,14 +69,14 @@ class LotteryCreateControllerTest {
     }
 
     @Test
-    fun createLottery_campsiteNotOwned_doesNotSave() = runBlocking {
+    fun createLottery_noCampsiteSelected_doesNotSave() = runBlocking {
         fillValidForm()
-        controller.onCampsiteSelected("someone-elses-site")
+        controller.onCampsiteSelected("site-1")
 
         controller.createLottery("owner-1")
 
         assertTrue(lotteries.created.isEmpty())
-        assertEquals("Select one of your campsites.", model.errorMessage)
+        assertEquals("Select your campsite(s)", model.errorMessage)
     }
 
     @Test
@@ -132,6 +132,56 @@ class LotteryCreateControllerTest {
         assertTrue(lotteries.created.isEmpty())
         assertEquals("Enter the lottery range as YYYY-MM-DD.", model.errorMessage)
     }
+
+    // testing for multiple campsites in lottery
+    @Test
+    fun createLottery_ForMultipleCampsitesTest() = runBlocking {
+        fillValidForm()
+        campsites.owned += Campsite(id = "site-2", ownerId = "owner-1")
+        controller.loadOwnedCampsites("owner-1")
+        controller.onCampsiteSelected("site-2")
+        controller.createLottery("owner-1")
+
+        assertEquals(1, lotteries.created.size)
+        assertEquals(listOf("site-1", "site-2"), lotteries.created.single().campsiteIds)
+        assertNull(model.errorMessage)
+
+    }
+
+    @Test
+    fun campsiteAlreadyExistsInLottery_doesNotSave() = runBlocking {
+        fillValidForm()
+        lotteries.existing += existingLottery(listOf("site-1"), "2026-11-03", "2026-11-08")
+        controller.createLottery("owner-1")
+
+        assertTrue(lotteries.created.isEmpty())
+        assertEquals("One of these campsites is already in an open lottery during this registration period.", model.errorMessage)
+    }
+
+    @Test
+    fun createLottery_existingLotteryEndsBeforeNewStarts_saves() = runBlocking {
+        fillValidForm()
+        lotteries.existing += existingLottery(listOf("site-1"), "2026-10-01", "2026-10-31")
+
+        controller.createLottery("owner-1")
+
+        assertEquals(1, lotteries.created.size)
+        assertNull(model.errorMessage)
+    }
+
+    @Test
+    fun createLottery_periodsTouchOnOneDay_countsAsOverlap() = runBlocking {
+        fillValidForm()
+        lotteries.existing += existingLottery(listOf("site-1"), "2026-11-05", "2026-11-09")
+
+        controller.createLottery("owner-1")
+
+        assertTrue(lotteries.created.isEmpty())
+        assertEquals(
+            "One of these campsites is already in an open lottery during this registration period.",
+            model.errorMessage
+        )
+    }
     private suspend fun fillValidForm() {
         campsites.owned += Campsite(id = "site-1", ownerId = "owner-1")
         controller.loadOwnedCampsites("owner-1")
@@ -147,9 +197,17 @@ class LotteryCreateControllerTest {
 
     private class FakeLotteryRepository : LotteryRepository {
         val created = mutableListOf<Lottery>()
+        val existing = mutableListOf<Lottery>()
+        val testGetLottery = false
 
-        override suspend fun getLotteries(): List<Lottery> = created
-        override suspend fun getLottery(id: String): Lottery? = created.find { it.id == id }
+        override suspend fun getLotteries(): List<Lottery> {
+            if(testGetLottery) {
+                throw RuntimeException("Runtime Error")
+
+            }
+            return existing + created
+        }
+        override suspend fun getLottery(id: String): Lottery? = (existing + created).find { it.id == id }
         override suspend fun create(lottery: Lottery): String {
             created += lottery
             return "new-id"
@@ -182,4 +240,21 @@ class LotteryCreateControllerTest {
 
         override suspend fun deleteCampsite(id: String) = error("not used")
     }
+    private fun existingLottery(
+        campsiteIds: List<String>,
+        registrationStart: String,
+        registrationEnd: String
+    ) = Lottery(
+        ownerId = "owner-2",
+        campsiteIds = campsiteIds,
+        registrationStart = registrationStart,
+        registrationEnd = registrationEnd,
+        bookingStart = "2026-11-20",
+        bookingEnd = "2026-11-25",
+        numberOfWinners = 1,
+        lotteryStart = "2026-12-10",
+        lotteryEnd = "2026-12-15",
+        status = LotteryStatus.OPEN
+    )
+
 }

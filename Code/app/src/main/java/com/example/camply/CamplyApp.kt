@@ -109,7 +109,7 @@ fun CamplyApp() {
     val campsiteDetailController = remember { CampsiteDetailController(campsiteDetailModel, campsiteRepository) }
     val campsiteDetailView = remember { CampsiteDetailView(campsiteDetailModel, campsiteDetailController) }
 
-    // Owner lottery registration. US 02.04.01, 02.04.03, 02.04.04, 02.04.05.
+    // Owner lottery registration. US 02.04.01, US 02.04.02, 02.04.03, 02.04.04, 02.04.05.
     val lotteryCreateModel = remember { LotteryCreateModel() }
     val lotteryRepository = remember { FirestoreLotteryRepository() }
     val lotteryDrawService = remember {
@@ -531,7 +531,7 @@ fun CamplyApp() {
                                                 ownerShowLottery = true
                                             },
                                             reservationList = { ownerShowReservations = true },
-                                            viewOrCreateLottery = { },
+                                            viewOrCreateLottery = { ownerShowLottery = true },
                                             loadPhotoPreview = { campsiteId, photoId ->
                                                 campsiteRepository.getCampsitePreview(
                                                     campsiteId,
