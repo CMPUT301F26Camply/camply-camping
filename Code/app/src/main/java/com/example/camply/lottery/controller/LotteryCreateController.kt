@@ -71,7 +71,9 @@ class LotteryCreateController(
         val winners = model.winnerCount.toIntOrNull()
 
         val error = when {
-            campsiteIds.isEmpty() ->
+            campsiteIds.isEmpty() || campsiteIds.any { id ->
+                model.ownedCampsites.none { it.id == id }
+            } ->
                 "Select your campsite(s)"
             !isDateText(registrationStart) || !isDateText(registrationEnd) ->
                 "Enter the registration period as YYYY-MM-DD."
