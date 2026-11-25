@@ -168,6 +168,13 @@ class UserRepository {
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { onFailure() }
     }
+    /**
+     * Retrieves every user document whose role field matches the requested role.
+     *
+     * @param role the Firestore role to match, such as "owner"
+     * @param onSuccess called with the matching user documents
+     * @param onFailure called if the query fails
+     */
     fun getUsersByRole(
         role: String,
         onSuccess: (List<DocumentSnapshot>) -> Unit,

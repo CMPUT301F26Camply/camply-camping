@@ -1,56 +1,4 @@
-//package com.example.camply.user.view
-//
-//import androidx.compose.foundation.background
-//import androidx.compose.foundation.clickable
-//import androidx.compose.foundation.layout.Column
-//import androidx.compose.foundation.layout.fillMaxSize
-//import androidx.compose.foundation.layout.fillMaxWidth
-//import androidx.compose.foundation.layout.padding
-//import androidx.compose.foundation.rememberScrollState
-//import androidx.compose.foundation.verticalScroll
-//import androidx.compose.material3.Card
-//import androidx.compose.material3.MaterialTheme
-//import androidx.compose.material3.Text
-//import androidx.compose.runtime.Composable
-//import androidx.compose.ui.Modifier
-//import androidx.compose.ui.unit.dp
-//import com.example.camply.user.model.User
-//
-//class AdminOwnerListView {
-//    @Composable
-//    fun Display(
-//        owners: List<User>,
-//        onOwnerClick:(User)-> Unit
-//    ){
-//        Column(
-//            modifier = Modifier
-//                .fillMaxSize()
-//                .background(MaterialTheme.colorScheme.background)
-//                .verticalScroll(rememberScrollState())
-//                .padding(horizontal = 16.dp)
-//        ) {
-//            Text(
-//                text = "Campsite owners",
-//                style = MaterialTheme.typography.headlineMedium,
-//                modifier = Modifier.padding(vertical = 20.dp)
-//            )
-//            owners.forEach { owner ->
-//                Card(
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                        .padding(bottom = 12.dp)
-//                        .clickable{onOwnerClick(owner)}
-//                ) {
-//                    Text(
-//                        text = owner.getProfile().getName(),
-//                        modifier = Modifier.padding(16.dp),
-//                        style = MaterialTheme.typography.titleMedium
-//                    )
-//                }
-//            }
-//        }
-//    }
-//}
+
 package com.example.camply.user.view
 
 import androidx.compose.foundation.background
@@ -82,8 +30,19 @@ import com.example.camply.shared.view.CamplyScreen
 import com.example.camply.shared.view.CardLabel
 import com.example.camply.shared.view.OrangeCard
 import com.example.camply.user.model.User
-
+/**
+ * Displays every campsite owner so an admin can choose whose campsites to inspect.
+ *
+ * Covering US 03.04.01
+ */
 class AdminOwnerListView {
+    /**
+     * Displays the owner list and the total number of registered campsites.
+     *
+     * @param owners Campsite owners loaded from Firestore.
+     * @param campsiteCounts Number of campsites for each owner, keyed by the owner's UID.
+     * @param onOwnerClick Called when an owner card is selected.
+     */
     @Composable
     fun Display(
         owners: List<User>,
@@ -128,6 +87,13 @@ class AdminOwnerListView {
         }
     }
 
+    /**
+     * Displays one campsite owner and how many campsites that owner has registered.
+     *
+     * @param name Name shown on the card.
+     * @param campsiteCount Number of campsites registered by this owner.
+     * @param onClick Called when the card is selected.
+     */
     @Composable
     private fun OwnerCard(
         name: String,

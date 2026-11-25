@@ -133,6 +133,8 @@ class CampsiteListView {
      * @param reservationList Called when viewing reservations.
      * @param viewOrCreateLottery Called when managing lotteries.
      * @param loadPhotoPreview Loads the Firestore preview image bytes for a given campsite ID and photo ID, or null if unavailable.
+     * @param readOnly Hides creation, editing, reservations, and lottery controls. Used when an admin is viewing another owner's campsites.
+     * @param onBack Returns to the previous screen. The Back button is shown only when this is provided.
      */
     @Composable
     fun Display(
