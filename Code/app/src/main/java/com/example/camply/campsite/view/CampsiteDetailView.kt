@@ -1,5 +1,6 @@
 package com.example.camply.campsite.view
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -188,6 +189,9 @@ class CampsiteDetailView(
                                     shape = RoundedCornerShape(16.dp),
                                     elevation = CardDefaults.cardElevation(8.dp)
                                 ) {
+                                    BackHandler(enabled = true) {
+                                        controller.closeQRcode()
+                                    }
                                     Column(
                                         modifier = Modifier.padding(24.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally
