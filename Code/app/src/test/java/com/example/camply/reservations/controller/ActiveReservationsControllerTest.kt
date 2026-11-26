@@ -205,6 +205,11 @@ class ActiveReservationsControllerTest {
      * Provides reservation data for controller tests without accessing Firestore.
      */
     private class TestReservationRepository : ReservationRepository {
+
+        override suspend fun rejectReservation(
+            reservationId: String, ownerId: String, today: String
+        ): Reservation = error("Rejection is not used by this test.")
+
         var reservations: List<Reservation> = emptyList()
         var shouldFail = false
 
