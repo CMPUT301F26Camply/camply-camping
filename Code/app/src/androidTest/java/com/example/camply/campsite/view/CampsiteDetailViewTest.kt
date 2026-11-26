@@ -20,6 +20,8 @@ import com.google.zxing.BarcodeFormat
 import com.journeyapps.barcodescanner.BarcodeEncoder
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
+import junit.framework.TestCase.assertNotNull
+import junit.framework.TestCase.assertNull
 import junit.framework.TestCase.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -199,6 +201,17 @@ class CampsiteDetailViewTest {
         val second = model.qrCode!!.asAndroidBitmap()
 
         assertFalse(first.sameAs(second))
+    }
+
+    // Opening another campsite clears the previous campsite's QR code
+    @Test
+    fun showCampsite_clearsQrCode() {
+        controller.generateQRcode(campsite)
+        assertNotNull(model.qrCode)
+
+        model.showCampsite(Campsite(id = "xyz789", name = "Jasper Lakeside"))
+
+        assertNull(model.qrCode)
     }
 
     /**

@@ -17,9 +17,9 @@ class CampsiteDetailModel {
     var qrCode: ImageBitmap? by mutableStateOf(null)
         private set
 
-    fun showLoading() { campsite = null; isLoading = true; errorMessage = null }
-    fun showCampsite(value: Campsite) { campsite = value; isLoading = false; errorMessage = null }
-    fun showError(message: String) { campsite = null; isLoading = false; errorMessage = message }
+    fun showLoading() { campsite = null; isLoading = true; errorMessage = null; qrCode = null }
+    fun showCampsite(value: Campsite) { campsite = value; isLoading = false; errorMessage = null; qrCode = null }
+    fun showError(message: String) { campsite = null; isLoading = false; errorMessage = message; qrCode = null }
     //US 02.02.01: QR code generation. Need to both show and hide qr code as necessary
     fun showQRcode(image: ImageBitmap){
         qrCode = image
