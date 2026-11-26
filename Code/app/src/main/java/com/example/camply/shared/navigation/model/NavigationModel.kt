@@ -56,7 +56,10 @@ class NavigationModel {
     
     private val adminNavBarItems = listOf(
         // TODO: In here for now but need to change flow of notifications to be inside inbox...
-        NavBarItem(Screen.NOTIFICATIONS, "Inbox", R.drawable.inbox_icon)
+        NavBarItem(Screen.PROFILE, "Profile", R.drawable.profile_icon),
+        NavBarItem(Screen.CAMPSITE_LIST, "Campsites", R.drawable.camp_list),
+        NavBarItem(Screen.INBOX, "Inbox", R.drawable.inbox_icon),
+        NavBarItem(Screen.NOTIFICATIONS, "Notifications", R.drawable.inbox_icon)
     )
 
     /**

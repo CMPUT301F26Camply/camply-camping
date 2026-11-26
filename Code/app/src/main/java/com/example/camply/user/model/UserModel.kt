@@ -127,7 +127,11 @@ class UserModel {
                         } else if (role == "owner") {
                             loadedUser = CampsiteOwnerUser(uid, profile)
                             currentStartupState = "ready"
-                        } else {
+                        }else if (role=="admin"){
+                            loadedUser= AdminUser(uid,profile)
+                            currentStartupState="ready"
+                        }
+                        else {
                             currentStartupState = "error"
                         }
 

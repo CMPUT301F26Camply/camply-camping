@@ -191,6 +191,145 @@ class CampsiteListViewTest {
 
         assertEquals(true, clicked)
     }
+    /**
+     * An admin viewing one owner's campsites sees that owner's name and listings.
+     *
+     * Covering US 03.04.01
+     */
+    @Test
+    fun readOnly_showsOwnerCampsites() {
+        composeRule.setContent {
+            CampsiteListView().Display(
+                ownerName = "Filip Owner",
+                campsites = listOf(
+                    Campsite(id = "pine", name = "Pine Ridge", location = "Banff")
+                ),
+                addCampsite = {},
+                viewCampsite = {},
+                editCampsite = {},
+                lotteryRegistration = {},
+                reservationList = {},
+                viewOrCreateLottery = {},
+                loadPhotoPreview = { _, _ -> null },
+                readOnly = true,
+                onBack = {}
+            )
+        }
+
+        composeRule.onNodeWithText("Filip's Campsites").assertIsDisplayed()
+        composeRule.onNodeWithText("Manage campsite listings").assertIsDisplayed()
+        composeRule.onNodeWithText("Pine Ridge").assertIsDisplayed()
+        composeRule.onNodeWithText("Banff").assertIsDisplayed()
+    }
+
+    /**
+     * An owner with no campsites shows the read-only empty message.
+     */
+    @Test
+    fun readOnly_emptyList_showsOwnerEmptyMessage() {
+        composeRule.setContent {
+            CampsiteListView().Display(
+                ownerName = "Filip Owner",
+                campsites = emptyList(),
+                addCampsite = {},
+                viewCampsite = {},
+                editCampsite = {},
+                lotteryRegistration = {},
+                reservationList = {},
+                viewOrCreateLottery = {},
+                loadPhotoPreview = { _, _ -> null },
+                readOnly = true
+            )
+        }
+
+        composeRule.onNodeWithText("This owner has no campsites.").assertIsDisplayed()
+    }
+
+    /**
+     * Read-only mode hides add, edit, reservation, and lottery controls.
+     */
+    @Test
+    fun readOnly_hidesOwnerEditingControls() {
+        composeRule.setContent {
+            CampsiteListView().Display(
+                ownerName = "Filip Owner",
+                campsites = listOf(
+                    Campsite(id = "pine", name = "Pine Ridge", location = "Banff")
+                ),
+                addCampsite = {},
+                viewCampsite = {},
+                editCampsite = {},
+                lotteryRegistration = {},
+                reservationList = {},
+                viewOrCreateLottery = {},
+                loadPhotoPreview = { _, _ -> null },
+                readOnly = true
+            )
+        }
+
+        composeRule.onNodeWithContentDescription("Add campsite").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Edit Pine Ridge").assertDoesNotExist()
+        composeRule.onNodeWithText("List Campsite in Lottery").assertDoesNotExist()
+        composeRule.onNodeWithText("Reservations").assertDoesNotExist()
+        composeRule.onNodeWithText("Lotteries").assertDoesNotExist()
+    }
+
+    /**
+     * The Back button returns from one owner's campsites to the owner list.
+     */
+    @Test
+    fun readOnly_backButton_callsOnBack() {
+        var wentBack = false
+
+        composeRule.setContent {
+            CampsiteListView().Display(
+                ownerName = "Filip Owner",
+                campsites = listOf(
+                    Campsite(id = "pine", name = "Pine Ridge", location = "Banff")
+                ),
+                addCampsite = {},
+                viewCampsite = {},
+                editCampsite = {},
+                lotteryRegistration = {},
+                reservationList = {},
+                viewOrCreateLottery = {},
+                loadPhotoPreview = { _, _ -> null },
+                readOnly = true,
+                onBack = { wentBack = true }
+            )
+        }
+
+        composeRule.onNodeWithText("Back").performClick()
+        assertEquals(true, wentBack)
+    }
+
+    /**
+     * Tapping a campsite still opens its details while editing stays hidden.
+     */
+    @Test
+    fun readOnly_campsiteClick_callsViewCampsite() {
+        var opened: Campsite? = null
+
+        composeRule.setContent {
+            CampsiteListView().Display(
+                ownerName = "Filip Owner",
+                campsites = listOf(
+                    Campsite(id = "pine", name = "Pine Ridge", location = "Banff")
+                ),
+                addCampsite = {},
+                viewCampsite = { opened = it },
+                editCampsite = {},
+                lotteryRegistration = {},
+                reservationList = {},
+                viewOrCreateLottery = {},
+                loadPhotoPreview = { _, _ -> null },
+                readOnly = true
+            )
+        }
+
+        composeRule.onNodeWithText("Pine Ridge").performClick()
+        assertEquals("pine", opened?.id)
+    }
 
 
 }
