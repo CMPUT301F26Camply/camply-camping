@@ -1,0 +1,59 @@
+// Merge these matches inside match /databases/{database}/documents in the
+// project's active Firestore rules. Remove any overlapping broad allow rules
+// for conversations and messages before relying on these restrictions.
+match /conversations/{reservationId} {
+  function isParticipant(data) {
+    return request.auth.uid == data.ownerId || request.auth.uid == data.entrantId;
+  }
+
+  function canOpenReservation() {
+    let reservation = get(/databases/$(database)/documents/reservations/$(reservationId)).data;
+    let campsite = get(/databases/$(database)/documents/campsites/$(reservation.campsiteId)).data;
+    return reservation.status in ['CONFIRMED', 'CANCELLED', 'REJECTED']
+      && campsite.ownerId is string
+      && campsite.ownerId.size() > 0
+      && (campsite.ownerId == request.auth.uid || reservation.entrantId == request.auth.uid);
+  }
+
+  function validConversation() {
+    let reservation = get(/databases/$(database)/documents/reservations/$(reservationId)).data;
+    let campsite = get(/databases/$(database)/documents/campsites/$(reservation.campsiteId)).data;
+    let data = request.resource.data;
+    return data.keys().hasOnly([
+        'ownerId', 'entrantId', 'campsiteId', 'campsiteName', 'entrantName',
+        'stayFrom', 'stayTo', 'updatedAt'
+      ])
+      && data.ownerId == campsite.ownerId
+      && data.entrantId == reservation.entrantId
+      && data.campsiteId == reservation.campsiteId
+      && data.stayFrom == reservation.dates.from
+      && data.stayTo == reservation.dates.to
+      && data.campsiteName is string
+      && data.entrantName is string
+      && data.updatedAt == request.time;
+  }
+
+  allow get: if request.auth != null &&
+    (resource == null ? canOpenReservation() : isParticipant(resource.data));
+  allow list: if request.auth != null && isParticipant(resource.data);
+  allow create: if request.auth != null && canOpenReservation() && validConversation();
+  allow update: if request.auth != null && isParticipant(resource.data) &&
+    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt']) &&
+    request.resource.data.updatedAt == request.time;
+
+  match /messages/{messageId} {
+    function canAccessConversation() {
+      return request.auth != null &&
+        isParticipant(get(/databases/$(database)/documents/conversations/$(reservationId)).data);
+    }
+
+    allow read: if canAccessConversation();
+    allow create: if canAccessConversation() &&
+      request.resource.data.keys().hasOnly(['senderId', 'text', 'sentAt']) &&
+      request.resource.data.senderId == request.auth.uid &&
+      request.resource.data.text is string &&
+      request.resource.data.text.size() > 0 &&
+      request.resource.data.text.size() <= 2000 &&
+      request.resource.data.sentAt == request.time;
+  }
+}

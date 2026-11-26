@@ -58,9 +58,14 @@ class OwnerReservationsView(
      *
      * @param ownerId The current owner's user ID.
      * @param onBack Called when returning to the owner campsite screen.
+     * @param onMessageEntrant Opens the selected reservation's conversation.
      */
     @Composable
-    fun Display(ownerId: String, onBack: () -> Unit) {
+    fun Display(
+        ownerId: String,
+        onBack: () -> Unit,
+        onMessageEntrant: ((String) -> Unit)? = null
+    ) {
         val scope = rememberCoroutineScope()
 
         model.pendingRejection?.let { reservation ->
@@ -137,7 +142,8 @@ class OwnerReservationsView(
                 model.selectedReservation != null -> {
                     ReservationDetails(
                         model.selectedReservation!!,
-                        selectedCampsite?.campsite
+                        selectedCampsite?.campsite,
+                        onMessageEntrant
                     )
                 }
 
@@ -294,7 +300,7 @@ class OwnerReservationsView(
         }
 
         Text(
-            "Entrant: ${reservation.entrantId}",
+            "Entrant: ${model.entrantNames[reservation.entrantId] ?: "Name unavailable"}",
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             color = CamplyPalette.Ink
@@ -323,14 +329,21 @@ class OwnerReservationsView(
     @Composable
     private fun ColumnScope.ReservationDetails(
         reservation: Reservation,
-        campsite: Campsite?
+        campsite: Campsite?,
+        onMessageEntrant: ((String) -> Unit)?
     ) {
         Column(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {            OrangeCard {
+        ) {
+            if (onMessageEntrant != null && reservation.id.isNotBlank() &&
+                reservation.entrantId.isNotBlank() && !model.isRejecting
+            ) {
+                SecondaryButton("Message entrant", { onMessageEntrant(reservation.id) })
+            }
+            OrangeCard {
                 Text(
                     "Campsite",
                     fontSize = 16.sp,

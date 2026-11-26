@@ -51,6 +51,9 @@ import com.example.camply.lottery.view.EntrantLotteryView
 import com.example.camply.lottery.view.LotteryOpportunityView
 import com.example.camply.lottery.view.LotteryCreateView
 import com.example.camply.lottery.view.OwnerWaitlistView
+import com.example.camply.messaging.repository.FirestoreConversationRepository
+import com.example.camply.messaging.model.ConversationRole
+import com.example.camply.messaging.view.InboxView
 import com.example.camply.notification.controller.NotificationsController
 import com.example.camply.notification.model.NotificationsModel
 import com.example.camply.notification.repository.FirestoreNotificationRepository
@@ -193,7 +196,8 @@ fun CamplyApp() {
         OwnerReservationsController(
             ownerReservationsModel,
             campsiteRepository,
-            reservationRepository
+            reservationRepository,
+            FirestoreRecipientNameRepository()
         )
     }
 
@@ -203,6 +207,8 @@ fun CamplyApp() {
             ownerReservationsController
         )
     }
+    val inboxView = remember { InboxView(FirestoreConversationRepository(), FirestoreRecipientNameRepository()) }
+    var inboxReservationId by remember { mutableStateOf<String?>(null) }
 
     // Owner lottery waitlists (US 02.09.01)
     val ownerWaitlistModel = remember { OwnerWaitlistModel() }
@@ -252,6 +258,7 @@ fun CamplyApp() {
     val currentScreen = navigationModel.getCurrentScreen()
 
     LaunchedEffect(currentScreen) {
+        if (currentScreen != Screen.INBOX) inboxReservationId = null
         if (currentScreen != Screen.LOTTERIES) {
             reservationBookingController.resetBooking()
             lotteryBookingController.clearBooking()
@@ -435,7 +442,10 @@ fun CamplyApp() {
                                 }
                             }
 
-                            Screen.RESERVATIONS -> activeReservationsView.Display(currentUser.getUid())
+                            Screen.RESERVATIONS -> activeReservationsView.Display(currentUser.getUid()) { reservationId ->
+                                inboxReservationId = reservationId
+                                navigationModel.navigateTo(Screen.INBOX)
+                            }
 
                             Screen.CAMPSITE_LIST -> {
                                 if (currentUser is AdminUser) {
@@ -463,7 +473,11 @@ fun CamplyApp() {
                                     if (ownerShowReservations) {
                                         ownerReservationsView.Display(
                                             ownerId = currentUser.getUid(),
-                                            onBack = { ownerShowReservations = false }
+                                            onBack = { ownerShowReservations = false },
+                                            onMessageEntrant = { reservationId ->
+                                                inboxReservationId = reservationId
+                                                navigationModel.navigateTo(Screen.INBOX)
+                                            }
                                         )
                                     } else if (ownerShowLottery) {
                                         BackHandler {
@@ -618,6 +632,22 @@ fun CamplyApp() {
                             Screen.WAIT_LIST -> ownerWaitlistView.Display(currentUser.getUid())
 
                             Screen.PROFILE -> userProfileView.Display(currentUser, userController)
+
+                            Screen.INBOX -> {
+                                val role = when (currentUser.getRole()) {
+                                    "owner" -> ConversationRole.OWNER
+                                    "entrant" -> ConversationRole.ENTRANT
+                                    else -> null
+                                }
+                                if (role != null) {
+                                    inboxView.Display(currentUser.getUid(), role, inboxReservationId) {
+                                        navigationModel.navigateTo(
+                                            if (role == ConversationRole.OWNER) Screen.CAMPSITE_LIST
+                                            else Screen.RESERVATIONS
+                                        )
+                                    }
+                                }
+                            }
 
                             Screen.NOTIFICATIONS -> notificationsView.Display(
                                 currentUser.getUid(), currentUser.getRole(), manageObservation = false

@@ -58,9 +58,10 @@ class ActiveReservationsView(
      * Loads and displays an entrant's reservations, or the selected reservation's details.
      *
      * @param entrantId The entrant's Firebase user ID.
+     * @param onMessageOwner Opens the selected reservation's conversation.
      */
     @Composable
-    fun Display(entrantId: String) {
+    fun Display(entrantId: String, onMessageOwner: ((String) -> Unit)? = null) {
         val scope = rememberCoroutineScope()
         val error = model.errorMessage
         val selected = model.selectedReservation
@@ -81,7 +82,7 @@ class ActiveReservationsView(
                     scope.launch { controller.loadReservations(entrantId) }
                 }
 
-                selected != null -> ReservationDetails(selected, entrantId)
+                selected != null -> ReservationDetails(selected, entrantId, onMessageOwner)
 
 
                 else -> {
@@ -129,7 +130,11 @@ class ActiveReservationsView(
 
     // Shows one reservation's full details, with the campsite's rules and policy if it still exists.
     @Composable
-    private fun ReservationDetails(item: ActiveReservationItem, entrantId: String) {
+    private fun ReservationDetails(
+        item: ActiveReservationItem,
+        entrantId: String,
+        onMessageOwner: ((String) -> Unit)?
+    ) {
 
         val scope = rememberCoroutineScope()
         var showCancellationDialog by remember(item.reservation.id) { mutableStateOf(false) }
@@ -141,6 +146,12 @@ class ActiveReservationsView(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OrangeCard { ReservationSummary(item) }
+
+            if (onMessageOwner != null && item.reservation.id.isNotBlank() &&
+                item.reservation.entrantId == entrantId && !model.isCancelling
+            ) {
+                SecondaryButton("Message owner", { onMessageOwner(item.reservation.id) })
+            }
 
             item.campsite?.let { campsite ->
                 OrangeCard {
