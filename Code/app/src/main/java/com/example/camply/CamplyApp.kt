@@ -53,6 +53,7 @@ import com.example.camply.lottery.view.LotteryCreateView
 import com.example.camply.lottery.view.OwnerWaitlistView
 import com.example.camply.notification.controller.NotificationsController
 import com.example.camply.notification.model.NotificationsModel
+import com.example.camply.notification.repository.FirestoreNotificationLogRepository
 import com.example.camply.notification.repository.FirestoreNotificationRepository
 import com.example.camply.notification.repository.FirestoreRecipientNameRepository
 import com.example.camply.notification.service.NotificationService
@@ -240,7 +241,8 @@ fun CamplyApp() {
         NotificationsController(
             notificationsModel,
             FirestoreNotificationRepository(),
-            FirestoreRecipientNameRepository()
+            FirestoreRecipientNameRepository(),
+            FirestoreNotificationLogRepository()
         )
     }
     val notificationsView = remember { NotificationsView(notificationsModel, notificationsController) }

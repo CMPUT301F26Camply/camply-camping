@@ -59,7 +59,7 @@ import com.example.camply.R
 import androidx.compose.ui.platform.LocalContext
 
 /**
- * Displays the shared notification screen (US 02.10.02).
+ * Displays the shared notification screen (US 02.10.02, US 03.08.01).
  *
  * @param model The model containing the screen state.
  * @param controller The controller used to keep the notifications up to date.
@@ -83,6 +83,7 @@ class NotificationsView(
         val error = model.errorMessage
         val selected = model.selectedNotification
         val received = model.selectedReceivedNotification
+        val isAdmin = role == "admin"
 
         DisposableEffect(userId, role, manageObservation) {
             if (manageObservation) controller.startObserving(userId, role)
@@ -91,7 +92,13 @@ class NotificationsView(
             }
         }
 
-        CamplyScreen(title = if (selected != null || received != null) "Notification details" else "Notifications") {
+        val title = when {
+            selected != null || received != null -> "Notification details"
+            isAdmin -> "Notification Log"
+            else -> "Notifications"
+        }
+
+        CamplyScreen(title = title) {
             // Loading and errors come first
             when {
                 model.isLoading -> Box(
@@ -105,7 +112,7 @@ class NotificationsView(
                     controller.startObserving(userId, role)
                 }
 
-                selected != null -> NotificationDetails(selected)
+                selected != null -> NotificationDetails(selected, showSource = isAdmin)
 
                 received != null -> ReceivedNotificationDetails(received) {
                     scope.launch { controller.markSelectedAsRead() }
@@ -126,8 +133,9 @@ class NotificationsView(
                 else -> LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(model.sentNotifications, key = { it.eventId }) { notification ->
-                        SentNotificationCard(notification) {
+                    // A lottery's win and loss entries share an event ID, so the type keeps keys unique.
+                    items(model.sentNotifications, key = { "${it.eventId}:${it.type}" }) { notification ->
+                        SentNotificationCard(notification, showSource = isAdmin) {
                             scope.launch { controller.onNotificationSelected(notification) }
                         }
                     }
@@ -229,17 +237,23 @@ class NotificationsView(
         } ?: "Time pending"
 
     // Shows one sent notification's preview, sent time, and number of recipients.
+    // Admins also see what triggered it.
     @Composable
-    private fun SentNotificationCard(notification: SentNotification, onClick: () -> Unit) =
+    private fun SentNotificationCard(
+        notification: SentNotification,
+        showSource: Boolean,
+        onClick: () -> Unit
+    ) =
         OrangeCard(Modifier.clickable(onClick = onClick)) {
+            if (showSource) CardLabel(notification.source())
             Text(notification.preview(), fontSize = 14.sp, color = CamplyPalette.Ink)
             Text(sentTimeText(notification.sentAt), fontSize = 13.sp, color = CamplyPalette.Ink)
             Text(recipientCountText(notification), fontSize = 13.sp, color = CamplyPalette.Ink)
         }
 
-    // Shows a sent notification's full message and recipients.
+    // Shows a sent notification's full message and recipients. Admins also see what triggered it.
     @Composable
-    private fun NotificationDetails(notification: SentNotification) {
+    private fun NotificationDetails(notification: SentNotification, showSource: Boolean) {
         BackHandler { controller.onBackToList() }
 
         Column(
@@ -247,6 +261,7 @@ class NotificationsView(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OrangeCard {
+                if (showSource) CardLabel(notification.source())
                 Text(
                     notification.title,
                     fontWeight = FontWeight.Bold,
@@ -327,8 +342,11 @@ class NotificationsView(
         Text(sentTimeText(notification.createdAt), fontSize = 13.sp, color = CamplyPalette.Ink)
     }
 
-    private fun emptyMessage(role: String): String =
-        if (role == "owner") "You haven't sent any notifications yet." else "No notifications yet."
+    private fun emptyMessage(role: String): String = when (role) {
+        "owner" -> "You haven't sent any notifications yet."
+        "admin" -> "No notifications have been sent yet."
+        else -> "No notifications yet."
+    }
 
     private fun sentTimeText(sentAt: Timestamp?): String {
         if (sentAt == null) return "Sending…"
