@@ -7,7 +7,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
 /**
- * Defines operations for retrieving campsite reservations.
+ * Defines operations for retrieving, creating, and rejecting campsite reservations.
  */
 interface ReservationRepository {
     /**
@@ -33,6 +33,17 @@ interface ReservationRepository {
      * @return The ID of the new reservation document.
      */
     suspend fun createReservation(reservation: Reservation): String
+
+    /**
+     * Rejects an active reservation after checking its current state and campsite ownership.
+     *
+     * @param reservationId The reservation document ID.
+     * @param ownerId The owner requesting rejection.
+     * @param today The current date in YYYY-MM-DD format.
+     * @return The saved reservation with Rejected status.
+     * @throws IllegalArgumentException If the reservation is missing, inactive, or not owned by the caller.
+     */
+    suspend fun rejectReservation(reservationId: String, ownerId: String, today: String): Reservation
 }
 
 /**
@@ -94,4 +105,22 @@ class FirestoreReservationRepository(
         return reservationRef.id
     }
 
+    override suspend fun rejectReservation(
+        reservationId: String,
+        ownerId: String,
+        today: String
+    ): Reservation {
+        require(reservationId.isNotBlank() && ownerId.isNotBlank()) { "Missing reservation or owner." }
+        val reference = reservations.document(reservationId)
+        return db.runTransaction { transaction ->
+            val reservation = transaction.get(reference).toObject(Reservation::class.java)
+            requireNotNull(reservation) { "This reservation no longer exists." }
+            require(reservation.campsiteId.isNotBlank()) { "The campsite is unavailable." }
+            val campsite = transaction.get(db.collection("campsites").document(reservation.campsiteId))
+            require(campsite.getString("ownerId") == ownerId) { "You do not own this campsite." }
+            require(reservation.isActive(today)) { "Only active reservations can be rejected. Refresh and try again." }
+            transaction.update(reference, "status", ReservationStatus.REJECTED.name)
+            reservation.copy(id = reservationId, status = ReservationStatus.REJECTED)
+        }.await()
+    }
 }
