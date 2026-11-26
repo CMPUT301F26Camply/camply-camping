@@ -25,11 +25,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -134,6 +136,9 @@ class CampsiteListView {
      * @param reservationList Called when viewing reservations.
      * @param viewOrCreateLottery Called when managing lotteries.
      * @param loadPhotoPreview Loads the Firestore preview image bytes for a given campsite ID and photo ID, or null if unavailable.
+     * @param qrCode The generated QR code image, or null when no QR code is shown.
+     * @param onShowQrCode Called when the QR code icon of a campsite is selected.
+     * @param onCloseQrCode Called when the QR code dialog is dismissed.
      */
     @Composable
     fun Display(
@@ -145,7 +150,10 @@ class CampsiteListView {
         lotteryRegistration: (Campsite) -> Unit,
         reservationList: () -> Unit,
         viewOrCreateLottery: () -> Unit,
-        loadPhotoPreview: suspend (String, String) -> ByteArray?
+        loadPhotoPreview: suspend (String, String) -> ByteArray?,
+        qrCode: ImageBitmap? = null,
+        onShowQrCode: ((Campsite) -> Unit)? = null,
+        onCloseQrCode: () -> Unit = {}
     ) {
         Column(
             modifier = Modifier
@@ -175,7 +183,7 @@ class CampsiteListView {
 
 
                     Text(
-                        text = "Manage your campground listings",
+                        text = "Manage your campsite listings",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -252,11 +260,31 @@ class CampsiteListView {
                             viewInfo = viewCampsite,
                             onEdit = editCampsite,
                             addInLottery = lotteryRegistration,
-                            loadPhotoPreview = loadPhotoPreview
+                            loadPhotoPreview = loadPhotoPreview,
+                            onShowQrCode = onShowQrCode
                         )
                     }
                 }
             }
+        }
+
+        if (qrCode != null) {
+            AlertDialog(
+                onDismissRequest = onCloseQrCode,
+                title = { Text("Campsite QR code") },
+                text = {
+                    Image(
+                        bitmap = qrCode,
+                        contentDescription = "Campsite QR code",
+                        modifier = Modifier.size(256.dp)
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = onCloseQrCode) {
+                        Text("Close")
+                    }
+                }
+            )
         }
     }
 
@@ -272,6 +300,7 @@ class CampsiteListView {
      * @param onEdit Called when the edit icon is selected.
      * @param addInLottery Called when listing the campsite in a lottery.
      * @param loadPhotoPreview Loads the Firestore preview image bytes for a given campsite ID and photo ID, or null if unavailable.
+     * @param onShowQrCode Called when the QR code icon is selected. The icon is hidden when this is null.
      */
     @Composable
     private fun CampsiteCard(
@@ -279,7 +308,8 @@ class CampsiteListView {
         viewInfo: (Campsite) -> Unit,
         onEdit: (Campsite) -> Unit,
         addInLottery: (Campsite) -> Unit,
-        loadPhotoPreview: suspend (String, String) -> ByteArray?
+        loadPhotoPreview: suspend (String, String) -> ByteArray?,
+        onShowQrCode: ((Campsite) -> Unit)?
 
     ) {
         Column(
@@ -385,16 +415,31 @@ class CampsiteListView {
                     )
                 }
 
-                // Edit campsite
-                IconButton(
-                    onClick = { onEdit(campsite) },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit ${campsite.name}",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                Column {
+                    // Edit campsite
+                    IconButton(
+                        onClick = { onEdit(campsite) },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit ${campsite.name}",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    if (onShowQrCode != null) {
+                        IconButton(
+                            onClick = { onShowQrCode(campsite) },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.qr_code),
+                                contentDescription = "QR code for ${campsite.name}",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
             }
 

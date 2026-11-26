@@ -523,6 +523,7 @@ fun CamplyApp() {
                                         campsiteDetailView.Display(
                                             campsiteId = detailId,
                                             onBack = { ownerDetailCampsiteId = null },
+                                            showQRbutton = true,
                                             currentUserId = currentUser.getUid(),
                                             // Booked and available dates for this campsite (US 02.06.01)
                                             extraContent = { campsite ->
