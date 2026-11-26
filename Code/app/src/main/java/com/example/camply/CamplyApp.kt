@@ -12,6 +12,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -22,6 +23,7 @@ import com.example.camply.campsite.controller.CampsiteDetailController
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteBrowseModel
 import com.example.camply.campsite.model.CampsiteDetailModel
+import com.example.camply.campsite.model.DateRange
 import com.example.camply.campsite.model.FirestoreCampsiteRepository
 import com.example.camply.campsite.view.CampsiteBrowseView
 import com.example.camply.campsite.view.CampsiteDetailView
@@ -30,21 +32,25 @@ import com.example.camply.lottery.controller.EntrantLotteryController
 import com.example.camply.lottery.controller.LotteryBookingController
 import com.example.camply.lottery.controller.LotteryOpportunityController
 import com.example.camply.lottery.controller.LotteryCreateController
+import com.example.camply.lottery.controller.OwnerWaitlistController
 import com.example.camply.lottery.model.CampsiteLotteryModel
 import com.example.camply.lottery.model.EntrantLotteryModel
 import com.example.camply.lottery.model.Lottery
 import com.example.camply.lottery.model.LotteryBookingModel
 import com.example.camply.lottery.model.LotteryOpportunityModel
 import com.example.camply.lottery.model.LotteryCreateModel
+import com.example.camply.lottery.model.OwnerWaitlistModel
 import com.example.camply.lottery.repository.FirestoreLotteryEntryRepository
 import com.example.camply.lottery.repository.FirestoreLotteryDrawRepository
 import com.example.camply.lottery.repository.FirestoreLotteryRepository
+import com.example.camply.lottery.repository.FirestoreOwnerWaitlistRepository
 import com.example.camply.lottery.repository.FirestoreWaitingListRepository
 import com.example.camply.lottery.service.LotteryDrawService
 import com.example.camply.lottery.view.CampsiteLotteryView
 import com.example.camply.lottery.view.EntrantLotteryView
 import com.example.camply.lottery.view.LotteryOpportunityView
 import com.example.camply.lottery.view.LotteryCreateView
+import com.example.camply.lottery.view.OwnerWaitlistView
 import com.example.camply.notification.controller.NotificationsController
 import com.example.camply.notification.model.NotificationsModel
 import com.example.camply.notification.repository.FirestoreNotificationRepository
@@ -57,6 +63,7 @@ import com.example.camply.reservations.controller.ReservationBookingController
 import com.example.camply.reservations.model.ActiveReservationsModel
 import com.example.camply.reservations.model.OwnerReservationsModel
 import com.example.camply.reservations.model.ReservationBookingModel
+import com.example.camply.reservations.model.ReservationStatus
 import com.example.camply.reservations.repository.FirestoreReservationRepository
 import com.example.camply.reservations.service.BookingService
 import com.example.camply.reservations.view.ActiveReservationsView
@@ -109,7 +116,7 @@ fun CamplyApp() {
     val campsiteDetailController = remember { CampsiteDetailController(campsiteDetailModel, campsiteRepository) }
     val campsiteDetailView = remember { CampsiteDetailView(campsiteDetailModel, campsiteDetailController) }
 
-    // Owner lottery registration. US 02.04.01, 02.04.03, 02.04.04, 02.04.05.
+    // Owner lottery registration. US 02.04.01, US 02.04.02, 02.04.03, 02.04.04, 02.04.05.
     val lotteryCreateModel = remember { LotteryCreateModel() }
     val lotteryRepository = remember { FirestoreLotteryRepository() }
     val lotteryDrawService = remember {
@@ -190,6 +197,18 @@ fun CamplyApp() {
             ownerReservationsController
         )
     }
+
+    // Owner lottery waitlists (US 02.09.01)
+    val ownerWaitlistModel = remember { OwnerWaitlistModel() }
+    val ownerWaitlistController = remember {
+        OwnerWaitlistController(
+            ownerWaitlistModel,
+            FirestoreOwnerWaitlistRepository(),
+            campsiteRepository,
+            FirestoreRecipientNameRepository()
+        )
+    }
+    val ownerWaitlistView = remember { OwnerWaitlistView(ownerWaitlistModel, ownerWaitlistController) }
 
     //Campsite Owner Handling
     val campsiteListView = remember { CampsiteListView() }
@@ -429,7 +448,7 @@ fun CamplyApp() {
 
                                             onSubmit = {
                                                     name, location, description, amenities, occupancy, price, tags,
-                                                rules, cancellation, images, photosToSave, latitude, longitude ->
+                                                    rules, cancellation, images, photosToSave, latitude, longitude ->
 
                                                 if (!ownerSaving) {
                                                     ownerSaving = true
@@ -505,6 +524,16 @@ fun CamplyApp() {
                                             campsiteId = detailId,
                                             onBack = { ownerDetailCampsiteId = null },
                                             currentUserId = currentUser.getUid(),
+                                            // Booked and available dates for this campsite (US 02.06.01)
+                                            extraContent = { campsite ->
+                                                val bookedDates by produceState(emptyList<DateRange>(), campsite.id) {
+                                                    value = reservationRepository.getReservationsForCampsite(campsite.id)
+                                                        .filter { it.status == ReservationStatus.CONFIRMED }
+                                                        .map { it.dates }
+                                                        .sortedBy { it.from }
+                                                }
+                                                campsiteListView.BookedDatesView(campsite, bookedDates)
+                                            },
                                             onEdit = { campsite ->
                                                 ownerEditCampsite = campsite
                                                 ownerShowForm = true
@@ -531,7 +560,7 @@ fun CamplyApp() {
                                                 ownerShowLottery = true
                                             },
                                             reservationList = { ownerShowReservations = true },
-                                            viewOrCreateLottery = { },
+                                            viewOrCreateLottery = { ownerShowLottery = true },
                                             loadPhotoPreview = { campsiteId, photoId ->
                                                 campsiteRepository.getCampsitePreview(
                                                     campsiteId,
@@ -543,6 +572,8 @@ fun CamplyApp() {
                                     }
                                 }
                             }
+
+                            Screen.WAIT_LIST -> ownerWaitlistView.Display(currentUser.getUid())
 
                             Screen.PROFILE -> userProfileView.Display(currentUser, userController)
 
