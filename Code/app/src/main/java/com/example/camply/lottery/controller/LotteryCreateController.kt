@@ -1,4 +1,5 @@
 package com.example.camply.lottery.controller
+import android.util.Log.e
 import com.example.camply.lottery.repository.LotteryRepository
 import com.example.camply.lottery.model.Lottery
 import com.example.camply.lottery.model.LotteryCreateModel
@@ -11,7 +12,7 @@ import com.example.camply.campsite.model.CampsiteRepository
  *
  * Loads the owner's campsites into the model, checks the typed fields,
  * and asks the repository to write the document.
- * US 02.04.01, US 02.04.03, US 02.04.04, US 02.04.05.
+ * US 02.04.01, US 02.04.02, US 02.04.03, US 02.04.04, US 02.04.05.
  *
  * @param model the form state the view is showing
  * @param lotteryRepository where the finished lottery is saved
@@ -37,7 +38,7 @@ class LotteryCreateController(
         }
     }
     /** @param id the campsite the owner tapped */
-    fun onCampsiteSelected(id: String) = model.selectCampsite(id)
+    fun onCampsiteSelected(id: String) = model.selectMultipleCampsites(id)
     /** @param text the typed registration start, YYYY-MM-DD */
     fun onRegistrationStart(text: String) = model.updateRegistrationStart(text)
     /** @param text the typed registration end, YYYY-MM-DD */
@@ -60,7 +61,7 @@ class LotteryCreateController(
      * @param ownerId the Firebase uid stored on the lottery
      */
     suspend fun createLottery(ownerId: String) {
-        val campsiteId = model.selectedCampsiteId
+        val campsiteIds = model.selectedCampsiteIds.toList()
         val registrationStart = model.registrationStart.trim()
         val registrationEnd = model.registrationEnd.trim()
         val bookingStart = model.bookingStart.trim()
@@ -70,11 +71,12 @@ class LotteryCreateController(
         val winners = model.winnerCount.toIntOrNull()
 
         val error = when {
-            campsiteId == null || model.ownedCampsites.none { it.id == campsiteId } ->
-                "Select one of your campsites."
+            campsiteIds.isEmpty() || campsiteIds.any { id ->
+                model.ownedCampsites.none { it.id == id }
+            } ->
+                "Select your campsite(s)"
             !isDateText(registrationStart) || !isDateText(registrationEnd) ->
                 "Enter the registration period as YYYY-MM-DD."
-//This part will check if the lottery end is before the lottery start
             !isDateText(lotteryStart) || !isDateText(lotteryEnd) ->
                 "Enter the lottery range as YYYY-MM-DD."
             lotteryEnd < lotteryStart ->
@@ -95,7 +97,7 @@ class LotteryCreateController(
 
         val lottery = Lottery(
             ownerId = ownerId,
-            campsiteIds = listOf(campsiteId!!),
+            campsiteIds = campsiteIds,
             registrationStart = registrationStart,
             registrationEnd = registrationEnd,
             bookingStart = bookingStart,
@@ -107,6 +109,10 @@ class LotteryCreateController(
         )
 
         try {
+            if (lotteryDatesExist(campsiteIds, lotteryStart, lotteryEnd)) {
+                model.showError("Lottery for these dates already exists")
+                return
+            }
             model.showSaved(lotteryRepository.create(lottery))
         } catch (e: CancellationException) {
             throw e
@@ -134,5 +140,26 @@ class LotteryCreateController(
         }
         return day in 1..daysInMonth
     }
+
+    /**
+     * Checks whether an open lottery for one of these campsites
+     * already uses the exact same lottery dates.
+     *
+     * @param campsiteIds the campsites selected on the form
+     * @param lotteryStart the typed lottery start, YYYY-MM-DD
+     * @param lotteryEnd the typed lottery end, YYYY-MM-DD
+     * @return true when a lottery with the same start and end already exists
+     */
+    private suspend fun lotteryDatesExist(
+        campsiteIds: List<String>,
+        lotteryStart: String,
+        lotteryEnd: String
+    ): Boolean =
+        lotteryRepository.getLotteries().any { existing ->
+            existing.status == LotteryStatus.OPEN &&
+                    existing.lotteryStart == lotteryStart &&
+                    existing.lotteryEnd == lotteryEnd &&
+                    existing.campsiteIds.any { it in campsiteIds }
+        }
 
 }
