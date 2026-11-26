@@ -68,4 +68,5 @@ dependencies {
     // BSD 2-Clause License: https://github.com/maplibre/maplibre-native
     implementation("org.maplibre.gl:android-sdk:13.7.1")
     implementation("com.google.firebase:firebase-messaging")
+    implementation ("com.journeyapps:zxing-android-embedded:4.3.0")
 }
