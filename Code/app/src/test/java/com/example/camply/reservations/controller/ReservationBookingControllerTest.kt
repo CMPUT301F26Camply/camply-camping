@@ -15,6 +15,7 @@ import com.example.camply.notification.service.NotificationService
 import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationBookingModel
 import com.example.camply.reservations.model.ReservationStatus
+import com.example.camply.reservations.repository.ReservationCancellationResult
 import com.example.camply.reservations.repository.ReservationRepository
 import com.example.camply.reservations.service.BookingService
 import junit.framework.TestCase.assertEquals
@@ -579,6 +580,12 @@ class ReservationBookingControllerTest {
             reservations = reservations + reservation
             return "testReservationId"
         }
+
+        override suspend fun cancelReservation(
+            reservationId: String,
+            entrantId: String,
+            today: String
+        ): ReservationCancellationResult = ReservationCancellationResult.NOT_ELIGIBLE
     }
 
     /**

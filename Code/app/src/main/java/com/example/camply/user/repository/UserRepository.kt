@@ -1,5 +1,8 @@
 package com.example.camply.user.repository
 
+import androidx.compose.ui.semantics.Role
+import com.example.camply.user.model.CampsiteOwnerUser
+import com.example.camply.user.model.Profile
 import com.example.camply.user.model.User
 import com.google.firebase.Firebase
 import com.google.firebase.firestore.Blob
@@ -165,6 +168,30 @@ class UserRepository {
     ) {
         db.collection("profileImages").document(uid).delete()
             .addOnSuccessListener { onSuccess() }
+            .addOnFailureListener { onFailure() }
+    }
+    /**
+     * Retrieves every user document whose role field matches the requested role.
+     *
+     * @param role the Firestore role to match, such as "owner"
+     * @param onSuccess called with the matching user documents
+     * @param onFailure called if the query fails
+     */
+    fun getUsersByRole(
+        role: String,
+        onSuccess: (List<User>) -> Unit,
+        onFailure: () -> Unit
+    ) {
+        db.collection("users").whereEqualTo("role", role).get()
+            .addOnSuccessListener { snapshot ->
+                val users = snapshot.documents.mapNotNull { document ->
+                    val name = document.getString("name") ?: return@mapNotNull null
+                    val email = document.getString("email") ?: ""
+                    val phone = document.getString("phoneNumber") ?: ""
+                    CampsiteOwnerUser(document.id, Profile(name, email, phone))
+                }
+                onSuccess(users)
+            }
             .addOnFailureListener { onFailure() }
     }
 }

@@ -20,6 +20,7 @@ import com.example.camply.reservations.controller.OwnerReservationsController
 import com.example.camply.reservations.model.OwnerReservationsModel
 import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationStatus
+import com.example.camply.reservations.repository.ReservationCancellationResult
 import com.example.camply.reservations.repository.ReservationRepository
 import org.junit.Before
 import org.junit.Rule
@@ -530,5 +531,11 @@ class OwnerReservationsViewTest {
         override suspend fun createReservation(reservation: Reservation): String {
             return reservation.id
         }
+
+        override suspend fun cancelReservation(
+            reservationId: String,
+            entrantId: String,
+            today: String
+        ): ReservationCancellationResult = ReservationCancellationResult.NOT_ELIGIBLE
     }
 }
