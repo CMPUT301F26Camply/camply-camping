@@ -24,11 +24,11 @@ data class WaitlistEntrant(
  * Represents one of the owner's lotteries in the waitlist screen.
  *
  * @property lottery The lottery.
- * @property campsiteName The name of the lottery's campsite, or null.
+ * @property campsiteNames The names of the lottery's campsites that could be found.
  */
 data class OwnerWaitlistLottery(
     val lottery: Lottery,
-    val campsiteName: String?
+    val campsiteNames: List<String>
 )
 
 /**

@@ -54,9 +54,27 @@ class OwnerWaitlistControllerTest {
         controller.loadLotteries(OWNER_ID)
 
         assertEquals(OWNER_ID, waitlistRepository.ownerId)
-        assertEquals("Lakeside", model.lotteries.single().campsiteName)
+        assertEquals(listOf("Lakeside"), model.lotteries.single().campsiteNames)
         assertFalse(model.isLoading)
         assertNull(model.errorMessage)
+    }
+
+    /**
+     * Checks that a lottery with several campsites shows every campsite name.
+     */
+    @Test
+    fun loadLotteries_multipleCampsites_showsAllNames() = runBlocking {
+        waitlistRepository.lotteries = listOf(
+            lottery("lottery1", listOf("campsite1", "campsite2"))
+        )
+        campsiteRepository.campsites = listOf(
+            Campsite(id = "campsite1", name = "Lakeside"),
+            Campsite(id = "campsite2", name = "Banff Pines")
+        )
+
+        controller.loadLotteries(OWNER_ID)
+
+        assertEquals(listOf("Lakeside", "Banff Pines"), model.lotteries.single().campsiteNames)
     }
 
     /**
@@ -70,7 +88,24 @@ class OwnerWaitlistControllerTest {
         controller.loadLotteries(OWNER_ID)
 
         assertEquals("lottery1", model.lotteries.single().lottery.id)
-        assertNull(model.lotteries.single().campsiteName)
+        assertTrue(model.lotteries.single().campsiteNames.isEmpty())
+        assertNull(model.errorMessage)
+    }
+
+    /**
+     * Checks that one unreadable campsite does not hide the other campsite names.
+     */
+    @Test
+    fun loadLotteries_oneCampsiteFails_keepsOtherNames() = runBlocking {
+        waitlistRepository.lotteries = listOf(
+            lottery("lottery1", listOf("broken", "campsite2"))
+        )
+        campsiteRepository.campsites = listOf(Campsite(id = "campsite2", name = "Banff Pines"))
+        campsiteRepository.failingIds = setOf("broken")
+
+        controller.loadLotteries(OWNER_ID)
+
+        assertEquals(listOf("Banff Pines"), model.lotteries.single().campsiteNames)
         assertNull(model.errorMessage)
     }
 
@@ -177,14 +212,21 @@ class OwnerWaitlistControllerTest {
     }
 
     private fun lottery(id: String, campsiteId: String, registrationStart: String = "2026-11-01") =
-        Lottery(
-            id = id,
-            ownerId = OWNER_ID,
-            campsiteIds = listOf(campsiteId),
-            registrationStart = registrationStart
-        )
+        lottery(id, listOf(campsiteId), registrationStart)
 
-    private fun item(id: String) = OwnerWaitlistLottery(lottery(id, "campsite1"), "Lakeside")
+    private fun lottery(
+        id: String,
+        campsiteIds: List<String>,
+        registrationStart: String = "2026-11-01"
+    ) = Lottery(
+        id = id,
+        ownerId = OWNER_ID,
+        campsiteIds = campsiteIds,
+        registrationStart = registrationStart
+    )
+
+    private fun item(id: String) =
+        OwnerWaitlistLottery(lottery(id, "campsite1"), listOf("Lakeside"))
 
     private fun entrant(id: String) = WaitlistEntrant(
         entrantId = id,
@@ -237,11 +279,12 @@ class OwnerWaitlistControllerTest {
     private class TestCampsiteRepository : CampsiteRepository {
         var campsites: List<Campsite> = emptyList()
         var shouldFail = false
+        var failingIds: Set<String> = emptySet()
 
         override suspend fun getCampsites(): List<Campsite> = campsites
 
         override suspend fun getCampsite(id: String): Campsite? {
-            if (shouldFail) throw Exception("Could not read campsite.")
+            if (shouldFail || id in failingIds) throw Exception("Could not read campsite.")
             return campsites.firstOrNull { it.id == id }
         }
 

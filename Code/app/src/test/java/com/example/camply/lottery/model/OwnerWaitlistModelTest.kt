@@ -128,7 +128,7 @@ class OwnerWaitlistModelTest {
 
     private fun lottery(id: String) = OwnerWaitlistLottery(
         lottery = Lottery(id = id, ownerId = "owner1", campsiteIds = listOf("campsite1")),
-        campsiteName = "Lakeside"
+        campsiteNames = listOf("Lakeside")
     )
 
     private fun entrant(id: String, joinedAtMillis: Long?) = WaitlistEntrant(

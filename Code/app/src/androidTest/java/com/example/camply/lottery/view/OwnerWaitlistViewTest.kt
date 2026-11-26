@@ -67,6 +67,23 @@ class OwnerWaitlistViewTest {
     }
 
     /**
+     * Checks that a lottery with several campsites shows every campsite name.
+     */
+    @Test
+    fun display_multipleCampsites_showsAllCampsiteNames() {
+        campsiteRepository.campsites = listOf(
+            Campsite(id = CAMPSITE_ID, name = "Banff Pines"),
+            Campsite(id = "campsite2", name = "Lakeside")
+        )
+        waitlistRepository.lotteries =
+            listOf(lottery.copy(campsiteIds = listOf(CAMPSITE_ID, "campsite2")))
+
+        showScreen()
+
+        compose.onNodeWithText("Banff Pines, Lakeside").assertIsDisplayed()
+    }
+
+    /**
      * Checks that an owner without lotteries sees an empty message.
      */
     @Test

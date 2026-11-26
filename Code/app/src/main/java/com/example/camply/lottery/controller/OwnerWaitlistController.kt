@@ -36,7 +36,7 @@ class OwnerWaitlistController(
         try {
             val lotteries = waitlistRepository.getOwnerLotteries(ownerId)
                 .sortedByDescending { it.registrationStart }
-                .map { OwnerWaitlistLottery(it, findCampsiteName(it)) }
+                .map { OwnerWaitlistLottery(it, findCampsiteNames(it)) }
             model.showLotteries(lotteries)
         } catch (_: Exception) {
             model.showError("Could not load your lotteries.")
@@ -69,15 +69,16 @@ class OwnerWaitlistController(
         model.clearSelection()
     }
 
-    // A failed lookup only hides this name, so the rest of the list still loads.
-    private suspend fun findCampsiteName(lottery: Lottery): String? {
-        val campsiteId = lottery.campsiteIds.firstOrNull() ?: return null
-        return try {
-            campsiteRepository.getCampsite(campsiteId)?.name
-        } catch (_: Exception) {
-            null
+    // A lottery can include several campsites. A failed lookup only skips that
+    // campsite's name, so the rest of the list still loads.
+    private suspend fun findCampsiteNames(lottery: Lottery): List<String> =
+        lottery.campsiteIds.mapNotNull { campsiteId ->
+            try {
+                campsiteRepository.getCampsite(campsiteId)?.name
+            } catch (_: Exception) {
+                null
+            }
         }
-    }
 
     private suspend fun findEntrantName(entrant: WaitlistEntrant): String? =
         try {

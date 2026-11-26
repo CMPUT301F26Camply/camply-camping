@@ -128,11 +128,11 @@ class OwnerWaitlistView(
         }
     }
 
-    // Shows the lottery's campsite and registration period.
+    // Shows the lottery's campsites and registration period.
     @Composable
     private fun LotterySummary(item: OwnerWaitlistLottery) {
         Text(
-            item.campsiteName ?: "Campsite unavailable",
+            item.campsiteNames.joinToString(", ").ifEmpty { "Campsite unavailable" },
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
             color = CamplyPalette.Ink
