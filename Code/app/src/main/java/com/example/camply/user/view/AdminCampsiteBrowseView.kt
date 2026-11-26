@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import com.example.camply.campsite.view.CampsiteDetailView
 import com.example.camply.user.controller.AdminController
+import com.example.camply.user.model.AdminModel
 import com.example.camply.user.model.User
 import kotlinx.coroutines.launch
 
@@ -35,6 +36,7 @@ class AdminCampsiteBrowseView {
     @Composable
     fun Display(
         controller: AdminController,
+        model: AdminModel,
         detailView: CampsiteDetailView,
         currentUserId: String,
         selectedOwner: User?,
@@ -64,7 +66,7 @@ class AdminCampsiteBrowseView {
                 BackHandler { onBackFromCampsites() }
                 campsiteListView.Display(
                     ownerName = selectedOwner.getProfile().getName(),
-                    campsites = controller.ownerCampsites,
+                    campsites = model.ownerCampsites,
                     readOnly = true,
                     addCampsite = {},
                     editCampsite = {},
@@ -78,8 +80,8 @@ class AdminCampsiteBrowseView {
             }
             else -> {
                 ownerListView.Display(
-                    owners = controller.owners,
-                    campsiteCounts = controller.campsiteCounts,
+                    owners = model.owners,
+                    campsiteCounts = model.campsiteCounts,
                     onOwnerClick = { owner ->
                         onOwnerSelected(owner)
                         scope.launch {

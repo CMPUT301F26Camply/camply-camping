@@ -74,6 +74,7 @@ import com.example.camply.shared.view.LoadingView
 import com.example.camply.user.controller.OwnerController
 import com.example.camply.user.controller.UserController
 import com.example.camply.user.model.CampsiteOwnerUser
+import com.example.camply.user.model.AdminModel
 import com.example.camply.user.model.UserModel
 import com.example.camply.campsite.view.CampsiteFormView
 import com.example.camply.user.model.AdminUser
@@ -212,7 +213,10 @@ fun CamplyApp() {
     // Separate from ownerDetailCampsiteId so an admin browsing someone else does not reuse the owner editor state.
     var adminSelectedOwner by remember { mutableStateOf<User?>(null) }
     var adminDetailCampsiteId by remember { mutableStateOf<String?>(null) }
-    val adminController = remember { AdminController(UserRepository(), campsiteRepository) }
+    val adminModel = remember { AdminModel() }
+    val adminController = remember {
+        AdminController(adminModel, UserRepository(), campsiteRepository)
+    }
     val adminCampsiteBrowseView = remember { AdminCampsiteBrowseView() }
     // Shared notifications
     val notificationsModel = remember { NotificationsModel() }
@@ -421,6 +425,7 @@ fun CamplyApp() {
                                 if (currentUser is AdminUser) {
                                     adminCampsiteBrowseView.Display(
                                         controller = adminController,
+                                        model = adminModel,
                                         detailView = campsiteDetailView,
                                         currentUserId = currentUser.getUid(),
                                         selectedOwner = adminSelectedOwner,
