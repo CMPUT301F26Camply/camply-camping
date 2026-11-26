@@ -1,4 +1,4 @@
-    # Camply
+# Camply
 
 Camply is a campsite reservation application developed for CMPUT 301 at the University of Alberta.
 
