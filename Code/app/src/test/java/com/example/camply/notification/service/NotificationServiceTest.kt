@@ -107,6 +107,63 @@ class NotificationServiceTest {
         )
     }
 
+    /**
+     * Checks that a reservation cancellation notification has the correct recipient, sender,
+     * type, origin and reservation ID.
+     */
+    @Test
+    fun reservationCancellationUsesCorrectRecipientTypeAndOrigin() = runBlocking {
+        val repository = MemoryRepository()
+
+        NotificationService(repository).sendReservationCancellation(
+            "owner", "entrant", "reservation", "Banff Pines", DateRange("2027-06-12", "2027-06-15")
+        )
+
+        val record = repository.records.values.single()
+        assertEquals("entrant", record.recipientId)
+        assertEquals("owner", record.senderId)
+        assertEquals(NotificationType.RESERVATION_CANCELLED, record.type)
+        assertEquals(NotificationOrigin.SYSTEM, record.origin)
+        assertEquals("reservation", record.reservationId)
+    }
+
+    /**
+     * Checks that a reservation cancellation notification includes the campsite name and reserved dates.
+     */
+    @Test
+    fun reservationCancellationIncludesCampsiteAndDates() = runBlocking {
+        val repository = MemoryRepository()
+
+        NotificationService(repository).sendReservationCancellation(
+            "owner", "entrant", "reservation", "Banff Pines", DateRange("2027-06-12", "2027-06-15")
+        )
+
+        val record = repository.records.values.single()
+        assertEquals("Reservation cancelled", record.title)
+        assertEquals(
+            "Your reservation at Banff Pines from 2027-06-12 to 2027-06-15 has been cancelled.",
+            record.content
+        )
+    }
+
+    /**
+     * Checks that reservation confirmation and cancellation notifications are stored separately
+     * for the same reservation.
+     */
+    @Test
+    fun reservationConfirmationAndCancellationUseSeparateRecords() = runBlocking {
+        val repository = MemoryRepository()
+        val service = NotificationService(repository)
+        val dates = DateRange("2027-06-12", "2027-06-15")
+
+        service.sendReservationConfirmation("owner", "entrant", "reservation", "Banff Pines", dates)
+        service.sendReservationCancellation("owner", "entrant", "reservation", "Banff Pines", dates)
+
+        assertEquals(2, repository.records.size)
+        assertTrue(repository.records.values.any { it.type == NotificationType.RESERVATION_CONFIRMED })
+        assertTrue(repository.records.values.any { it.type == NotificationType.RESERVATION_CANCELLED })
+    }
+
     private class MemoryRepository : NotificationRepository {
         val records = mutableMapOf<String, NewNotification>()
         var failWrite = false

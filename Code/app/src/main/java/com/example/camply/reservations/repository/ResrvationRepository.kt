@@ -7,7 +7,15 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
 /**
- * Defines operations for retrieving, creating, and rejecting campsite reservations.
+ * Represents the outcome of cancelling a campsite reservation (US 01.07.01).
+ */
+enum class ReservationCancellationResult {
+    CANCELLED,
+    NOT_ELIGIBLE
+}
+
+/**
+ * Defines operations for retrieving, creating, cancelling, and rejecting campsite reservations.
  */
 interface ReservationRepository {
     /**
@@ -35,6 +43,20 @@ interface ReservationRepository {
     suspend fun createReservation(reservation: Reservation): String
 
     /**
+     * Cancels an entrant's reservation if it is still active.
+     *
+     * @param reservationId The reservation's document ID.
+     * @param entrantId The entrant's user ID.
+     * @param today The current date in YYYY-MM-DD format.
+     * @return Whether the reservation was cancelled.
+     */
+    suspend fun cancelReservation(
+        reservationId: String,
+        entrantId: String,
+        today: String
+    ): ReservationCancellationResult
+  
+    /**
      * Rejects an active reservation after checking its current state and campsite ownership.
      *
      * @param reservationId The reservation document ID.
@@ -47,7 +69,7 @@ interface ReservationRepository {
 }
 
 /**
- * Retrieves reservation information from Cloud Firestore.
+ * Reads and updates campsite reservations in Cloud Firestore.
  */
 class FirestoreReservationRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
@@ -103,6 +125,33 @@ class FirestoreReservationRepository(
         }.await()
 
         return reservationRef.id
+    }
+
+    /**
+     * Atomically cancels an active reservation after verifying entrant ownership.
+     *
+     * Updates only the reservation status, preserving the reservation history and the consumed lottery opportunity.
+     */
+    override suspend fun cancelReservation(
+        reservationId: String,
+        entrantId: String,
+        today: String
+    ): ReservationCancellationResult {
+        require(reservationId.isNotBlank() && '/' !in reservationId)
+        require(entrantId.isNotBlank() && '/' !in entrantId)
+
+        val reservationRef = reservations.document(reservationId)
+
+        return db.runTransaction { transaction ->
+            val reservation = transaction.get(reservationRef).toObject(Reservation::class.java)
+
+            if (reservation == null || reservation.entrantId != entrantId || !reservation.isActive(today)) {
+                ReservationCancellationResult.NOT_ELIGIBLE
+            } else {
+                transaction.update(reservationRef, "status", ReservationStatus.CANCELLED.name)
+                ReservationCancellationResult.CANCELLED
+            }
+        }.await()
     }
 
     override suspend fun rejectReservation(

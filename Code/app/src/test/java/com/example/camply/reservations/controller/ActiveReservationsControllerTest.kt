@@ -4,10 +4,17 @@ import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteRepository
 import com.example.camply.campsite.model.DateRange
 import com.example.camply.campsite.service.PreparedCampsiteImages
+import com.example.camply.notification.model.NewNotification
+import com.example.camply.notification.model.Notification
+import com.example.camply.notification.model.NotificationType
+import com.example.camply.notification.model.SendResult
+import com.example.camply.notification.repository.NotificationRepository
+import com.example.camply.notification.service.NotificationService
 import com.example.camply.reservations.model.ActiveReservationItem
 import com.example.camply.reservations.model.ActiveReservationsModel
 import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationStatus
+import com.example.camply.reservations.repository.ReservationCancellationResult
 import com.example.camply.reservations.repository.ReservationRepository
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
@@ -18,13 +25,15 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Unit tests for loading active reservations in ActiveReservationsController (US 01.06.01).
+ * Unit tests for loading and cancelling reservations in ActiveReservationsController
+ * (US 01.06.01, US 01.07.01, Us 01.07.02).
  */
 class ActiveReservationsControllerTest {
 
     private lateinit var model: ActiveReservationsModel
     private lateinit var reservationRepository: TestReservationRepository
     private lateinit var campsiteRepository: TestCampsiteRepository
+    private lateinit var notificationRepository: TestNotificationRepository
     private lateinit var controller: ActiveReservationsController
 
     /**
@@ -35,12 +44,15 @@ class ActiveReservationsControllerTest {
         model = ActiveReservationsModel()
         reservationRepository = TestReservationRepository()
         campsiteRepository = TestCampsiteRepository()
+        notificationRepository = TestNotificationRepository()
         controller = ActiveReservationsController(
             model,
             reservationRepository,
             campsiteRepository,
+            NotificationService(notificationRepository),
             today = { "2027-06-10" }
         )
+
     }
 
     /**
@@ -185,6 +197,153 @@ class ActiveReservationsControllerTest {
         assertNull(model.selectedReservation)
     }
 
+    /**
+     * Checks that cancelling an active reservation updates its status,
+     * removes it from the active lists, and preserves the selected reservation.
+     */
+    @Test
+    fun cancelReservation_activeReservation_updatesStatus() = runBlocking {
+        reservationRepository.reservations = listOf(
+            reservation("active", from = "2027-06-12", to = "2027-06-15")
+        )
+
+        controller.loadReservations(ENTRANT_ID)
+        controller.onFilterSelected("Active")
+        controller.onReservationSelected(model.reservations.single())
+
+        controller.cancelReservation(ENTRANT_ID)
+
+        assertEquals(ReservationStatus.CANCELLED, model.selectedReservation?.reservation?.status)
+        assertEquals(ReservationStatus.CANCELLED, model.allReservations.single().reservation.status)
+        assertEquals(ReservationStatus.CANCELLED, reservationRepository.reservations.single().status)
+        assertTrue(model.reservations.isEmpty())
+        assertTrue(model.filteredReservations.isEmpty())
+        assertFalse(model.isCancelling)
+        assertNull(model.cancellationError)
+    }
+
+    /**
+     * Checks that a cancelled reservation retains its status after reloading
+     * and appears under the Cancelled filter.
+     */
+    @Test
+    fun cancelReservation_reloadReservation_keepsCancelledStatus() = runBlocking {
+        reservationRepository.reservations = listOf(
+            reservation("active", from = "2027-06-12", to = "2027-06-15")
+        )
+
+        controller.loadReservations(ENTRANT_ID)
+        controller.onReservationSelected(model.reservations.single())
+
+        controller.cancelReservation(ENTRANT_ID)
+        controller.loadReservations(ENTRANT_ID)
+        controller.onFilterSelected("Cancelled")
+
+        assertEquals(ReservationStatus.CANCELLED, model.filteredReservations.single().reservation.status)
+        assertTrue(model.reservations.isEmpty())
+        assertNull(model.selectedReservation)
+    }
+
+    /**
+     * Checks that a past reservation cannot be cancelled and no cancellation notification is sent.
+     */
+    @Test
+    fun cancelReservation_pastReservation_showsError() = runBlocking {
+        campsiteRepository.campsites = listOf(
+            Campsite(id = CAMPSITE_ID, name = "Banff Pines", ownerId = "owner1")
+        )
+        reservationRepository.reservations = listOf(
+            reservation("ended", from = "2027-06-01", to = "2027-06-05")
+        )
+
+        controller.loadReservations(ENTRANT_ID)
+        controller.onReservationSelected(model.allReservations.single())
+
+        controller.cancelReservation(ENTRANT_ID)
+
+        assertEquals(ReservationStatus.CONFIRMED, model.selectedReservation?.reservation?.status)
+        assertEquals(ReservationStatus.CONFIRMED, reservationRepository.reservations.single().status)
+        assertEquals("This reservation can no longer be cancelled.", model.cancellationError)
+        assertFalse(model.isCancelling)
+        assertTrue(notificationRepository.records.isEmpty())
+    }
+
+    /**
+     * Checks that a failed cancellation displays an error without changing
+     * the reservation's status.
+     */
+    @Test
+    fun cancelReservation_repositoryError_showsError() = runBlocking {
+        reservationRepository.reservations = listOf(
+            reservation("active", from = "2027-06-12", to = "2027-06-15")
+        )
+
+        controller.loadReservations(ENTRANT_ID)
+        controller.onReservationSelected(model.reservations.single())
+
+        reservationRepository.shouldFail = true
+
+        controller.cancelReservation(ENTRANT_ID)
+
+        assertEquals(ReservationStatus.CONFIRMED, model.selectedReservation?.reservation?.status)
+        assertEquals(ReservationStatus.CONFIRMED, reservationRepository.reservations.single().status)
+        assertEquals("Could not cancel reservation.", model.cancellationError)
+        assertFalse(model.isCancelling)
+    }
+
+    /**
+     * Checks that successfully cancelling a reservation sends the entrant
+     * a cancellation confirmation notification.
+     */
+    @Test
+    fun cancelReservation_success_sendsNotification() = runBlocking {
+        campsiteRepository.campsites = listOf(
+            Campsite(id = CAMPSITE_ID, name = "Banff Pines", ownerId = "owner1")
+        )
+        reservationRepository.reservations = listOf(
+            reservation("active", from = "2027-06-12", to = "2027-06-15")
+        )
+
+        controller.loadReservations(ENTRANT_ID)
+        controller.onReservationSelected(model.reservations.single())
+
+        controller.cancelReservation(ENTRANT_ID)
+
+        val notification = notificationRepository.records.single()
+
+        assertEquals(ENTRANT_ID, notification.recipientId)
+        assertEquals("owner1", notification.senderId)
+        assertEquals("active", notification.reservationId)
+        assertEquals(NotificationType.RESERVATION_CANCELLED, notification.type)
+    }
+
+    /**
+     * Checks that a notification failure does not undo a successful cancellation
+     * or display a cancellation error.
+     */
+    @Test
+    fun cancelReservation_notificationError_keepsCancelledStatus() = runBlocking {
+        campsiteRepository.campsites = listOf(
+            Campsite(id = CAMPSITE_ID, name = "Banff Pines", ownerId = "owner1")
+        )
+        reservationRepository.reservations = listOf(
+            reservation("active", from = "2027-06-12", to = "2027-06-15")
+        )
+
+        controller.loadReservations(ENTRANT_ID)
+        controller.onReservationSelected(model.reservations.single())
+
+        notificationRepository.shouldFail = true
+
+        controller.cancelReservation(ENTRANT_ID)
+
+        assertEquals(ReservationStatus.CANCELLED, model.selectedReservation?.reservation?.status)
+        assertEquals(ReservationStatus.CANCELLED, reservationRepository.reservations.single().status)
+        assertTrue(notificationRepository.records.isEmpty())
+        assertFalse(model.isCancelling)
+        assertNull(model.cancellationError)
+    }
+
     private fun selectedItem() =
         ActiveReservationItem(reservation("selected", from = "2027-06-12", to = "2027-06-15"), campsite = null)
 
@@ -222,6 +381,30 @@ class ActiveReservationsControllerTest {
             reservations.filter { it.campsiteId == campsiteId }
 
         override suspend fun createReservation(reservation: Reservation): String = "testReservationId"
+
+        override suspend fun cancelReservation(
+            reservationId: String,
+            entrantId: String,
+            today: String
+        ): ReservationCancellationResult {
+            if (shouldFail) throw Exception("Could not cancel reservation.")
+
+            val reservation = reservations.firstOrNull { it.id == reservationId }
+
+            if (reservation == null || reservation.entrantId != entrantId || !reservation.isActive(today)) {
+                return ReservationCancellationResult.NOT_ELIGIBLE
+            }
+
+            reservations = reservations.map {
+                if (it.id == reservationId) {
+                    it.copy(status = ReservationStatus.CANCELLED)
+                } else {
+                    it
+                }
+            }
+
+            return ReservationCancellationResult.CANCELLED
+        }
     }
 
     /**
@@ -262,6 +445,35 @@ class ActiveReservationsControllerTest {
 
         override suspend fun deleteCampsite(id: String) = Unit
 
+    }
+
+    /**
+     * Records notifications for controller tests without accessing Firestore.
+     */
+    private class TestNotificationRepository : NotificationRepository {
+        val records = mutableListOf<NewNotification>()
+        var shouldFail = false
+
+        override suspend fun createIfAbsent(id: String, notification: NewNotification): SendResult {
+            if (shouldFail) throw Exception("Could not send notification.")
+            records.add(notification)
+            return SendResult.CREATED
+        }
+
+        override fun observeReceived(
+            recipientId: String,
+            onUpdate: (List<Notification>) -> Unit,
+            onError: (Exception) -> Unit
+        ): () -> Unit = error("Not used by controller tests")
+
+        override fun observeSent(
+            senderId: String,
+            onUpdate: (List<Notification>) -> Unit,
+            onError: (Exception) -> Unit
+        ): () -> Unit = error("Not used by controller tests")
+
+        override suspend fun markAsRead(notificationId: String, recipientId: String) =
+            error("Not used by controller tests")
     }
 
     private companion object {

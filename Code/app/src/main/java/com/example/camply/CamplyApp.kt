@@ -174,7 +174,7 @@ fun CamplyApp() {
     // Entrant active reservations
     val activeReservationsModel = remember { ActiveReservationsModel() }
     val activeReservationsController = remember {
-        ActiveReservationsController(activeReservationsModel, reservationRepository, campsiteRepository)
+        ActiveReservationsController(activeReservationsModel, reservationRepository, campsiteRepository, notificationService)
     }
     val activeReservationsView = remember {
         ActiveReservationsView(activeReservationsModel, activeReservationsController)
