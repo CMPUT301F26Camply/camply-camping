@@ -50,6 +50,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.camply.campsite.model.Campsite
+import com.example.camply.campsite.model.DateRange
 import com.example.camply.shared.view.PrimaryButton
 import com.example.camply.shared.view.SecondaryButton
 import com.example.camply.ui.theme.CamplyTheme
@@ -500,6 +501,75 @@ class CampsiteListView {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
+            }
+        }
+    }
+
+    // This function covers the US 02.06.01.
+    // Using the updated UI style
+    @Composable
+    fun BookedDatesView(campsite: Campsite, bookedDates: List<DateRange>) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) { //section for dates booked. Using the DateRange class
+            Text(
+                text = "Booked Dates",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            if (bookedDates.isEmpty()) {
+                Text(
+                    text = "No Booked Dates for this campsite.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            bookedDates.forEach { range ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            MaterialTheme.colorScheme.errorContainer,
+                            RoundedCornerShape(12.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Booked from ${range.from} to ${range.to}",
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+            Text( //section to show all available dates
+                text = "Available dates",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            if (campsite.availability.isEmpty()) {
+                Text(
+                    text = "No availability dates have been set for this campsite.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            campsite.availability.forEach { range ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            RoundedCornerShape(12.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Dates Still Available from ${range.from} to ${range.to}",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
         }
     }

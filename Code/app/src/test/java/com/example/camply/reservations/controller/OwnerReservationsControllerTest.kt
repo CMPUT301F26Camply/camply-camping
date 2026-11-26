@@ -14,11 +14,14 @@ import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertNull
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import org.junit.Before
 import org.junit.Test
 
 /**
- * Unit tests for owner reservation management (US 02.07.01).
+ * Unit tests for owner reservation management (US 02.07.01 and US 02.07.02).
  */
 class OwnerReservationsControllerTest {
 
@@ -232,10 +235,10 @@ class OwnerReservationsControllerTest {
     }
 
     /**
-     * Selecting a new campsite clears filters and reservation selection.
+     * Selecting another campsite preserves category filters and clears reservation selection.
      */
     @Test
-    fun onCampsiteSelected_resetsFilters() = runBlocking {
+    fun onCampsiteSelected_preservesFilters() = runBlocking {
         campsiteRepository.campsites = listOf(
             campsite("banff", "Banff Pines", ownerId),
             campsite("jasper", "Jasper Lake", ownerId)
@@ -257,7 +260,65 @@ class OwnerReservationsControllerTest {
 
         assertEquals("jasper", model.selectedCampsiteId)
         assertNull(model.selectedReservation)
-        assertTrue(model.selectedFilters.isEmpty())
+        assertEquals(setOf("Past"), model.selectedFilters)
+    }
+
+    /**
+     * Past includes only completed confirmed stays, with matching campsite counts.
+     */
+    @Test
+    fun pastFilter_limitsCampsitesAndCountsToCompletedStays() = runBlocking {
+        campsiteRepository.campsites = listOf(
+            campsite("banff", "Banff Pines", ownerId),
+            campsite("jasper", "Jasper Lake", ownerId),
+            campsite("empty", "Empty Campsite", ownerId)
+        )
+        reservationRepository.reservations = listOf(
+            reservation("past-1", "banff", "2027-06-01", "2027-06-05"),
+            reservation("past-2", "banff", "2027-06-06", "2027-06-09"),
+            reservation("ends-today", "banff", "2027-06-08", "2027-06-10"),
+            reservation("cancelled", "banff", "2027-06-01", "2027-06-05", ReservationStatus.CANCELLED),
+            reservation("rejected", "banff", "2027-06-01", "2027-06-05", ReservationStatus.REJECTED),
+            reservation("future", "jasper", "2027-07-01", "2027-07-05")
+        )
+
+        controller.loadAllReservations(ownerId)
+        controller.onFilterSelected("Past")
+
+        val entries = controller.getCampsitesWithReservations()
+        assertEquals(listOf("banff"), entries.map { it.campsite.id })
+        assertEquals(2, controller.getFilteredCount(entries.single()))
+        assertEquals(
+            listOf("past-1", "past-2"),
+            controller.getFilteredReservations(entries.single().reservations).map { it.id }
+        )
+
+        controller.onCampsiteSelected("banff")
+        controller.onReservationSelected(entries.single().reservations.first())
+        controller.onBack()
+        controller.onBack()
+        assertEquals(setOf("Past"), model.selectedFilters)
+        assertEquals(listOf("banff"), controller.getCampsitesWithReservations().map { it.campsite.id })
+
+        controller.onFilterSelected("All")
+        assertEquals(listOf("banff", "jasper"), controller.getCampsitesWithReservations().map { it.campsite.id })
+        assertEquals(5, controller.getFilteredCount(model.campsites.first()))
+    }
+
+    /**
+     * A category with no matching stays produces an empty overview.
+     */
+    @Test
+    fun pastFilter_withoutCompletedStaysReturnsNoCampsites() = runBlocking {
+        campsiteRepository.campsites = listOf(campsite("banff", "Banff Pines", ownerId))
+        reservationRepository.reservations = listOf(
+            reservation("future", "banff", "2027-07-01", "2027-07-05")
+        )
+        controller.loadAllReservations(ownerId)
+        controller.onFilterSelected("Past")
+
+        assertTrue(controller.getCampsitesWithReservations().isEmpty())
+        assertEquals(0, controller.getFilteredCount(model.campsites.single()))
     }
 
     /**
@@ -302,6 +363,161 @@ class OwnerReservationsControllerTest {
             model.errorMessage
         )
         assertFalse(model.isLoading)
+    }
+
+    /** Confirmation can be dismissed or omitted without writing anything. */
+    @Test
+    fun rejection_requiresConfirmation() = runBlocking {
+        selectActiveReservation()
+        controller.confirmRejection()
+        assertEquals(0, reservationRepository.rejectionCalls)
+
+        controller.requestRejection()
+        assertEquals("booking", model.pendingRejection?.id)
+        assertEquals(0, reservationRepository.rejectionCalls)
+        controller.dismissRejection()
+        controller.confirmRejection()
+        assertNull(model.pendingRejection)
+        assertEquals(ReservationStatus.CONFIRMED, model.selectedReservation?.status)
+        assertEquals(0, reservationRepository.rejectionCalls)
+    }
+
+    /** A successful rejection changes details, counts, filters, and subsequently loaded data. */
+    @Test
+    fun rejection_updatesSavedReservationAndCategories() = runBlocking {
+        selectActiveReservation()
+        controller.onFilterSelected("Active")
+        controller.requestRejection()
+        controller.confirmRejection()
+
+        assertEquals(1, reservationRepository.rejectionCalls)
+        assertEquals(ReservationStatus.REJECTED, model.selectedReservation?.status)
+        assertFalse(model.isRejecting)
+        assertFalse(controller.canRejectSelectedReservation())
+        assertNull(model.pendingRejection)
+        assertEquals(0, controller.getActiveCount(model.campsites.single()))
+        assertTrue(controller.getCampsitesWithReservations().isEmpty())
+
+        controller.onFilterSelected("All")
+        controller.onFilterSelected("Rejected")
+        assertEquals(1, controller.getFilteredCount(model.campsites.single()))
+        controller.loadAllReservations(ownerId)
+        assertEquals(ReservationStatus.REJECTED, model.campsites.single().reservations.single().status)
+    }
+
+    /** A failed save retains details and can be retried after a new confirmation. */
+    @Test
+    fun rejection_failurePreservesReservationAndAllowsRetry() = runBlocking {
+        selectActiveReservation()
+        reservationRepository.rejectionFailure = IllegalStateException("Could not save rejection.")
+        controller.requestRejection()
+        controller.confirmRejection()
+
+        assertEquals("Could not save rejection.", model.rejectionError)
+        assertNull(model.errorMessage)
+        assertEquals(ReservationStatus.CONFIRMED, model.selectedReservation?.status)
+        assertFalse(model.isRejecting)
+        assertTrue(controller.canRejectSelectedReservation())
+        reservationRepository.rejectionFailure = null
+        controller.requestRejection()
+        controller.confirmRejection()
+        assertEquals(ReservationStatus.REJECTED, model.selectedReservation?.status)
+        assertNull(model.rejectionError)
+    }
+
+    /** Completed or nonconfirmed stays cannot enter the rejection flow. */
+    @Test
+    fun rejection_blocksInactiveReservations() = runBlocking {
+        selectActiveReservation()
+        val active = model.selectedReservation!!
+        val invalid = listOf(
+            active.copy(dates = DateRange("2027-06-01", "2027-06-05")),
+            active.copy(status = ReservationStatus.CANCELLED),
+            active.copy(status = ReservationStatus.REJECTED),
+            active.copy(status = ReservationStatus.UNINITIALIZED)
+        )
+        for (reservation in invalid) {
+            model.updateSelectedReservation(reservation)
+            assertFalse(controller.canRejectSelectedReservation())
+            controller.requestRejection()
+            controller.confirmRejection()
+            assertNull(model.pendingRejection)
+        }
+        assertEquals(0, reservationRepository.rejectionCalls)
+    }
+
+    /** Caller-supplied reservations from another campsite cannot be rejected. */
+    @Test
+    fun rejection_blocksUnownedReservations() = runBlocking {
+        selectActiveReservation()
+        model.updateSelectedReservation(model.selectedReservation!!.copy(campsiteId = "foreign"))
+        controller.requestRejection()
+        controller.confirmRejection()
+        assertFalse(controller.canRejectSelectedReservation())
+        assertNull(model.pendingRejection)
+        assertEquals(0, reservationRepository.rejectionCalls)
+    }
+
+    /** Repeated clicks while saving cannot start a second write or leave the selected details. */
+    @Test
+    fun rejection_blocksDuplicateSubmissions() = runBlocking {
+        selectActiveReservation()
+        val release = CompletableDeferred<Unit>()
+        reservationRepository.beforeReject = { release.await() }
+        controller.requestRejection()
+        val firstSave = launch { controller.confirmRejection() }
+        yield()
+        assertTrue(model.isRejecting)
+        controller.requestRejection()
+        controller.confirmRejection()
+        controller.onBack()
+        assertEquals("booking", model.selectedReservation?.id)
+        assertEquals(1, reservationRepository.rejectionCalls)
+        release.complete(Unit)
+        firstSave.join()
+        assertFalse(model.isRejecting)
+    }
+
+    /** Repository validation must prevent overwriting an externally cancelled reservation. */
+    @Test
+    fun rejection_staleReservationIsNotOverwritten() = runBlocking {
+        selectActiveReservation()
+        controller.requestRejection()
+        reservationRepository.reservations = reservationRepository.reservations.map {
+            it.copy(status = ReservationStatus.CANCELLED)
+        }
+        controller.confirmRejection()
+        assertEquals(ReservationStatus.CANCELLED, reservationRepository.reservations.single().status)
+        assertEquals("Only active reservations can be rejected.", model.rejectionError)
+        assertFalse(model.isRejecting)
+    }
+
+    /** Cancelling the save propagates coroutine cancellation and releases the busy state. */
+    @Test
+    fun rejection_cancellationReleasesBusyState() = runBlocking {
+        selectActiveReservation()
+        reservationRepository.rejectionFailure = kotlin.coroutines.cancellation.CancellationException("Stopped")
+        controller.requestRejection()
+        var cancelled = false
+        try {
+            controller.confirmRejection()
+        } catch (_: kotlin.coroutines.cancellation.CancellationException) {
+            cancelled = true
+        }
+        assertTrue(cancelled)
+        assertFalse(model.isRejecting)
+        assertEquals(ReservationStatus.CONFIRMED, model.selectedReservation?.status)
+    }
+
+    /** Loads a realistic owned reservation and opens its details. */
+    private suspend fun selectActiveReservation() {
+        campsiteRepository.campsites = listOf(campsite("banff", "Banff Pines", ownerId))
+        reservationRepository.reservations = listOf(
+            reservation("booking", "banff", "2027-06-12", "2027-06-15")
+        )
+        controller.loadAllReservations(ownerId)
+        controller.onCampsiteSelected("banff")
+        controller.onReservationSelected(reservationRepository.reservations.single())
     }
 
     /**
@@ -387,6 +603,24 @@ class OwnerReservationsControllerTest {
      * Fake reservation repository matching the real project interface.
      */
     private class FakeReservationRepository : ReservationRepository {
+
+        var rejectionFailure: Exception? = null
+        var rejectionCalls = 0
+        var beforeReject: (suspend () -> Unit)? = null
+
+        override suspend fun rejectReservation(
+            reservationId: String, ownerId: String, today: String
+        ): Reservation {
+            rejectionCalls++
+            beforeReject?.invoke()
+            rejectionFailure?.let { throw it }
+            val current = reservations.first { it.id == reservationId }
+            require(current.isActive(today)) { "Only active reservations can be rejected." }
+            val saved = current.copy(status = ReservationStatus.REJECTED)
+            reservations = reservations.map { if (it.id == reservationId) saved else it }
+            return saved
+        }
+
 
         var reservations: List<Reservation> = emptyList()
 
