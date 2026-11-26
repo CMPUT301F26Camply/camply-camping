@@ -3,22 +3,26 @@ package com.example.camply.notification.controller
 import com.example.camply.notification.model.NotificationsModel
 import com.example.camply.notification.model.Notification
 import com.example.camply.notification.model.SentNotification
+import com.example.camply.notification.model.groupNotificationLog
 import com.example.camply.notification.model.groupSentNotifications
+import com.example.camply.notification.repository.NotificationLogRepository
 import com.example.camply.notification.repository.NotificationRepository
 import com.example.camply.notification.repository.RecipientNameRepository
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Keeps the shared notification screen up to date (US 02.10.02).
+ * Keeps the shared notification screen up to date (US 02.10.02, US 03.08.01).
  *
  * @param model The model storing the screen state.
  * @param repository The repository used to observe notifications.
  * @param recipientNameRepository The repository used to retrieve recipient names.
+ * @param logRepository The repository used to observe the admin's notification log, or null.
  */
 class NotificationsController(
     private val model: NotificationsModel,
     private val repository: NotificationRepository,
-    private val recipientNameRepository: RecipientNameRepository
+    private val recipientNameRepository: RecipientNameRepository,
+    private val logRepository: NotificationLogRepository? = null
 ) {
     private var stopListening: (() -> Unit)? = null
     private var stopPopupListening: (() -> Unit)? = null
@@ -29,7 +33,8 @@ class NotificationsController(
     /**
      * Starts showing a user's notifications, replacing any earlier listener.
      *
-     * Owners see sent history; entrants see their received inbox.
+     * Owners see sent history, entrants see their received inbox, and admins see every
+     * notification in the app.
      *
      * @param userId The user's Firebase user ID.
      * @param role The user's role.
@@ -40,6 +45,20 @@ class NotificationsController(
         observedUserId = userId
         observedRole = role
         model.reset()
+
+        val log = logRepository
+        if (role == "admin" && log != null) {
+            model.showLoading()
+            stopListening = log.observeAll(
+                onUpdate = { records ->
+                    if (version == observationVersion) model.showSentNotifications(groupNotificationLog(records))
+                },
+                onError = {
+                    if (version == observationVersion) model.showError("Could not load the notification log.")
+                }
+            )
+            return
+        }
 
         if (role != "owner" && role != "entrant") {
             model.showSentNotifications(emptyList())
