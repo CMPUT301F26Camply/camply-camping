@@ -19,25 +19,19 @@ import kotlinx.coroutines.CancellationException
 class AdminController(
     private val model: AdminModel,
     private val userRepository: UserRepository,
-    private val campsiteRepository: CampsiteRepository
+    private val campsiteRepository: CampsiteRepository,
 ) {
 
     /**
      * Loads every user whose Firestore role is "owner".
      */
+    private var requestedOwnerId: String? = null
     fun loadOwners() {
         userRepository.getUsersByRole(
             role = "owner",
-            onSuccess = { documents ->
-                model.showOwners(documents.mapNotNull { document ->
-                    val name = document.getString("name") ?: return@mapNotNull null
-                    val email = document.getString("email") ?: ""
-                    val phone = document.getString("phoneNumber") ?: ""
-                    CampsiteOwnerUser(document.id, Profile(name, email, phone))
-                }
-                )
-            },
-            { model.showOwners(emptyList()) }        )
+            onSuccess = { users -> model.showOwners(users) },
+            onFailure = { model.showOwners(emptyList()) }
+        )
     }
 
     /**
@@ -63,11 +57,20 @@ class AdminController(
      * @param ownerId Firebase UID of the selected owner
      */
     suspend fun loadCampsitesFor(ownerId: String) {
+        requestedOwnerId = ownerId
+        model.showOwnerCampsites(emptyList())
+        model.showLoadingOwnerCampsites(true)
         try {
-            model.showOwnerCampsites(campsiteRepository.getCampsitesByOwner(ownerId))        } catch (e: CancellationException) {
+            val campsites = campsiteRepository.getCampsitesByOwner(ownerId)
+            if (requestedOwnerId != ownerId) return
+            model.showOwnerCampsites(campsites)
+            model.showLoadingOwnerCampsites(false)
+        } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            if (requestedOwnerId != ownerId) return
             model.showOwnerCampsites(emptyList())
+            model.showLoadingOwnerCampsites(false)
         }
     }
 }

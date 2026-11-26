@@ -19,6 +19,8 @@ class AdminModel {
     var ownerCampsites by mutableStateOf<List<Campsite>>(emptyList())
         private set
 
+    var isLoadingOwnerCampsites by mutableStateOf(false)
+        private set
     /** Replaces the owner list. */
     fun showOwners(list: List<User>) {
         owners = list
@@ -32,5 +34,9 @@ class AdminModel {
     /** Replaces the campsites for the owner the admin selected. */
     fun showOwnerCampsites(list: List<Campsite>) {
         ownerCampsites = list
+    }
+    /** Records whether the selected owner's campsites are still loading. */
+    fun showLoadingOwnerCampsites(loading: Boolean) {
+        isLoadingOwnerCampsites = loading
     }
 }

@@ -1,6 +1,8 @@
 package com.example.camply.user.repository
 
 import androidx.compose.ui.semantics.Role
+import com.example.camply.user.model.CampsiteOwnerUser
+import com.example.camply.user.model.Profile
 import com.example.camply.user.model.User
 import com.google.firebase.Firebase
 import com.google.firebase.firestore.Blob
@@ -177,11 +179,19 @@ class UserRepository {
      */
     fun getUsersByRole(
         role: String,
-        onSuccess: (List<DocumentSnapshot>) -> Unit,
+        onSuccess: (List<User>) -> Unit,
         onFailure: () -> Unit
-    ){
-        db.collection("users").whereEqualTo("role",role).get()
-            .addOnSuccessListener { onSuccess(it.documents) }
+    ) {
+        db.collection("users").whereEqualTo("role", role).get()
+            .addOnSuccessListener { snapshot ->
+                val users = snapshot.documents.mapNotNull { document ->
+                    val name = document.getString("name") ?: return@mapNotNull null
+                    val email = document.getString("email") ?: ""
+                    val phone = document.getString("phoneNumber") ?: ""
+                    CampsiteOwnerUser(document.id, Profile(name, email, phone))
+                }
+                onSuccess(users)
+            }
             .addOnFailureListener { onFailure() }
     }
 }

@@ -269,14 +269,14 @@ class CampsiteListView {
                     }
 
                 }
-                if (onBack != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    SecondaryButton(
-                        text = "Back",
-                        onClick = onBack
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
+            }
+            if (onBack != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                SecondaryButton(
+                    text = "Back",
+                    onClick = onBack
+                )
+                Spacer(modifier = Modifier.height(12.dp))
             }
 
         }

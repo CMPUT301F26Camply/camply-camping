@@ -217,7 +217,7 @@ class CampsiteListViewTest {
         }
 
         composeRule.onNodeWithText("Filip's Campsites").assertIsDisplayed()
-        composeRule.onNodeWithText("Manage your campsite listings").assertIsDisplayed()
+        composeRule.onNodeWithText("Manage campsite listings").assertIsDisplayed()
         composeRule.onNodeWithText("Pine Ridge").assertIsDisplayed()
         composeRule.onNodeWithText("Banff").assertIsDisplayed()
     }
