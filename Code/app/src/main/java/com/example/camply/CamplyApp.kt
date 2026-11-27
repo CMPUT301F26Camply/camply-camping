@@ -91,6 +91,9 @@ import com.example.camply.user.view.UserSignUpView
 import kotlinx.coroutines.launch
 import com.example.camply.user.controller.AdminController
 import com.example.camply.user.view.AdminCampsiteBrowseView
+import com.example.camply.lottery.controller.UpdateLotteryController
+import com.example.camply.lottery.model.UpdateLotteryModel
+import com.example.camply.lottery.view.UpdateLotteryView
 
 /**
  * Displays the Camply application and manages its startup screens
@@ -123,7 +126,7 @@ fun CamplyApp() {
     val campsiteDetailController = remember { CampsiteDetailController(campsiteDetailModel, campsiteRepository) }
     val campsiteDetailView = remember { CampsiteDetailView(campsiteDetailModel, campsiteDetailController) }
 
-    // Owner lottery registration. US 02.04.01, US 02.04.02, 02.04.03, 02.04.04, 02.04.05.
+    // Owner lottery registration (now editing enabled). US 02.04.01, US 02.04.02, 02.04.03, 02.04.04, 02.04.05, 02.04.06
     val lotteryCreateModel = remember { LotteryCreateModel() }
     val lotteryRepository = remember { FirestoreLotteryRepository() }
     val lotteryDrawService = remember {
@@ -138,6 +141,13 @@ fun CamplyApp() {
     val lotteryCreateView = remember {
         LotteryCreateView(lotteryCreateModel, lotteryCreateController)
     }
+
+    val updateLotteryModel = remember { UpdateLotteryModel() }
+    val updateLotteryController = remember {
+        UpdateLotteryController(updateLotteryModel, lotteryRepository, campsiteRepository)
+    }
+    val updateLotteryView = remember { UpdateLotteryView(updateLotteryModel, updateLotteryController) }
+    var ownerEditingLottery by remember { mutableStateOf(false) }
 
     // ID of the campsite currently open from the browse screen (null = show the list).
     var selectedCampsiteId by remember { mutableStateOf<String?>(null) }
@@ -468,15 +478,24 @@ fun CamplyApp() {
                                             onBack = { ownerShowReservations = false }
                                         )
                                     } else if (ownerShowLottery) {
-                                        BackHandler {
-                                            ownerShowLottery = false
+                                        if (ownerEditingLottery) {
+                                            BackHandler { ownerEditingLottery = false }
+                                            lotteryCreateView.Display(
+                                                ownerId = currentUser.getUid(),
+                                                onDone = { ownerEditingLottery = false }
+                                            )
+                                        } else {
+                                            BackHandler { ownerShowLottery = false }
+                                            updateLotteryView.Display(
+                                                ownerId = currentUser.getUid(),
+                                                onAddLottery = {
+                                                    lotteryCreateController.resetForm()
+                                                    ownerEditingLottery = true
+                                                },
+                                                onBack = { ownerShowLottery = false }
+                                            )
                                         }
-
-                                        lotteryCreateView.Display(
-                                            ownerId = currentUser.getUid(),
-                                            onDone = { ownerShowLottery = false }
-                                        )
-                                    } else if (ownerShowForm) {
+                                        } else if (ownerShowForm) {
                                         BackHandler(enabled = !ownerSaving) {
                                             ownerController.removeErrorsFromList()
                                             ownerShowForm = false
@@ -601,7 +620,9 @@ fun CamplyApp() {
                                             },
                                             viewCampsite = { ownerDetailCampsiteId = it.id },
                                             lotteryRegistration = { campsite ->
+                                                lotteryCreateController.resetForm()
                                                 lotteryCreateController.onCampsiteSelected(campsite.id)
+                                                ownerEditingLottery = true
                                                 ownerShowLottery = true
                                             },
                                             reservationList = { ownerShowReservations = true },

@@ -37,6 +37,21 @@ interface LotteryRepository {
      * @return The lotteries containing an entry for this entrant
      */
     suspend fun getJoinedLotteries(entrantId: String): List<Lottery>
+
+    /**
+     * Retrieves the lotteries created by one campsite owner.
+     *
+     * @param ownerId The owner's Firebase user ID
+     * @return The lotteries created by that owner
+     */
+    suspend fun getLotteriesByOwner(ownerId: String): List<Lottery> = emptyList()
+
+    /**
+     * Saves the edited dates and winner count of an existing lottery.
+     *
+     * @param lottery The lottery with its edited values. Its id must already exist.
+     */
+    suspend fun updateLottery(lottery: Lottery) {}
 }
 
 /**
@@ -83,5 +98,21 @@ class FirestoreLotteryRepository(
         }
 
         return joinedLotteries
+    }
+    override suspend fun getLotteriesByOwner(ownerId: String): List<Lottery> =
+        lotteries.whereEqualTo("ownerId", ownerId).get().await().toObjects(Lottery::class.java)
+
+    override suspend fun updateLottery(lottery: Lottery) {
+        lotteries.document(lottery.id).update(
+            mapOf(
+                "registrationStart" to lottery.registrationStart,
+                "registrationEnd" to lottery.registrationEnd,
+                "bookingStart" to lottery.bookingStart,
+                "bookingEnd" to lottery.bookingEnd,
+                "lotteryStart" to lottery.lotteryStart,
+                "lotteryEnd" to lottery.lotteryEnd,
+                "numberOfWinners" to lottery.numberOfWinners
+            )
+        ).await()
     }
 }
