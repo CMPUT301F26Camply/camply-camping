@@ -161,5 +161,6 @@ class LotteryCreateController(
                     existing.lotteryEnd == lotteryEnd &&
                     existing.campsiteIds.any { it in campsiteIds }
         }
+    fun resetForm() = model.reset()
 
 }
