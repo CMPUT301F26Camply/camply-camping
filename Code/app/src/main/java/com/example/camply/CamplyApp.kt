@@ -791,7 +791,7 @@ fun CamplyApp() {
                                             } else {
                                                 profileRemovalModel.error ?: "Could not remove the profile."
                                             }
-                                        }
+                                        },
                                         onRemoveCampsitePhoto = adminImageRemovalController::removeCampsitePhoto,
                                         onRemoveProfileImage = adminImageRemovalController::removeProfileImage
                                     )

@@ -91,7 +91,7 @@ class AdminPanelView {
         loadPhotoPreview: suspend (String, String) -> ByteArray?,
         loadPhoto: suspend (String, String) -> ByteArray?,
         onRemoveCampsite: (suspend (String) -> String?)? = null,
-        onRemoveProfile: (suspend (User) -> String?)? = null
+        onRemoveProfile: (suspend (User) -> String?)? = null,
 
         onRemoveCampsitePhoto: suspend (Campsite, String) -> ImageRemovalResult,
         onRemoveProfileImage: suspend (User) -> ImageRemovalResult
