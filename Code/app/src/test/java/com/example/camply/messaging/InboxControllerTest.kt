@@ -18,7 +18,24 @@ import org.junit.Test
 class InboxControllerTest {
     private val model = InboxModel()
     private val repository = FakeRepository()
-    private val controller = InboxController(model, repository)
+    private val controller = InboxController(model, repository) { " Taylor Morgan " }
+
+    @Test
+    fun entrantInboxAndThreadReuseResolvedOwnerName() = runBlocking {
+        var lookups = 0
+        val controller = InboxController(model, repository) { ownerId ->
+            assertEquals("owner", ownerId)
+            lookups++
+            " Taylor Morgan "
+        }
+
+        controller.observeInbox("entrant", ConversationRole.ENTRANT)
+        controller.observeConversation(model.conversations.single(), "entrant", ConversationRole.ENTRANT)
+
+        assertEquals("Taylor Morgan", model.ownerNames["owner"])
+        assertEquals(1, lookups)
+        assertEquals(listOf("first", "second"), model.messages.map { it.id })
+    }
 
     @Test
     fun reservationLinkOpensItsConversationAndSortsMessages() = runBlocking {

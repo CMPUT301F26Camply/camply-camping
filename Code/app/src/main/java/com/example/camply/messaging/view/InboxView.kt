@@ -19,7 +19,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -41,7 +40,6 @@ import com.example.camply.shared.view.OrangeCard
 import com.example.camply.shared.view.PrimaryButton
 import com.example.camply.shared.view.SecondaryButton
 import kotlinx.coroutines.launch
-import kotlin.coroutines.cancellation.CancellationException
 
 /** Shared Inbox and conversation screen for owners and entrants. */
 class InboxView(
@@ -59,7 +57,7 @@ class InboxView(
         var selected by remember(userId, role, reservationId) { mutableStateOf<Conversation?>(null) }
         val isThread = selected != null || reservationId != null
         val model = remember(userId, role, reservationId, selected?.id) { InboxModel() }
-        val controller = remember(model) { InboxController(model, repository) }
+        val controller = remember(model) { InboxController(model, repository, nameRepository) }
         val scope = rememberCoroutineScope()
         val focusManager = LocalFocusManager.current
         var retry by remember(model) { mutableIntStateOf(0) }
@@ -71,7 +69,7 @@ class InboxView(
             val selectedConversation = selected
             when {
                 reservationId != null -> controller.openReservation(userId, reservationId, role)
-                selectedConversation != null -> controller.observeConversation(selectedConversation, userId)
+                selectedConversation != null -> controller.observeConversation(selectedConversation, userId, role)
                 else -> controller.observeInbox(userId, role)
             }
         }
@@ -94,13 +92,13 @@ class InboxView(
                 ) {
                     items(model.conversations, key = { it.id }) { entry ->
                         OrangeCard(Modifier.clickable { selected = entry }) {
-                            Text(counterpartName(entry, role), style = MaterialTheme.typography.titleMedium)
+                            Text(counterpartName(entry, role, model), style = MaterialTheme.typography.titleMedium)
                             Text(stayLabel(entry), color = CamplyPalette.Ink)
                         }
                     }
                 }
                 conversation != null -> {
-                    val counterpart = counterpartName(conversation, role)
+                    val counterpart = counterpartName(conversation, role, model)
                     val counterpartId =
                         if (role == ConversationRole.OWNER) conversation.entrantId else conversation.ownerId
                     Text(counterpart, style = MaterialTheme.typography.titleMedium)
@@ -156,21 +154,11 @@ class InboxView(
         }
     }
 
-    @Composable
-    private fun counterpartName(conversation: Conversation, role: ConversationRole): String {
-        if (role == ConversationRole.OWNER) return conversation.entrantName.ifBlank { "Entrant" }
-
-        val name by produceState<String?>(null, conversation.ownerId) {
-            value = try {
-                nameRepository.getRecipientName(conversation.ownerId)?.trim()?.takeIf { it.isNotEmpty() }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                null
-            }
+    private fun counterpartName(conversation: Conversation, role: ConversationRole, model: InboxModel): String =
+        when (role) {
+            ConversationRole.OWNER -> conversation.entrantName.ifBlank { "Entrant" }
+            ConversationRole.ENTRANT -> model.ownerNames[conversation.ownerId] ?: "Campsite owner"
         }
-        return name ?: "Campsite owner"
-    }
 
     private fun stayLabel(conversation: Conversation): String =
         "${conversation.campsiteName.ifBlank { "Campsite" }} · ${conversation.stayFrom} to ${conversation.stayTo}"

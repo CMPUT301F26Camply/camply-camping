@@ -10,6 +10,9 @@ class InboxModel {
         internal set
     var conversation by mutableStateOf<Conversation?>(null)
         internal set
+    /** Cached owner names by user ID. A null value means the lookup returned no name. */
+    var ownerNames by mutableStateOf(emptyMap<String, String?>())
+        internal set
     var messages by mutableStateOf(emptyList<ConversationMessage>())
         internal set
     var draft by mutableStateOf("")

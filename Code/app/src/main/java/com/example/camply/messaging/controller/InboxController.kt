@@ -5,39 +5,65 @@ import com.example.camply.messaging.model.ConversationMessage
 import com.example.camply.messaging.model.ConversationRole
 import com.example.camply.messaging.model.InboxModel
 import com.example.camply.messaging.repository.ConversationRepository
+import com.example.camply.notification.repository.RecipientNameRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 /** Loads participant conversations and handles reading and sending reservation messages. */
 class InboxController(
     private val model: InboxModel,
-    private val repository: ConversationRepository
+    private val repository: ConversationRepository,
+    private val nameRepository: RecipientNameRepository
 ) {
     /** Observes the participant's conversation list until the caller leaves the Inbox. */
     suspend fun observeInbox(userId: String, role: ConversationRole) = load("Could not load conversations.") {
-        repository.observeConversations(userId, role).collect {
-            model.conversations = it
+        repository.observeConversations(userId, role).collect { conversations ->
+            model.conversations = conversations
             model.isLoading = false
+            if (role == ConversationRole.ENTRANT) {
+                for (ownerId in conversations.map { it.ownerId }.distinct()) {
+                    loadOwnerName(ownerId)
+                }
+            }
         }
     }
 
     /** Opens the reservation's conversation and observes its history. */
     suspend fun openReservation(userId: String, reservationId: String, role: ConversationRole) =
         load("Could not open this reservation conversation.") {
-            openConversation(repository.openForReservation(reservationId, userId, role), userId)
+            openConversation(repository.openForReservation(reservationId, userId, role), userId, role)
         }
 
     /** Selects [conversation] and observes its messages until the caller leaves the thread. */
-    suspend fun observeConversation(conversation: Conversation, userId: String) =
-        load("Could not load messages.") { openConversation(conversation, userId) }
+    suspend fun observeConversation(conversation: Conversation, userId: String, role: ConversationRole) =
+        load("Could not load messages.") { openConversation(conversation, userId, role) }
 
-    private suspend fun openConversation(conversation: Conversation, userId: String) {
+    private suspend fun openConversation(
+        conversation: Conversation,
+        userId: String,
+        role: ConversationRole
+    ) = coroutineScope {
         model.conversation = conversation
+        if (role == ConversationRole.ENTRANT) launch { loadOwnerName(conversation.ownerId) }
         repository.observeMessages(conversation, userId).collect {
             model.messages = it.sortedWith(
                 compareBy<ConversationMessage> { it.sentAt == null }.thenBy { it.sentAt }.thenBy { it.id }
             )
             model.isLoading = false
         }
+    }
+
+    private suspend fun loadOwnerName(ownerId: String) {
+        if (ownerId.isBlank() || ownerId in model.ownerNames) return
+        val name = try {
+            nameRepository.getRecipientName(ownerId)?.trim()?.takeIf { it.isNotEmpty() }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
+        model.ownerNames = model.ownerNames + (ownerId to name)
     }
 
     private suspend fun load(errorMessage: String, action: suspend () -> Unit) {
