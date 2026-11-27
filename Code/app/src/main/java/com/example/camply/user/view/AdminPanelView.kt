@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.view.CampsiteDetailView
 import com.example.camply.shared.view.CamplyScreen
 import com.example.camply.shared.view.OrangeCard
@@ -28,6 +29,7 @@ import com.example.camply.user.model.AdminPanelModel
 import com.example.camply.user.model.AdminPanelPage
 import com.example.camply.user.model.AdminProfileModel
 import com.example.camply.user.model.ImageRemovalResult
+import com.example.camply.user.model.User
 
 /*
  * AI Assistance:
@@ -68,6 +70,8 @@ class AdminPanelView {
      * @param currentUserId Signed-in admin id. Details uses it to keep editing hidden.
      * @param loadPhotoPreview Loads a small campsite photo.
      * @param loadPhoto Loads a full campsite photo.
+     * @param onRemoveCampsitePhoto Removes a promotional photo after the admin confirms.
+     * @param onRemoveProfileImage Removes a profile image after the admin confirms.
      */
     @Composable
     fun Display(
@@ -85,7 +89,9 @@ class AdminPanelView {
         detailView: CampsiteDetailView,
         currentUserId: String,
         loadPhotoPreview: suspend (String, String) -> ByteArray?,
-        loadPhoto: suspend (String, String) -> ByteArray?
+        loadPhoto: suspend (String, String) -> ByteArray?,
+        onRemoveCampsitePhoto: suspend (Campsite, String) -> ImageRemovalResult,
+        onRemoveProfileImage: suspend (User) -> ImageRemovalResult
     ) {
         when (model.page) {
             null -> {
@@ -147,8 +153,8 @@ class AdminPanelView {
                     controller = imageBrowseController,
                     model = imageBrowseModel,
                     onBack = { controller.backToMenu() },
-                    onRemoveCampsitePhoto = { _, _ -> ImageRemovalResult.NOT_IMPLEMENTED },
-                    onRemoveProfileImage = { _ -> ImageRemovalResult.NOT_IMPLEMENTED }
+                    onRemoveCampsitePhoto = onRemoveCampsitePhoto,
+                    onRemoveProfileImage = onRemoveProfileImage
                 )
             }
         }

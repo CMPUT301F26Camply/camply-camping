@@ -111,6 +111,8 @@ import com.example.camply.lottery.controller.UpdateLotteryController
 import com.example.camply.lottery.model.UpdateLotteryModel
 import com.example.camply.lottery.view.UpdateLotteryView
 import com.example.camply.user.controller.AdminImageBrowseController
+import com.example.camply.user.controller.AdminImageRemovalController
+import com.example.camply.user.repository.FirestoreAdminImageRepository
 import com.example.camply.user.model.AdminImageBrowseModel
 import com.example.camply.user.view.AdminImageBrowseView
 
@@ -280,6 +282,11 @@ fun CamplyApp() {
     val adminImageBrowseModel = remember { AdminImageBrowseModel() }
     val adminImageBrowseController = remember { AdminImageBrowseController( adminImageBrowseModel, UserRepository(),campsiteRepository) }
     val adminImageBrowseView = remember { AdminImageBrowseView() }
+
+    // Admin image removal (US 03.03.01)
+    val adminImageRemovalController = remember {
+        AdminImageRemovalController(FirestoreAdminImageRepository())
+    }
 
     // Shared notifications
     val notificationsModel = remember { NotificationsModel() }
@@ -734,7 +741,9 @@ fun CamplyApp() {
                                         },
                                         loadPhoto = { campsiteId, photoId ->
                                             campsiteRepository.getCampsitePhoto(campsiteId, photoId)
-                                        }
+                                        },
+                                        onRemoveCampsitePhoto = adminImageRemovalController::removeCampsitePhoto,
+                                        onRemoveProfileImage = adminImageRemovalController::removeProfileImage
                                     )
                                 }
                             }
