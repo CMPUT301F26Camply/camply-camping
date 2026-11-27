@@ -261,7 +261,7 @@ class OwnerReservationsViewTest {
         compose.onNodeWithText("Jasper Lake").assertDoesNotExist()
         compose.onNodeWithText("Banff Pines").performClick()
         compose.onNodeWithText("2027-06-08 to 2027-06-10").assertDoesNotExist()
-        compose.onNodeWithText("Entrant: test-entrant").assertIsDisplayed()
+        compose.onNodeWithText("Entrant: Sam Rivera").assertIsDisplayed()
         compose.onNodeWithText("2027-06-01 to 2027-06-05").performClick()
         compose.onNodeWithText("Reservation ID: completed-stay").assertIsDisplayed()
         compose.onNodeWithText("Back to Reservations").performClick()
@@ -318,11 +318,12 @@ class OwnerReservationsViewTest {
         compose.onNodeWithText("Banff Pines").performClick()
         compose.onNodeWithText("2027-06-01 to 2027-06-05").assertIsDisplayed()
         compose.onNodeWithText("2027-06-12 to 2027-06-15").assertDoesNotExist()
-        compose.onNodeWithText("Entrant: cancelled-entrant").assertIsDisplayed()
+        compose.onNodeWithText("Entrant: Alex Chen").assertIsDisplayed()
         compose.onNodeWithText("2027-07-01 to 2027-07-05").performClick()
 
         compose.onNodeWithText("Reservation Details").assertIsDisplayed()
         compose.onNodeWithText("Reservation ID: cancelled-before-stay").assertIsDisplayed()
+        compose.onNodeWithText("Entrant: Alex Chen").assertIsDisplayed()
     }
 
     /** Cancelling confirmation leaves the reservation active and does not write. */
@@ -398,23 +399,44 @@ class OwnerReservationsViewTest {
         compose.onNodeWithText("2027-06-12 to 2027-06-15").performClick()
     }
 
-    /**
-     * Displays the screen with in-memory repositories.
-     */
-    private fun showScreen() {
+    /** Opens messaging with the ID of the reservation whose details are displayed. */
+    @Test
+    fun messageEntrantOpensSelectedReservation() {
+        campsiteRepository.campsites = listOf(campsite("banff", "Banff Pines"))
+        reservationRepository.reservations = listOf(
+            reservation("booking", "banff", "2027-06-12", "2027-06-15")
+        )
+        var selectedId: String? = null
+        showScreen { selectedId = it }
+
+        compose.onNodeWithText("Banff Pines").performClick()
+        compose.onNodeWithText("2027-06-12 to 2027-06-15").performClick()
+        compose.onNodeWithText("Message entrant").performClick()
+        compose.runOnIdle { org.junit.Assert.assertEquals("booking", selectedId) }
+    }
+
+    /** Displays the screen with in-memory repositories. */
+    private fun showScreen(onMessageEntrant: ((String) -> Unit)? = null) {
         val model = OwnerReservationsModel()
 
         val controller = OwnerReservationsController(
             model = model,
             campsiteRepository = campsiteRepository,
             reservationRepository = reservationRepository,
+            entrantNameRepository = { id ->
+                when (id) {
+                    "test-entrant" -> "Sam Rivera"
+                    "cancelled-entrant" -> "Alex Chen"
+                    else -> null
+                }
+            },
             today = { "2027-06-10" }
         )
 
         val view = OwnerReservationsView(model, controller)
 
         compose.setContent {
-            view.Display(ownerId = ownerId, onBack = {})
+            view.Display(ownerId = ownerId, onBack = {}, onMessageEntrant = onMessageEntrant)
         }
 
         compose.waitForIdle()

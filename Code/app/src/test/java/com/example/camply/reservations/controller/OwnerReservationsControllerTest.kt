@@ -42,7 +42,8 @@ class OwnerReservationsControllerTest {
         controller = OwnerReservationsController(
             model,
             campsiteRepository,
-            reservationRepository
+            reservationRepository,
+            entrantNameRepository = { null }
         ) { "2027-06-10" }
     }
 

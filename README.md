@@ -11,7 +11,17 @@ This section documents the use of generative AI tools during the development of 
 
 <details>
 <summary><strong>Project Part 4</strong></summary>
-  
+
+**Contributor:** Yifan Zhou (`whiteonion157`)
+**AI Provider:** SpaceX
+**Tool:** Cursor (Grok 4.7)
+**Date Used:** November, 2026
+
+#### Admin Panel View (for US 03.04.01 and  US 03.05.01)
+
+- **Prompt:** "Instead of having all the admin functionality occupying its own place in the nav bar, we would have an admin panel that will have all the admin functionality. Walk me through the implementation of such panel."
+- **Extent of Use:** Create the skeleton of the view. The generated view was reviewed and then adjusted: the title was changed to "Admin Functionality", the blue card labels were removed, the button text was changed, and a visible Back button was added on the campsite owner list and the profile list.
+
 **Contributor:** Nguyen Hoang Long Dinh	(`nguyenh2-debug`)   
 **AI Provider:** OpenAI   
 **Tool:** Codex   

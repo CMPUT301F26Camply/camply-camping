@@ -1,5 +1,6 @@
 package com.example.camply.shared.navigation.model
 
+import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertTrue
 import org.junit.Test
@@ -35,5 +36,20 @@ class NavigationModelTest {
         for (role in listOf("entrant", "owner", "admin")) {
             assertTrue(role, model.getNavBarItems(role).any { it.id == Screen.NOTIFICATIONS })
         }
+    }
+    @Test
+    fun getNavBarItems_admin_includesPanel() {
+        val panel = model.getNavBarItems("admin").single { it.id == Screen.PANEL }
+        assertEquals("Panel", panel.label)
+    }
+
+    @Test
+    fun getNavBarItems_admin_excludesCampsiteList() {
+        assertFalse(model.getNavBarItems("admin").any { it.id == Screen.CAMPSITE_LIST })
+    }
+
+    @Test
+    fun getNavBarItems_owner_includesCampsiteList() {
+        assertTrue(model.getNavBarItems("owner").any { it.id == Screen.CAMPSITE_LIST })
     }
 }

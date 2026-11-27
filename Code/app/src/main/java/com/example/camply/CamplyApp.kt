@@ -51,6 +51,9 @@ import com.example.camply.lottery.view.EntrantLotteryView
 import com.example.camply.lottery.view.LotteryOpportunityView
 import com.example.camply.lottery.view.LotteryCreateView
 import com.example.camply.lottery.view.OwnerWaitlistView
+import com.example.camply.messaging.repository.FirestoreConversationRepository
+import com.example.camply.messaging.model.ConversationRole
+import com.example.camply.messaging.view.InboxView
 import com.example.camply.notification.controller.NotificationsController
 import com.example.camply.notification.model.NotificationsModel
 import com.example.camply.notification.repository.FirestoreNotificationLogRepository
@@ -90,7 +93,13 @@ import com.example.camply.user.view.UserProfileView
 import com.example.camply.user.view.UserSignUpView
 import kotlinx.coroutines.launch
 import com.example.camply.user.controller.AdminController
+import com.example.camply.user.controller.AdminPanelController
+import com.example.camply.user.controller.AdminProfileController
+import com.example.camply.user.model.AdminPanelModel
+import com.example.camply.user.model.AdminProfileModel
 import com.example.camply.user.view.AdminCampsiteBrowseView
+import com.example.camply.user.view.AdminPanelView
+import com.example.camply.user.view.AdminProfileBrowseView
 import com.example.camply.lottery.controller.UpdateLotteryController
 import com.example.camply.lottery.model.UpdateLotteryModel
 import com.example.camply.lottery.view.UpdateLotteryView
@@ -204,7 +213,8 @@ fun CamplyApp() {
         OwnerReservationsController(
             ownerReservationsModel,
             campsiteRepository,
-            reservationRepository
+            reservationRepository,
+            FirestoreRecipientNameRepository()
         )
     }
 
@@ -214,15 +224,18 @@ fun CamplyApp() {
             ownerReservationsController
         )
     }
+    val inboxView = remember { InboxView(FirestoreConversationRepository(), FirestoreRecipientNameRepository()) }
+    var inboxReservationId by remember { mutableStateOf<String?>(null) }
 
-    // Owner lottery waitlists (US 02.09.01)
+    // Owner lottery waitlists and notifications to their entrants (US 02.09.01, US 02.10.01)
     val ownerWaitlistModel = remember { OwnerWaitlistModel() }
     val ownerWaitlistController = remember {
         OwnerWaitlistController(
             ownerWaitlistModel,
             FirestoreOwnerWaitlistRepository(),
             campsiteRepository,
-            FirestoreRecipientNameRepository()
+            FirestoreRecipientNameRepository(),
+            notificationService
         )
     }
     val ownerWaitlistView = remember { OwnerWaitlistView(ownerWaitlistModel, ownerWaitlistController) }
@@ -238,13 +251,20 @@ fun CamplyApp() {
     var ownerSaving by remember { mutableStateOf(false) }
     // Which owner the admin opened, that owner's campsites, and a campsite opened from that list.
     // Separate from ownerDetailCampsiteId so an admin browsing someone else does not reuse the owner editor state.
-    var adminSelectedOwner by remember { mutableStateOf<User?>(null) }
-    var adminDetailCampsiteId by remember { mutableStateOf<String?>(null) }
     val adminModel = remember { AdminModel() }
     val adminController = remember {
         AdminController(adminModel, UserRepository(), campsiteRepository)
     }
+    //These are for the profile viewing
     val adminCampsiteBrowseView = remember { AdminCampsiteBrowseView() }
+    val adminProfileModel = remember { AdminProfileModel() }
+    val adminProfileController = remember {
+        AdminProfileController(adminProfileModel, UserRepository())
+    }
+    val adminPanelModel = remember { AdminPanelModel() }
+    val adminPanelController = remember { AdminPanelController(adminPanelModel) }
+    val adminPanelView = remember { AdminPanelView() }
+    val adminProfileBrowseView = remember { AdminProfileBrowseView() }
     // Shared notifications
     val notificationsModel = remember { NotificationsModel() }
     val notificationsController = remember {
@@ -264,6 +284,7 @@ fun CamplyApp() {
     val currentScreen = navigationModel.getCurrentScreen()
 
     LaunchedEffect(currentScreen) {
+        if (currentScreen != Screen.INBOX) inboxReservationId = null
         if (currentScreen != Screen.LOTTERIES) {
             reservationBookingController.resetBooking()
             lotteryBookingController.clearBooking()
@@ -320,13 +341,12 @@ fun CamplyApp() {
                     ownerController.loadCampsite()
                 }
             }
-            // An admin is not a CampsiteOwnerUser, so the effect above does nothing for them.
-            // Open Campsites and load every user whose Firestore role is still "owner".
             LaunchedEffect(currentUser) {
                 if (currentUser is AdminUser) {
-                    navigationModel.navigateTo(Screen.CAMPSITE_LIST)
+                    navigationModel.navigateTo(Screen.PANEL)
                     adminController.loadOwners()
                     adminController.loadCampsiteCounts()
+                    adminProfileController.loadProfiles()
                 }
             }
             if (currentUser != null)
@@ -447,35 +467,23 @@ fun CamplyApp() {
                                 }
                             }
 
-                            Screen.RESERVATIONS -> activeReservationsView.Display(currentUser.getUid())
+                            Screen.RESERVATIONS -> activeReservationsView.Display(currentUser.getUid()) { reservationId ->
+                                inboxReservationId = reservationId
+                                navigationModel.navigateTo(Screen.INBOX)
+                            }
 
                             Screen.CAMPSITE_LIST -> {
-                                if (currentUser is AdminUser) {
-                                    adminCampsiteBrowseView.Display(
-                                        controller = adminController,
-                                        model = adminModel,
-                                        detailView = campsiteDetailView,
-                                        currentUserId = currentUser.getUid(),
-                                        selectedOwner = adminSelectedOwner,
-                                        detailCampsiteId = adminDetailCampsiteId,
-                                        onOwnerSelected = { adminSelectedOwner = it },
-                                        onCampsiteSelected = { adminDetailCampsiteId = it },
-                                        onBackFromCampsites = { adminSelectedOwner = null },
-                                        onBackFromDetails = { adminDetailCampsiteId = null },
-                                        loadPhotoPreview = { campsiteId, photoId ->
-                                            campsiteRepository.getCampsitePreview(campsiteId, photoId)
-                                        },
-                                        loadPhoto = { campsiteId, photoId ->
-                                            campsiteRepository.getCampsitePhoto(campsiteId, photoId)
-                                        }
-                                    )
-                                } else if (ownerController != null) {
+                                if (ownerController != null) {
                                     val detailId = ownerDetailCampsiteId
 
                                     if (ownerShowReservations) {
                                         ownerReservationsView.Display(
                                             ownerId = currentUser.getUid(),
-                                            onBack = { ownerShowReservations = false }
+                                            onBack = { ownerShowReservations = false },
+                                            onMessageEntrant = { reservationId ->
+                                                inboxReservationId = reservationId
+                                                navigationModel.navigateTo(Screen.INBOX)
+                                            }
                                         )
                                     } else if (ownerShowLottery) {
                                         if (ownerEditingLottery) {
@@ -640,8 +648,45 @@ fun CamplyApp() {
                             }
 
                             Screen.WAIT_LIST -> ownerWaitlistView.Display(currentUser.getUid())
-
+                            Screen.PANEL -> {
+                                if (currentUser is AdminUser) {
+                                    adminPanelView.Display(
+                                        controller = adminPanelController,
+                                        model = adminPanelModel,
+                                        campsiteController = adminController,
+                                        campsiteModel = adminModel,
+                                        campsiteBrowseView = adminCampsiteBrowseView,
+                                        profileController = adminProfileController,
+                                        profileModel = adminProfileModel,
+                                        profileBrowseView = adminProfileBrowseView,
+                                        detailView = campsiteDetailView,
+                                        currentUserId = currentUser.getUid(),
+                                        loadPhotoPreview = { campsiteId, photoId ->
+                                            campsiteRepository.getCampsitePreview(campsiteId, photoId)
+                                        },
+                                        loadPhoto = { campsiteId, photoId ->
+                                            campsiteRepository.getCampsitePhoto(campsiteId, photoId)
+                                        }
+                                    )
+                                }
+                            }
                             Screen.PROFILE -> userProfileView.Display(currentUser, userController)
+
+                            Screen.INBOX -> {
+                                val role = when (currentUser.getRole()) {
+                                    "owner" -> ConversationRole.OWNER
+                                    "entrant" -> ConversationRole.ENTRANT
+                                    else -> null
+                                }
+                                if (role != null) {
+                                    inboxView.Display(currentUser.getUid(), role, inboxReservationId) {
+                                        navigationModel.navigateTo(
+                                            if (role == ConversationRole.OWNER) Screen.CAMPSITE_LIST
+                                            else Screen.RESERVATIONS
+                                        )
+                                    }
+                                }
+                            }
 
                             Screen.NOTIFICATIONS -> notificationsView.Display(
                                 currentUser.getUid(), currentUser.getRole(), manageObservation = false
