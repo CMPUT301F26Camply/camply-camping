@@ -35,6 +35,7 @@ data class OwnerWaitlistLottery(
  * Stores the state of the owner's waitlist screen (US 02.09.01).
  *
  * The owner first sees their lotteries, then selects one to see the entrants who joined it.
+ * From a lottery's waitlist, the owner can send a notification to its entrants (US 02.10.01).
  */
 class OwnerWaitlistModel {
 
@@ -58,6 +59,30 @@ class OwnerWaitlistModel {
 
     var entrantsError: String? by mutableStateOf(null)
         private set
+
+    var isComposing: Boolean by mutableStateOf(false)
+        private set
+
+    var message: String by mutableStateOf("")
+        private set
+
+    var isSending: Boolean by mutableStateOf(false)
+        private set
+
+    var sendError: String? by mutableStateOf(null)
+        private set
+
+    // The number of entrants the last message was sent to, or null if nothing was sent.
+    var sentCount: Int? by mutableStateOf(null)
+        private set
+
+    // Shared by every record of the current message, so a retry cannot send it twice.
+    var messageEventId: String? by mutableStateOf(null)
+        private set
+
+    /** Whether the message can be sent to the selected lottery's entrants. */
+    val canSend: Boolean
+        get() = message.isNotBlank() && entrants.isNotEmpty() && !isSending
 
     /**
      * Updates the model when the owner's lotteries are being loaded.
@@ -101,6 +126,7 @@ class OwnerWaitlistModel {
         entrants = emptyList()
         entrantsError = null
         isLoadingEntrants = true
+        clearMessage()
     }
 
     /**
@@ -141,5 +167,87 @@ class OwnerWaitlistModel {
         entrants = emptyList()
         isLoadingEntrants = false
         entrantsError = null
+        clearMessage()
+    }
+
+    /**
+     * Opens the message box for the selected lottery's entrants.
+     */
+    fun startComposing() {
+        isComposing = true
+        sentCount = null
+        sendError = null
+    }
+
+    /**
+     * Closes the message box and discards the draft.
+     */
+    fun cancelComposing() = clearMessage()
+
+    /**
+     * Updates the message being written, up to [MAX_MESSAGE_LENGTH] characters.
+     *
+     * A changed message is a new send, so it gets a new event ID when it is sent.
+     *
+     * @param text The message typed by the owner.
+     */
+    fun updateMessage(text: String) {
+        val limited = text.take(MAX_MESSAGE_LENGTH)
+        if (limited != message) messageEventId = null
+        message = limited
+    }
+
+    /**
+     * Updates the model while the message is being sent.
+     *
+     * @param eventId The event ID shared by every record of this message.
+     */
+    fun showSending(eventId: String) {
+        messageEventId = eventId
+        isSending = true
+        sendError = null
+    }
+
+    /**
+     * Updates the model after the message was sent to every entrant.
+     *
+     * Results for a lottery that is no longer selected are ignored.
+     *
+     * @param lotteryId The ID of the lottery the message was sent for.
+     * @param count The number of entrants who received the message.
+     */
+    fun showSent(lotteryId: String, count: Int) {
+        if (selectedLottery?.lottery?.id != lotteryId) return
+        clearMessage()
+        sentCount = count
+    }
+
+    /**
+     * Updates the model when the message could not be sent to every entrant.
+     *
+     * Keeps the draft and its event ID, so trying again only reaches the entrants who missed it.
+     * Errors for a lottery that is no longer selected are ignored.
+     *
+     * @param lotteryId The ID of the lottery the message was sent for.
+     * @param error The error message to display.
+     */
+    fun showSendError(lotteryId: String, error: String) {
+        if (selectedLottery?.lottery?.id != lotteryId) return
+        isSending = false
+        sendError = error
+    }
+
+    private fun clearMessage() {
+        isComposing = false
+        message = ""
+        isSending = false
+        sendError = null
+        sentCount = null
+        messageEventId = null
+    }
+
+    companion object {
+        /** The longest message an owner can send. */
+        const val MAX_MESSAGE_LENGTH = 500
     }
 }

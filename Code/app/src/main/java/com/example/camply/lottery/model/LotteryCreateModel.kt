@@ -98,4 +98,18 @@ class LotteryCreateModel {
 
     /** @param id the Firestore id of the lottery that was just created */
     fun showSaved(id: String) { savedId = id; errorMessage = null }
+
+    // clear old form's data
+    fun reset() {
+        selectedCampsiteIds.clear()
+        registrationStart = ""
+        registrationEnd = ""
+        bookingStart = ""
+        bookingEnd = ""
+        stayFrom = ""
+        stayTo = ""
+        winnerCount = "1"
+        errorMessage = null
+        savedId = null
+    }
 }

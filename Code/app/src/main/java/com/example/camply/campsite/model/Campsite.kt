@@ -13,7 +13,7 @@ data class DateRange(
     /** US 01.01.02: true if this range fully contains the requested stay. */
     fun covers(stayFrom: String, stayTo: String): Boolean = from <= stayFrom && to >= stayTo
 }
-//data class location(){}
+
 /**
  *
  * US 01.01.05 / 02.01.02: name, location (park or area, e.g. "Banff"), description, amenities,
@@ -116,23 +116,23 @@ class Campsite(
     fun validationCheck(): List<String> {
         val errorList = mutableListOf<String>()
 
-        if (name.isBlank()){
+        if (name.isBlank()) {
             errorList.add("Please enter campsite name")
         }
 
-        if (location.isBlank()){
+        if (location.isBlank()) {
             errorList.add("Please enter campsite location")
         }
 
-        if (rules.isBlank()){
+        if (rules.isBlank()) {
             errorList.add("Please enter rules and policies for this campsite")
         }
 
-        if (maxOccupancy <= 0){
+        if (maxOccupancy <= 0) {
             errorList.add("Please enter a valid occupancy number")
         }
 
-        if (price <= 0){
+        if (price <= 0) {
             errorList.add("Please enter a valid price")
         }
 

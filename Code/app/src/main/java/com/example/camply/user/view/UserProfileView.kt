@@ -54,6 +54,7 @@ import com.example.camply.shared.view.CamplyScreen
 import com.example.camply.shared.view.ErrorMessage
 import com.example.camply.shared.view.OrangeCard
 import com.example.camply.shared.view.PrimaryButton
+import com.example.camply.shared.view.SecondaryButton // ▶ NEW
 import com.example.camply.shared.view.camplyTextFieldColors
 import com.example.camply.user.controller.UserController
 import com.example.camply.user.model.User
@@ -75,9 +76,14 @@ class UserProfileView {
      *
      * @param user The currently signed-in user.
      * @param userController The controller handling profile updates.
+     * @param onOpenSettings Opens the Settings screen (US 01.11.01); null hides the button.
      */
     @Composable
-    fun Display(user: User, userController: UserController) {
+    fun Display(
+        user: User,
+        userController: UserController,
+        onOpenSettings: (() -> Unit)? = null // ▶ NEW
+    ) {
         val profile = user.getProfile()
 
 
@@ -159,9 +165,9 @@ class UserProfileView {
                         }
                     } finally {
                         isProcessingImage = false
-                     }
+                    }
                 }
-           }
+            }
         }
 
         val isImageBusy = isLoadingProfileImage || isSavingProfileImage || isProcessingImage
@@ -384,6 +390,12 @@ class UserProfileView {
                     },
                     enabled = !isSavingProfile
                 )
+
+                // ▶ NEW
+                if (onOpenSettings != null) {
+                    Spacer(Modifier.height(8.dp))
+                    SecondaryButton("Settings & policies", onOpenSettings)
+                }
             }
         }
     }

@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,8 +29,11 @@ import com.example.camply.lottery.model.WaitlistEntrant
 import com.example.camply.shared.view.CamplyPalette
 import com.example.camply.shared.view.CamplyScreen
 import com.example.camply.shared.view.CardLabel
+import com.example.camply.shared.view.CamplyTextField
 import com.example.camply.shared.view.CenteredMessage
+import com.example.camply.shared.view.ErrorMessage
 import com.example.camply.shared.view.OrangeCard
+import com.example.camply.shared.view.PrimaryButton
 import com.example.camply.shared.view.SecondaryButton
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -37,7 +41,8 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Displays the owner's lotteries and the entrants who joined each one (US 02.09.01).
+ * Displays the owner's lotteries and the entrants who joined each one (US 02.09.01),
+ * and lets the owner send a notification to a lottery's entrants (US 02.10.01).
  *
  * @param model The model containing the screen state.
  * @param controller The controller used to load lotteries and their entrants.
@@ -68,7 +73,7 @@ class OwnerWaitlistView(
                     scope.launch { controller.loadLotteries(ownerId) }
                 }
 
-                selected != null -> WaitlistDetails(selected)
+                selected != null -> WaitlistDetails(selected, ownerId)
 
                 model.lotteries.isEmpty() -> CenteredMessage("You have no lotteries yet.")
 
@@ -92,13 +97,25 @@ class OwnerWaitlistView(
 
     // Shows the selected lottery and everyone who joined it, whatever their draw status.
     @Composable
-    private fun WaitlistDetails(item: OwnerWaitlistLottery) {
+    private fun WaitlistDetails(item: OwnerWaitlistLottery, ownerId: String) {
         val scope = rememberCoroutineScope()
         val error = model.entrantsError
 
-        BackHandler { controller.onBackToLotteries() }
+        // Back first closes the message box, and does nothing while a message is sending.
+        BackHandler {
+            when {
+                model.isSending -> Unit
+                model.isComposing -> controller.onCancelMessage()
+                else -> controller.onBackToLotteries()
+            }
+        }
 
-        SecondaryButton("Back to lotteries", onClick = controller::onBackToLotteries)
+        // Leaving mid-send would cancel it, so the button waits until sending finishes.
+        SecondaryButton(
+            "Back to lotteries",
+            onClick = controller::onBackToLotteries,
+            enabled = !model.isSending
+        )
         Spacer(Modifier.height(12.dp))
 
         OrangeCard {
@@ -109,6 +126,11 @@ class OwnerWaitlistView(
             }
         }
         Spacer(Modifier.height(12.dp))
+
+        if (!model.isLoadingEntrants && error == null && model.entrants.isNotEmpty()) {
+            MessageSection(ownerId)
+            Spacer(Modifier.height(12.dp))
+        }
 
         when {
             model.isLoadingEntrants -> LoadingIndicator()
@@ -124,6 +146,50 @@ class OwnerWaitlistView(
                 items(model.entrants, key = { it.entrantId }) { entrant ->
                     OrangeCard { EntrantSummary(entrant) }
                 }
+            }
+        }
+    }
+
+    // Lets the owner write and send a notification to every entrant on the waitlist.
+    @Composable
+    private fun MessageSection(ownerId: String) {
+        val scope = rememberCoroutineScope()
+
+        if (!model.isComposing) {
+            PrimaryButton("Send notification", onClick = controller::onStartMessage)
+            model.sentCount?.let { count ->
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    if (count == 1) "Sent to 1 entrant." else "Sent to $count entrants.",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            return
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            CamplyTextField(
+                value = model.message,
+                onValueChange = controller::onMessageChanged,
+                label = "Message",
+                placeholder = "Write a message to every entrant",
+                enabled = !model.isSending,
+                singleLine = false
+            )
+            Text(
+                "${model.message.length}/${OwnerWaitlistModel.MAX_MESSAGE_LENGTH}",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            model.sendError?.let { ErrorMessage(it) }
+            PrimaryButton(
+                if (model.isSending) "Sending…" else "Send",
+                onClick = { scope.launch { controller.onSendNotification(ownerId) } },
+                enabled = model.canSend
+            )
+            if (!model.isSending) {
+                SecondaryButton("Cancel", onClick = controller::onCancelMessage)
             }
         }
     }
