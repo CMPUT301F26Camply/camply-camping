@@ -85,7 +85,7 @@ class UpdateLotteryController (
                 model.showError(error)
                 return false
             }
-            if (overlapsAnotherLottery(existing, registrationStart, registrationEnd)) {
+            if (overlapsAnotherLottery(existing, stayStart, stayEnd)) {
                 model.showError("Lottery for these dates already exists")
                 return false
             }
@@ -114,15 +114,15 @@ class UpdateLotteryController (
 
     private suspend fun overlapsAnotherLottery(
         existing: Lottery,
-        registrationStart: String,
-        registrationEnd: String
+        lotteryStart: String,
+        lotteryEnd: String
     ): Boolean {
         return try {
             lotteryRepository.getLotteries().any { other ->
                 other.id != existing.id &&
                         other.status == LotteryStatus.OPEN &&
-                        other.registrationStart == registrationStart &&
-                        other.registrationEnd == registrationEnd &&
+                        other.lotteryStart == lotteryStart &&
+                        other.lotteryEnd == lotteryEnd &&
                         other.campsiteIds.any { it in existing.campsiteIds }
             }
         } catch (e: CancellationException) {
