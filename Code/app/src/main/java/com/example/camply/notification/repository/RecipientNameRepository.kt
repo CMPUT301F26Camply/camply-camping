@@ -6,7 +6,7 @@ import kotlinx.coroutines.tasks.await
 /**
  * Defines how recipient names are retrieved for a sent notification's details (US 02.10.02).
  */
-interface RecipientNameRepository {
+fun interface RecipientNameRepository {
     /**
      * Retrieves a user's name.
      *

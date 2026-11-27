@@ -24,6 +24,10 @@ class OwnerReservationsModel {
     var campsites: List<OwnerCampsiteReservations> by mutableStateOf(emptyList())
         private set
 
+    /** Profile display names keyed by the entrant IDs stored on reservations. */
+    var entrantNames: Map<String, String> by mutableStateOf(emptyMap())
+        private set
+
     // Currently selected reservation filters, with an empty set representing All
     var selectedFilters: Set<String> by mutableStateOf(emptySet())
         private set
@@ -101,9 +105,11 @@ class OwnerReservationsModel {
      * Updates the owner's campsite and reservation data after loading.
      *
      * @param list The owner's campsites and their reservations.
+     * @param entrantNames Display names resolved for those reservations.
      */
-    fun updateReservations(list: List<OwnerCampsiteReservations>) {
+    fun updateReservations(list: List<OwnerCampsiteReservations>, entrantNames: Map<String, String>) {
         campsites = list
+        this.entrantNames = entrantNames
         isLoading = false
         errorMessage = null
     }

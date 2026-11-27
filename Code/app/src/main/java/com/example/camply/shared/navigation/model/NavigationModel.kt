@@ -40,6 +40,7 @@ class NavigationModel {
         NavBarItem(Screen.BROWSE, "Browse", R.drawable.campsite_icon),
         NavBarItem(Screen.LOTTERIES, "Lotteries", R.drawable.lottery_icon),
         NavBarItem(Screen.RESERVATIONS, "Reservations", R.drawable.reservation_icon),
+        NavBarItem(Screen.INBOX, "Inbox", R.drawable.inbox_icon),
         // TODO :In here for now but need to change flow of notifications to be inside inbox...
         NavBarItem(Screen.NOTIFICATIONS, "Notifications", R.drawable.inbox_icon)
     )
