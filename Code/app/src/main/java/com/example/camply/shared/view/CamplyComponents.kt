@@ -258,15 +258,18 @@ fun PrimaryButton(
  * @param text Button label.
  * @param onClick Called when the button is clicked.
  * @param modifier Modifier applied to the button.
+ * @param enabled Whether the button can be clicked.
  */
 @Composable
 fun SecondaryButton(
     text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 52.dp),

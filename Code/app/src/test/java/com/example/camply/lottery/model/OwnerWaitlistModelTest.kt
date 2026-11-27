@@ -9,7 +9,7 @@ import org.junit.Test
 import java.util.Date
 
 /**
- * Unit tests for the state of the owner's waitlist screen (US 02.09.01).
+ * Unit tests for the state of the owner's waitlist screen (US 02.09.01, US 02.10.01).
  */
 class OwnerWaitlistModelTest {
 
@@ -124,6 +124,124 @@ class OwnerWaitlistModelTest {
         assertNull(model.selectedLottery)
         assertTrue(model.entrants.isEmpty())
         assertFalse(model.isLoadingEntrants)
+    }
+
+    /**
+     * Checks that a message can only be sent when it has text and the waitlist has entrants.
+     */
+    @Test
+    fun canSend_requiresMessageAndEntrants() {
+        model.selectLottery(lottery("lottery1"))
+        model.startComposing()
+        model.updateMessage("Quiet hours start at 10 PM.")
+        assertFalse(model.canSend)
+
+        model.showEntrants("lottery1", listOf(entrant("entrant1", 1000)))
+        assertTrue(model.canSend)
+
+        model.updateMessage("   ")
+        assertFalse(model.canSend)
+    }
+
+    /**
+     * Checks that a message longer than the limit is cut to the limit.
+     */
+    @Test
+    fun updateMessage_overLimit_keepsLimit() {
+        model.updateMessage("a".repeat(OwnerWaitlistModel.MAX_MESSAGE_LENGTH + 1))
+
+        assertEquals(OwnerWaitlistModel.MAX_MESSAGE_LENGTH, model.message.length)
+    }
+
+    /**
+     * Checks that a failed send keeps the draft and its event ID so a retry reaches only the
+     * entrants who missed it, while editing the message gives it a new event ID.
+     */
+    @Test
+    fun showSendError_keepsEventIdUntilMessageChanges() {
+        composeFor("lottery1")
+        model.showSending("event1")
+
+        model.showSendError("lottery1", "Could not send to every entrant.")
+
+        assertEquals("event1", model.messageEventId)
+        assertEquals("Quiet hours start at 10 PM.", model.message)
+        assertEquals("Could not send to every entrant.", model.sendError)
+        assertFalse(model.isSending)
+
+        model.updateMessage("Quiet hours start at 11 PM.")
+
+        assertNull(model.messageEventId)
+    }
+
+    /**
+     * Checks that a successful send closes the message box and shows how many entrants got it.
+     */
+    @Test
+    fun showSent_closesMessageAndShowsCount() {
+        composeFor("lottery1")
+        model.showSending("event1")
+
+        model.showSent("lottery1", 1)
+
+        assertEquals(1, model.sentCount)
+        assertFalse(model.isComposing)
+        assertFalse(model.isSending)
+        assertEquals("", model.message)
+        assertNull(model.messageEventId)
+    }
+
+    /**
+     * Checks that a send result for a lottery that is no longer selected is ignored.
+     */
+    @Test
+    fun showSent_otherLottery_isIgnored() {
+        composeFor("lottery1")
+        model.showSending("event1")
+        model.selectLottery(lottery("lottery2"))
+
+        model.showSent("lottery1", 1)
+        model.showSendError("lottery1", "Could not send to every entrant.")
+
+        assertNull(model.sentCount)
+        assertNull(model.sendError)
+    }
+
+    /**
+     * Checks that cancelling discards the draft.
+     */
+    @Test
+    fun cancelComposing_discardsDraft() {
+        composeFor("lottery1")
+
+        model.cancelComposing()
+
+        assertFalse(model.isComposing)
+        assertEquals("", model.message)
+    }
+
+    /**
+     * Checks that going back to the lottery list clears the message state.
+     */
+    @Test
+    fun clearSelection_clearsMessage() {
+        composeFor("lottery1")
+        model.showSending("event1")
+
+        model.clearSelection()
+
+        assertFalse(model.isComposing)
+        assertFalse(model.isSending)
+        assertEquals("", model.message)
+        assertNull(model.messageEventId)
+    }
+
+    // Selects a lottery with one entrant and starts writing a message to it.
+    private fun composeFor(lotteryId: String) {
+        model.selectLottery(lottery(lotteryId))
+        model.showEntrants(lotteryId, listOf(entrant("entrant1", 1000)))
+        model.startComposing()
+        model.updateMessage("Quiet hours start at 10 PM.")
     }
 
     private fun lottery(id: String) = OwnerWaitlistLottery(
