@@ -739,6 +739,19 @@ fun CamplyApp() {
                                     ({ navigationController.navigateTo(Screen.SETTINGS) })
                                 } else {
                                     null
+                                },
+                                onDeleteProfile = if (currentUser.getRole() == "entrant") {
+                                    { entrant ->
+                                        val removed = profileRemovalController.removeProfile(entrant)
+                                        if (removed) {
+                                            userModel.leaveDeletedAccount()
+                                            null
+                                        } else {
+                                            profileRemovalModel.error ?: "Could not remove the profile."
+                                        }
+                                    }
+                                } else {
+                                    null
                                 }
                             )
 

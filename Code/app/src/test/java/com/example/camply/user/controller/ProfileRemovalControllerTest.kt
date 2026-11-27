@@ -215,7 +215,49 @@ class ProfileRemovalControllerTest {
         assertEquals(listOf("current" to ENTRANT_ID), profileRepository.deletedEntries)
         assertEquals(listOf(ENTRANT_ID), profileRepository.deletedUsers)
     }
+    /**
+     * Checks the entrant deletion rules for lotteries and reservations together.
+     *
+     * A lottery stays when its end date is before today. A blank end, an end of today,
+     * or a later end removes the entry. A reservation is removed only when it is
+     * confirmed and its start date is after today.
+     */
+    @Test
+    fun removeProfile_entrant_appliesLotteryAndReservationRules() = runBlocking {
+        lotteryRepository.joined = listOf(
+            lottery("ended", end = "2026-11-26"),
+            lottery("endsToday", end = TODAY),
+            lottery("open", end = "2026-12-31"),
+            lottery("noEnd", end = "")
+        )
+        reservationRepository.reservations = listOf(
+            reservation("started", from = "2026-11-01", status = ReservationStatus.CONFIRMED),
+            reservation("startsToday", from = TODAY, status = ReservationStatus.CONFIRMED),
+            reservation("future", from = "2026-12-01", status = ReservationStatus.CONFIRMED),
+            reservation("cancelledFuture", from = "2026-12-02", status = ReservationStatus.CANCELLED),
+            reservation("rejectedFuture", from = "2026-12-03", status = ReservationStatus.REJECTED)
+        )
+        campsiteRepository.campsites = listOf(campsite("camp1"))
 
+        val removed = controller.removeProfile(entrant())
+
+        assertTrue(removed)
+        assertEquals(
+            listOf("endsToday" to ENTRANT_ID, "open" to ENTRANT_ID, "noEnd" to ENTRANT_ID),
+            profileRepository.deletedEntries
+        )
+        assertEquals(listOf("future"), profileRepository.deletedReservations)
+        assertEquals(listOf(ENTRANT_ID), profileRepository.deletedUsers)
+        assertEquals(
+            listOf(
+                NotificationType.ENTRANT_REMOVED_FROM_LOTTERY,
+                NotificationType.ENTRANT_REMOVED_FROM_LOTTERY,
+                NotificationType.ENTRANT_REMOVED_FROM_LOTTERY,
+                NotificationType.RESERVATION_CANCELLED
+            ),
+            notificationRepository.sent.map { it.type }
+        )
+    }
     private fun owner() = CampsiteOwnerUser(OWNER_ID, Profile("Owner", "owner@example.com", "1"))
 
     private fun entrant() = EntrantUser(ENTRANT_ID, Profile("Entrant", "entrant@example.com", "2"))

@@ -190,6 +190,23 @@ class UserModel {
             }
         }
     }
+    /**
+     * Drops the signed-in account after this device deleted its own profile.
+     * The next signup uses the new UID from replaceIdentity.
+     */
+    fun leaveDeletedAccount() {
+        loadedUser = null
+        currentStartupState = "loading"
+        deviceIdentityService.replaceIdentity { successful ->
+            val newUid = deviceIdentityService.getCurrentUserId()
+            if (successful && newUid != null) {
+                firebaseUid = newUid
+                currentStartupState = "signup"
+            } else {
+                currentStartupState = "error"
+            }
+        }
+    }
 
 
     /**
