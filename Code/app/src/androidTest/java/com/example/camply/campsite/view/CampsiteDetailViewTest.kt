@@ -2,6 +2,8 @@ package com.example.camply.campsite.view
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -14,7 +16,13 @@ import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteDetailModel
 import com.example.camply.campsite.model.CampsiteRepository
 import com.example.camply.campsite.service.PreparedCampsiteImages
+import com.google.zxing.BarcodeFormat
+import com.journeyapps.barcodescanner.BarcodeEncoder
 import junit.framework.TestCase.assertEquals
+import junit.framework.TestCase.assertFalse
+import junit.framework.TestCase.assertNotNull
+import junit.framework.TestCase.assertNull
+import junit.framework.TestCase.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -43,13 +51,15 @@ class CampsiteDetailViewTest {
 
     private lateinit var model: CampsiteDetailModel
     private lateinit var repository: TestCampsiteRepository
+    private lateinit var controller: CampsiteDetailController
     private lateinit var view: CampsiteDetailView
 
     @Before
     fun setUp() {
         model = CampsiteDetailModel()
         repository = TestCampsiteRepository(campsite)
-        view = CampsiteDetailView(model, CampsiteDetailController(model, repository))
+        controller = CampsiteDetailController(model, repository)
+        view = CampsiteDetailView(model, controller)
     }
 
     /**
@@ -129,13 +139,15 @@ class CampsiteDetailViewTest {
         currentUserId: String? = null,
         onEdit: ((Campsite) -> Unit)? = null,
         onBack: () -> Unit = {},
-        showLotteryContent: Boolean = false
+        showLotteryContent: Boolean = false,
+        showQrButton: Boolean = false
     ) {
         compose.setContent {
             MaterialTheme {
                 view.Display(
                     campsiteId = "site1",
                     onBack = onBack,
+                    showQRbutton = showQrButton,
                     currentUserId = currentUserId,
                     onEdit = onEdit,
                     extraContent = {
@@ -148,6 +160,58 @@ class CampsiteDetailViewTest {
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("Pine Ridge").fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    // Tapping the QR button opens the dialog, and "Close" dismisses it
+    @Test
+    fun qrButton_opensAndCloseTest() {
+        showView(showQrButton = true)
+
+        compose.onNodeWithContentDescription("QR code for Pine Ridge").assertDoesNotExist()
+
+        compose.onNodeWithContentDescription("Generate QR code").performClick()
+        compose.onNodeWithContentDescription("QR code for Pine Ridge").assertIsDisplayed()
+        compose.onAllNodesWithText("Pine Ridge").assertCountEquals(2)
+
+        compose.onNodeWithText("Close").performClick()
+        compose.onNodeWithContentDescription("QR code for Pine Ridge").assertDoesNotExist()
+    }
+
+    // The QR code holds the campsite link: it matches a QR code built from that link
+    @Test
+    fun generateQrCode_containsCampsiteLink() {
+        controller.generateQRcode(campsite)
+
+        val expected = BarcodeEncoder().encodeBitmap(
+            "camply://campsite/site1",
+            BarcodeFormat.QR_CODE,
+            512, 512
+        )
+
+        assertTrue(model.qrCode!!.asAndroidBitmap().sameAs(expected))
+    }
+
+    // Each campsite gets a different QR code
+    @Test
+    fun generateQrCode_isUniquePerCampsite() {
+        controller.generateQRcode(campsite)
+        val first = model.qrCode!!.asAndroidBitmap().copy(android.graphics.Bitmap.Config.ARGB_8888, false)
+
+        controller.generateQRcode(Campsite(id = "xyz789", name = "Jasper Lakeside"))
+        val second = model.qrCode!!.asAndroidBitmap()
+
+        assertFalse(first.sameAs(second))
+    }
+
+    // Opening another campsite clears the previous campsite's QR code
+    @Test
+    fun showCampsite_clearsQrCode() {
+        controller.generateQRcode(campsite)
+        assertNotNull(model.qrCode)
+
+        model.showCampsite(Campsite(id = "xyz789", name = "Jasper Lakeside"))
+
+        assertNull(model.qrCode)
     }
 
     /**

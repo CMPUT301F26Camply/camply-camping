@@ -1,6 +1,7 @@
 package com.example.camply.reservations.controller
 
 import com.example.camply.campsite.model.CampsiteRepository
+import com.example.camply.notification.repository.RecipientNameRepository
 import com.example.camply.reservations.model.OwnerCampsiteReservations
 import com.example.camply.reservations.model.OwnerReservationsModel
 import com.example.camply.reservations.model.Reservation
@@ -18,6 +19,7 @@ class OwnerReservationsController(
     private val model: OwnerReservationsModel,
     private val campsiteRepository: CampsiteRepository,
     private val reservationRepository: ReservationRepository,
+    private val entrantNameRepository: RecipientNameRepository,
     private val today: () -> String = { LocalDate.now().toString() }
 ) {
     private var loadedOwnerId: String? = null
@@ -47,7 +49,15 @@ class OwnerReservationsController(
                 OwnerCampsiteReservations(campsite, reservations)
             }
 
-            model.updateReservations(results)
+            val entrantNames = results.asSequence()
+                .flatMap { it.reservations.asSequence() }
+                .map { it.entrantId }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .toList()
+                .mapNotNull { id -> findEntrantName(id)?.let { id to it } }
+                .toMap()
+            model.updateReservations(results, entrantNames)
             loadedOwnerId = ownerId
         } catch (e: CancellationException) {
             throw e
@@ -56,6 +66,14 @@ class OwnerReservationsController(
                 e.message ?: "Could not load owner reservations."
             )
         }
+    }
+
+    private suspend fun findEntrantName(entrantId: String): String? = try {
+        entrantNameRepository.getRecipientName(entrantId)?.trim()?.takeIf { it.isNotEmpty() }
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: Exception) {
+        null
     }
 
     /**

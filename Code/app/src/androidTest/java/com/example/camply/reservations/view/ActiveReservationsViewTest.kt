@@ -351,7 +351,21 @@ class ActiveReservationsViewTest {
     }
 
 
-    private fun showScreen() {
+    @Test
+    fun messageOwnerOpensSelectedReservation() {
+        campsiteRepository.campsites = listOf(campsite)
+        reservationRepository.reservations = listOf(
+            reservation("booking", "2027-06-12", "2027-06-15")
+        )
+        var selectedId: String? = null
+        showScreen { selectedId = it }
+
+        compose.onNodeWithText("Banff Pines").performClick()
+        compose.onNodeWithText("Message owner").performClick()
+        compose.runOnIdle { org.junit.Assert.assertEquals("booking", selectedId) }
+    }
+
+    private fun showScreen(onMessageOwner: ((String) -> Unit)? = null) {
         val model = ActiveReservationsModel()
         val controller = ActiveReservationsController(
             model,
@@ -362,7 +376,7 @@ class ActiveReservationsViewTest {
         )
         val view = ActiveReservationsView(model, controller)
 
-        compose.setContent { view.Display(ENTRANT_ID) }
+        compose.setContent { view.Display(ENTRANT_ID, onMessageOwner) }
     }
 
     private fun reservation(
