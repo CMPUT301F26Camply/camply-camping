@@ -22,6 +22,7 @@ import com.example.camply.notification.model.SendResult
 import com.example.camply.notification.repository.NotificationRepository
 import com.example.camply.notification.repository.RecipientNameRepository
 import com.example.camply.notification.service.NotificationService
+import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -281,6 +282,28 @@ class OwnerWaitlistViewTest {
         }
     }
 
+    /**
+     * Checks that the back button is disabled while a message is sending.
+     */
+    @Test
+    fun sendNotification_whileSending_disablesBackButton() {
+        openWaitlistWithTwoEntrants()
+        val gate = CompletableDeferred<Unit>()
+        notificationRepository.gate = gate
+
+        compose.onNodeWithText("Send notification").performClick()
+        compose.onNode(hasSetTextAction()).performTextInput(MESSAGE)
+        compose.onNodeWithText("Send").performClick()
+
+        compose.onNodeWithText("Sending…").assertIsDisplayed()
+        compose.onNodeWithText("Back to lotteries").assertIsNotEnabled()
+
+        compose.runOnIdle { gate.complete(Unit) }
+
+        compose.onNodeWithText("Sent to 2 entrants.").assertIsDisplayed()
+        compose.onNodeWithText("Back to lotteries").assertIsEnabled()
+    }
+
     private fun openWaitlistWithTwoEntrants() {
         waitlistRepository.lotteries = listOf(lottery)
         waitlistRepository.entrants = listOf(
@@ -335,14 +358,17 @@ class OwnerWaitlistViewTest {
     }
 
     /**
-     * Records notifications without accessing Firestore, and fails for chosen recipients.
+     * Records notifications without accessing Firestore, fails for chosen recipients,
+     * and can hold sends open until a test releases them.
      */
     private class TestNotificationRepository : NotificationRepository {
         val records = mutableListOf<NewNotification>()
         private val savedIds = mutableSetOf<String>()
         var failingRecipients: Set<String> = emptySet()
+        var gate: CompletableDeferred<Unit>? = null
 
         override suspend fun createIfAbsent(id: String, notification: NewNotification): SendResult {
+            gate?.await()
             if (notification.recipientId in failingRecipients) throw Exception("Could not save.")
             if (!savedIds.add(id)) return SendResult.ALREADY_EXISTS
             records.add(notification)

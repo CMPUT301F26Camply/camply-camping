@@ -110,7 +110,12 @@ class OwnerWaitlistView(
             }
         }
 
-        SecondaryButton("Back to lotteries", onClick = controller::onBackToLotteries)
+        // Leaving mid-send would cancel it, so the button waits until sending finishes.
+        SecondaryButton(
+            "Back to lotteries",
+            onClick = controller::onBackToLotteries,
+            enabled = !model.isSending
+        )
         Spacer(Modifier.height(12.dp))
 
         OrangeCard {
