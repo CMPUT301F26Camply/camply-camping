@@ -9,7 +9,11 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.Source
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
@@ -18,8 +22,40 @@ import kotlinx.coroutines.tasks.await
 class FirestoreConversationRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-) : ConversationRepository {
+) : ConversationRepository, MessageLogRepository {
     private val conversations = db.collection("conversations")
+
+    override suspend fun loadLoggedConversations(adminId: String): List<Conversation> {
+        requireLogAccess(adminId)
+        val snapshots = conversations.get(Source.SERVER).await().documents
+        return snapshots.chunked(10).flatMap { batch ->
+            coroutineScope {
+                batch.map { document ->
+                    async {
+                        // Older threads have no message count. Check for a message without reading history.
+                        val messages = document.reference.collection("messages").limit(1).get(Source.SERVER).await()
+                        if (messages.isEmpty) null else document.toObject(Conversation::class.java)
+                    }
+                }.awaitAll().filterNotNull()
+            }
+        }
+    }
+
+    override suspend fun loadMessageHistory(adminId: String, conversationId: String): List<ConversationMessage> {
+        requireLogAccess(adminId)
+        require(conversationId.isNotBlank() && '/' !in conversationId)
+        return conversations.document(conversationId).collection("messages")
+            .orderBy("sentAt").get(Source.SERVER).await().toObjects(ConversationMessage::class.java)
+    }
+
+    private suspend fun requireLogAccess(adminId: String) {
+        val user = auth.currentUser
+        if (user == null || user.uid != adminId ||
+            user.getIdToken(true).await().claims["messageLogAdmin"] != true
+        ) {
+            throw SecurityException("Message log access is restricted.")
+        }
+    }
 
     override fun observeConversations(userId: String, role: ConversationRole): Flow<List<Conversation>> =
         observe(conversations.whereEqualTo(role.firestoreField, userId), userId) { query ->

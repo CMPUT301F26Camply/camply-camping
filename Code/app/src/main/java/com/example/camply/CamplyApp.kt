@@ -54,6 +54,7 @@ import com.example.camply.lottery.view.OwnerWaitlistView
 import com.example.camply.messaging.repository.FirestoreConversationRepository
 import com.example.camply.messaging.model.ConversationRole
 import com.example.camply.messaging.view.InboxView
+import com.example.camply.messaging.view.MessageLogView
 import com.example.camply.notification.controller.NotificationsController
 import com.example.camply.notification.model.NotificationsModel
 import com.example.camply.notification.repository.FirestoreNotificationRepository
@@ -207,7 +208,9 @@ fun CamplyApp() {
             ownerReservationsController
         )
     }
-    val inboxView = remember { InboxView(FirestoreConversationRepository(), FirestoreRecipientNameRepository()) }
+    val conversationRepository = remember { FirestoreConversationRepository() }
+    val inboxView = remember { InboxView(conversationRepository, FirestoreRecipientNameRepository()) }
+    val messageLogView = remember { MessageLogView(conversationRepository, FirestoreRecipientNameRepository()) }
     var inboxReservationId by remember { mutableStateOf<String?>(null) }
 
     // Owner lottery waitlists (US 02.09.01)
@@ -634,6 +637,9 @@ fun CamplyApp() {
                             Screen.PROFILE -> userProfileView.Display(currentUser, userController)
 
                             Screen.INBOX -> {
+                                if (currentUser is AdminUser) {
+                                    messageLogView.Display(currentUser.getUid())
+                                }
                                 val role = when (currentUser.getRole()) {
                                     "owner" -> ConversationRole.OWNER
                                     "entrant" -> ConversationRole.ENTRANT

@@ -2,6 +2,12 @@
 // project's active Firestore rules. Remove any overlapping broad allow rules
 // for conversations and messages before relying on these restrictions.
 match /conversations/{reservationId} {
+  // Grant messageLogAdmin: true to the intended AdminUser's Auth UID using the
+  // Firebase Admin SDK in a trusted environment. Preserve any existing claims.
+  function canReviewMessageLogs() {
+    return request.auth != null && request.auth.token.get('messageLogAdmin', false) == true;
+  }
+
   function isParticipant(data) {
     return request.auth.uid == data.ownerId || request.auth.uid == data.entrantId;
   }
@@ -36,6 +42,7 @@ match /conversations/{reservationId} {
   allow get: if request.auth != null &&
     (resource == null ? canOpenReservation() : isParticipant(resource.data));
   allow list: if request.auth != null && isParticipant(resource.data);
+  allow get, list: if canReviewMessageLogs();
   allow create: if request.auth != null && canOpenReservation() && validConversation();
   allow update: if request.auth != null && isParticipant(resource.data) &&
     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt']) &&
@@ -48,6 +55,7 @@ match /conversations/{reservationId} {
     }
 
     allow read: if canAccessConversation();
+    allow read: if canReviewMessageLogs();
     allow create: if canAccessConversation() &&
       request.resource.data.keys().hasOnly(['senderId', 'text', 'sentAt']) &&
       request.resource.data.senderId == request.auth.uid &&
