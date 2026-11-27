@@ -110,6 +110,9 @@ import com.example.camply.user.view.AdminProfileBrowseView
 import com.example.camply.lottery.controller.UpdateLotteryController
 import com.example.camply.lottery.model.UpdateLotteryModel
 import com.example.camply.lottery.view.UpdateLotteryView
+import com.example.camply.user.controller.AdminImageBrowseController
+import com.example.camply.user.model.AdminImageBrowseModel
+import com.example.camply.user.view.AdminImageBrowseView
 
 /**
  * Displays the Camply application and manages its startup screens
@@ -272,6 +275,12 @@ fun CamplyApp() {
     val adminPanelController = remember { AdminPanelController(adminPanelModel) }
     val adminPanelView = remember { AdminPanelView() }
     val adminProfileBrowseView = remember { AdminProfileBrowseView() }
+
+    // Admin image browsing (US 03.06.01)
+    val adminImageBrowseModel = remember { AdminImageBrowseModel() }
+    val adminImageBrowseController = remember { AdminImageBrowseController( adminImageBrowseModel, UserRepository(),campsiteRepository) }
+    val adminImageBrowseView = remember { AdminImageBrowseView() }
+
     // Shared notifications
     val notificationsModel = remember { NotificationsModel() }
     val notificationsController = remember {
@@ -674,8 +683,14 @@ fun CamplyApp() {
                                                     campsiteId,
                                                     photoId
                                                 )
-                                            }
-
+                                            },
+                                            isLoadingCampsiteList = ownerController.loadingCheck,
+                                            loadingCampsiteListFailed = ownerController.loadingCampsiteListFailed,
+                                            onRetryLoadingCampsiteList = {
+                                                scope.launch {
+                                                    ownerController.loadCampsite()
+                                                }
+                                            },
                                         )
                                     }
                                 }
@@ -709,6 +724,9 @@ fun CamplyApp() {
                                         profileController = adminProfileController,
                                         profileModel = adminProfileModel,
                                         profileBrowseView = adminProfileBrowseView,
+                                        imageBrowseController = adminImageBrowseController,
+                                        imageBrowseModel = adminImageBrowseModel,
+                                        imageBrowseView = adminImageBrowseView,
                                         detailView = campsiteDetailView,
                                         currentUserId = currentUser.getUid(),
                                         loadPhotoPreview = { campsiteId, photoId ->

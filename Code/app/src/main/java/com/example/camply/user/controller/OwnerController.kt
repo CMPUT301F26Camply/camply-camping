@@ -28,15 +28,17 @@ class OwnerController(
 ) {
     var campsites by mutableStateOf<List<Campsite>>(emptyList())
     var errors by mutableStateOf<List<String>>(emptyList())
-    var loadingCheck by mutableStateOf(false)
+    var loadingCheck by mutableStateOf(true)
+    // Indicates whether loading the owner's campsite list failed
+    var loadingCampsiteListFailed by mutableStateOf(false)
 
     private val imageService = CampsiteImageService()
 
     // load campsites for the owner from the firebase db
     suspend fun loadCampsite() {
-        if(campsites.isEmpty()){
-            loadingCheck = true
-        }
+        loadingCheck = true
+        loadingCampsiteListFailed = false
+
         try {
             campsiteOwner.loadExistingCampsite(repository.getCampsitesByOwner(campsiteOwner.getUid()))
             campsites = campsiteOwner.campsites.toList()
@@ -45,8 +47,8 @@ class OwnerController(
             throw e
         } catch (e: Exception) {
             errors = listOf(e.message ?: "Could not load campsites")
-        }
-        finally {
+            loadingCampsiteListFailed = true
+        } finally {
             loadingCheck = false
         }
     }

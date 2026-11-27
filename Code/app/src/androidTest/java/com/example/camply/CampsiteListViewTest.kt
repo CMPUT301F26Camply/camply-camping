@@ -1,13 +1,18 @@
 package com.example.camply
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasProgressBarRangeInfo
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollTo
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.user.view.CampsiteListView
 import org.junit.Assert.assertEquals
@@ -331,5 +336,156 @@ class CampsiteListViewTest {
         assertEquals("pine", opened?.id)
     }
 
+    /**
+     * While campsites are loading, the progress indicator should
+     * appear instead of the empty campsite message.
+     */
+    @Test
+    fun loading_showsLoadingIndicator() {
+        composeRule.setContent {
+            CampsiteListView().Display(
+                ownerName = "Owner 1",
+                campsites = emptyList(),
+                addCampsite = {},
+                viewCampsite = {},
+                editCampsite = {},
+                lotteryRegistration = {},
+                reservationList = {},
+                viewOrCreateLottery = {},
+                loadPhotoPreview = { _, _ -> null },
+                isLoadingCampsiteList = true
+            )
+        }
 
+        composeRule.onNode( hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate))
+            .assertIsDisplayed()
+
+        composeRule.onNodeWithText(
+            "No Registered Campsites", substring = true
+        ).assertDoesNotExist()
+
+        composeRule.onNodeWithText("Try Again")
+            .assertDoesNotExist()
+    }
+
+    /**
+     * A campsite loading failure should display an error message
+     * and retry button instead of the empty campsite message.
+     */
+    @Test
+    fun loadingFailure_showsErrorMessage() {
+        composeRule.setContent {
+            CampsiteListView().Display(
+                ownerName = "Owner 1",
+                campsites = emptyList(),
+                addCampsite = {},
+                viewCampsite = {},
+                editCampsite = {},
+                lotteryRegistration = {},
+                reservationList = {},
+                viewOrCreateLottery = {},
+                loadPhotoPreview = { _, _ -> null },
+                loadingCampsiteListFailed = true
+            )
+        }
+
+        composeRule.onNodeWithText(
+            "Failed to load your campsites. Please try again."
+        ).assertIsDisplayed()
+
+        composeRule.onNodeWithText("Try Again")
+            .assertIsDisplayed()
+
+        composeRule.onNodeWithText(
+            "No Registered Campsites", substring = true
+        ).assertDoesNotExist()
+
+        composeRule.onNode(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate))
+            .assertDoesNotExist()
+    }
+
+    /**
+     * Pressing the retry button should invoke the campsite
+     * loading retry callback.
+     */
+    @Test
+    fun loadingFailure_retryButton_callsRetry() {
+        var clicked = false
+
+        composeRule.setContent {
+            CampsiteListView().Display(
+                ownerName = "Owner 1",
+                campsites = emptyList(),
+                addCampsite = {},
+                viewCampsite = {},
+                editCampsite = {},
+                lotteryRegistration = {},
+                reservationList = {},
+                viewOrCreateLottery = {},
+                loadPhotoPreview = { _, _ -> null },
+                loadingCampsiteListFailed = true,
+                onRetryLoadingCampsiteList = { clicked = true }
+            )
+        }
+
+        composeRule.onNodeWithText("Try Again")
+            .performClick()
+
+        assertEquals(true, clicked)
+    }
+
+    /**
+     * After a successful retry, the error message should disappear
+     * and the loaded campsite should be displayed.
+     */
+    @Test
+    fun retrySuccess_showsCampsites() {
+        val loadingFailed = mutableStateOf(true)
+        val campsites = mutableStateOf<List<Campsite>>(emptyList())
+
+        composeRule.setContent {
+            CampsiteListView().Display(
+                ownerName = "Owner 1",
+                campsites = campsites.value,
+                addCampsite = {},
+                viewCampsite = {},
+                editCampsite = {},
+                lotteryRegistration = {},
+                reservationList = {},
+                viewOrCreateLottery = {},
+                loadPhotoPreview = { _, _ -> null },
+                loadingCampsiteListFailed = loadingFailed.value,
+                onRetryLoadingCampsiteList = {
+                    campsites.value = listOf(
+                        Campsite(
+                            id = "a",
+                            name = "Campsite A",
+                            location = "Banff"
+                        )
+                    )
+                    loadingFailed.value = false
+                }
+            )
+        }
+        composeRule.onNodeWithText("Try Again")
+            .performClick()
+
+        composeRule.onNodeWithText(
+            "Failed to load your campsites. Please try again."
+        ).assertDoesNotExist()
+
+        composeRule.onNodeWithText("Try Again")
+            .assertDoesNotExist()
+
+        composeRule.onNodeWithText(
+            "No Registered Campsites", substring = true
+        ).assertDoesNotExist()
+
+        composeRule.onNodeWithText("Campsite A")
+            .performScrollTo()
+            .assertIsDisplayed()
+
+        composeRule.onNodeWithText("Banff")
+            .assertIsDisplayed()
+    }
 }

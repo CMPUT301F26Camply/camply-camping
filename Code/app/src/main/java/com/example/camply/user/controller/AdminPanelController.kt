@@ -4,7 +4,7 @@ import com.example.camply.user.model.AdminPanelModel
 import com.example.camply.user.model.AdminPanelPage
 import com.example.camply.user.model.User
 /**
- * Moves the admin between the panel menu, campsite browsing, and profile browsing.
+ * Moves the admin between the panel menu, campsite browsing, profile browsing, and image browsing.
  *
  * This controller only updates [AdminPanelModel]. Loading stays in
  * [AdminController] and [AdminProfileController].
@@ -19,6 +19,10 @@ class AdminPanelController(private val model: AdminPanelModel) {
     fun openProfiles() {
         model.showProfile(null)
         model.showPage(AdminPanelPage.PROFILES)
+    }
+
+    fun openImages() {
+        model.showPage(AdminPanelPage.IMAGES)
     }
     fun backToMenu() { model.showPage(null) }
     fun selectOwner(owner: User) { model.showOwner(owner) }

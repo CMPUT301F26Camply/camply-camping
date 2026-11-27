@@ -55,13 +55,22 @@ This section documents the use of generative AI tools during the development of 
   - [CampsiteFormView.kt](Code/app/src/main/java/com/example/camply/campsite/view/CampsiteFormView.kt): Redesign of campsite registration and editing, including promotional photo management, cover-photo selection, validation feedback, rules and cancellation policies, and interactive campsite location selection.
   - [CampsiteDetailView.kt](Code/app/src/main/java/com/example/camply/campsite/view/CampsiteDetailView.kt): Redesign of the campsite details screen, including photo display, saved map location, campsite information, and owner editing controls.
   - [CampsiteMap.kt](Code/app/src/main/java/com/example/camply/campsite/view/CampsiteMap.kt): Assistance with researching mapping options and implementing a reusable MapLibre map component for campsite location selection and display.
-  - [CampsitePhotoGallery.kt](Code/app/src/main/java/com/example/camply/campsite/view/CampsitePhotoGallery.kt): Implementation assistance for a reusable photo gallery with thumbnails, Firestore image loading, full-screen viewing, zoom gestures, and photo navigation.
+  - [CampsitePhotoGallery.kt](Code/app/src/main/java/com/example/camply/campsite/view/CampsitePhotoGallery.kt): Implementation assistance for a reusable photo gallery with thumbnails, Firestore image loading, full screen viewing, zoom gestures, photo navigation, optional image removal controls, and direct viewing of individual profile images.
   - [CampsiteImageService.kt](Code/app/src/main/java/com/example/camply/campsite/service/CampsiteImageService.kt): Assistance with campsite image processing, including bitmap decoding, resizing, JPEG compression, image orientation, and error handling.
+  - [CamplyCalendar.kt](Code/app/src/main/java/com/example/camply/shared/view/CamplyCalendar.kt): Assistance with designing and implementing a reusable interactive calendar component, including date range selection, allowed and blocked dates, range validation, and selection controls.
 - **Testing Assistance:** Additional AI assistance is documented in the following test files:
   - [CampsiteImageServiceTest.kt](Code/app/src/androidTest/java/com/example/camply/campsite/service/CampsiteImageServiceTest.kt): Assistance with Android instrumented tests for image compression, dimensions, aspect ratios, orientation, and error handling.
   - [CampsiteFormTest.kt](Code/app/src/androidTest/java/com/example/camply/CampsiteFormTest.kt): Assistance with a Compose UI test helper for locating editable text fields inside tagged shared input components.
+  - [CamplyCalendarTest.kt](Code/app/src/androidTest/java/com/example/camply/CamplyCalendarTest.kt): Assistance with implementing Compose UI tests for calendar navigation, date range selection, existing selections, date restrictions, clearing selections, and confirmation behaviour.
 - **Purpose:** Used ChatGPT to assist with continuing the Camply UI redesign, improving visual consistency across existing screens, and implementing selected campsite-related functionality. This included refining reusable Jetpack Compose components, updating Material 3 styling, improving campsite registration and detail screens, integrating campsite photo management and galleries, and supporting interactive map location selection.
 - **Extent of Use:** Substantive assistance with UI design, Kotlin/Jetpack Compose implementation, campsite image processing, map integration, and code refinement. Additional assistance was used for specific test implementations and troubleshooting, as documented in the corresponding test files. Suggested implementations were reviewed, adjusted, and manually tested before incorporation into the project. The overall redesign direction was discussed and agreed upon by the team.
+
+#### Admin Image Browsing (US 03.06.01)
+
+- **Prompts and References:** The relevant prompts and AI assistance declaration are documented directly in the following source file:
+  - [AdminImageBrowseView.kt](Code/app/src/main/java/com/example/camply/user/view/AdminImageBrowseView.kt): Assistance with designing and implementing the admin image browsing interface, including searchable browsing lists, image statistics, image previews, navigation, and integration with the existing reusable photo gallery and full-screen image viewer.
+- **Purpose:** Used ChatGPT to assist with implementing a consistent administrative interface for browsing and inspecting uploaded campsite promotional images and user profile images.
+- **Extent of Use:** Substantive assistance with the design, Kotlin/Jetpack Compose implementation, and refinement of the image browsing interface, as documented in the corresponding source file.
 
 #### Profile Image Management (US 01.08.02)
 
