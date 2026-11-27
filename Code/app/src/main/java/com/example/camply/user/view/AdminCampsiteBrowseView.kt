@@ -47,7 +47,8 @@ class AdminCampsiteBrowseView {
         onBackFromCampsites: () -> Unit,
         onBackFromDetails: () -> Unit,
         loadPhotoPreview: suspend (String, String) -> ByteArray?,
-        loadPhoto: suspend (String, String) -> ByteArray?
+        loadPhoto: suspend (String, String) -> ByteArray?,
+        onBackFromOwners: () -> Unit
     ) {
         val scope = rememberCoroutineScope()
 
@@ -88,7 +89,8 @@ class AdminCampsiteBrowseView {
                         scope.launch {
                             controller.loadCampsitesFor(owner.getUid())
                         }
-                    }
+                    },
+                    onBack = onBackFromOwners
                 )
             }
         }
