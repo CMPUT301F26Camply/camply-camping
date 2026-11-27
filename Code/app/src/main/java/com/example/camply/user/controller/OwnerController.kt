@@ -162,6 +162,8 @@ class OwnerController(
             latitude = latitude,
             longitude = longitude
         )
+        // ▶ NEW: the average comes from entrants' ratings, so an owner edit must not reset it.
+        edit.rating = existingSite.rating
 
         val problems = edit.validationCheck()
         if (problems.isNotEmpty()) {
@@ -236,9 +238,9 @@ class OwnerController(
         val imageContext = requireNotNull(context) {"Image context is required to process campsite photos"}
 
         return withContext(Dispatchers.IO) { photosToSave.mapValues { (_, uri) ->
-                imageService.prepareImage(imageContext, uri)
-                    ?: throw IllegalArgumentException("Could not process one of the selected campsite photos")
-            }
+            imageService.prepareImage(imageContext, uri)
+                ?: throw IllegalArgumentException("Could not process one of the selected campsite photos")
+        }
         }
     }
 

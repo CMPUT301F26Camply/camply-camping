@@ -73,6 +73,13 @@ import com.example.camply.reservations.service.BookingService
 import com.example.camply.reservations.view.ActiveReservationsView
 import com.example.camply.reservations.view.OwnerReservationsView
 import com.example.camply.reservations.view.ReservationBookingView
+import com.example.camply.review.controller.CampsiteFeedbackController // ▶ NEW
+import com.example.camply.review.model.CampsiteFeedbackModel // ▶ NEW
+import com.example.camply.review.repository.FirestoreFeedbackRepository // ▶ NEW
+import com.example.camply.review.view.CampsiteFeedbackView // ▶ NEW
+import com.example.camply.settings.controller.SettingsController // ▶ NEW
+import com.example.camply.settings.model.SettingsModel // ▶ NEW
+import com.example.camply.settings.view.SettingsView // ▶ NEW
 import com.example.camply.shared.navigation.controller.NavigationController
 import com.example.camply.shared.navigation.model.NavigationModel
 import com.example.camply.shared.navigation.model.Screen
@@ -266,6 +273,12 @@ fun CamplyApp() {
         )
     }
     val notificationsView = remember { NotificationsView(notificationsModel, notificationsController) }
+
+    // ▶ NEW: ratings/reviews repository (US 01.13.01, 01.13.02) and the entrant settings screen (US 01.11.01)
+    val feedbackRepository = remember { FirestoreFeedbackRepository() }
+    val settingsModel = remember { SettingsModel() }
+    val settingsView = remember { SettingsView(settingsModel, SettingsController(settingsModel)) }
+
     // Check for an existing Firebase user or sign in anonymously
     LaunchedEffect(Unit) {
         userModel.initializeUser()
@@ -385,6 +398,27 @@ fun CamplyApp() {
                                                     CampsiteLotteryView(lotteryModel, CampsiteLotteryController(lotteryModel))
                                                 }
                                                 lotteryView.Display()
+
+                                                // ▶ NEW: ratings and reviews (US 01.13.01, 01.13.02)
+                                                val feedbackModel = remember(campsite.id, currentUser.getUid()) {
+                                                    CampsiteFeedbackModel()
+                                                }
+                                                val feedbackView = remember(feedbackModel) {
+                                                    CampsiteFeedbackView(
+                                                        feedbackModel,
+                                                        CampsiteFeedbackController(
+                                                            feedbackModel,
+                                                            feedbackRepository,
+                                                            // ▶ NEW: update the details header's average after a rating
+                                                            onRatingSaved = { campsiteDetailController.refreshCampsite(campsite.id) }
+                                                        )
+                                                    )
+                                                }
+                                                feedbackView.Display(
+                                                    campsite.id,
+                                                    currentUser.getUid(),
+                                                    currentUser.getProfile().getName()
+                                                )
                                             }
                                         },
                                         loadPhotoPreview = { campsiteId, photoId ->
@@ -626,6 +660,22 @@ fun CamplyApp() {
                                 }
                             }
 
+                            // ▶ NEW: only entrants get the Settings entry point (US 01.11.01)
+                            Screen.PROFILE -> userProfileView.Display(
+                                currentUser,
+                                userController,
+                                onOpenSettings = if (currentUser.getRole() == "entrant") {
+                                    ({ navigationController.navigateTo(Screen.SETTINGS) })
+                                } else {
+                                    null
+                                }
+                            )
+
+                            // ▶ NEW
+                            Screen.SETTINGS -> settingsView.Display(
+                                onBack = { navigationController.navigateTo(Screen.PROFILE) }
+                            )
+
                             Screen.WAIT_LIST -> ownerWaitlistView.Display(currentUser.getUid())
                             Screen.PANEL -> {
                                 if (currentUser is AdminUser) {
@@ -649,7 +699,6 @@ fun CamplyApp() {
                                     )
                                 }
                             }
-                            Screen.PROFILE -> userProfileView.Display(currentUser, userController)
 
                             Screen.INBOX -> {
                                 val role = when (currentUser.getRole()) {
