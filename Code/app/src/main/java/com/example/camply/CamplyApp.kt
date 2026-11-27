@@ -20,10 +20,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.camply.campsite.controller.CampsiteBrowseController
 import com.example.camply.campsite.controller.CampsiteDetailController
+import com.example.camply.campsite.controller.CampsiteRemovalController
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteBrowseModel
 import com.example.camply.campsite.model.CampsiteDetailModel
+import com.example.camply.campsite.model.CampsiteRemovalModel
 import com.example.camply.campsite.model.DateRange
+import com.example.camply.campsite.model.FirestoreCampsiteRemovalRepository
 import com.example.camply.campsite.model.FirestoreCampsiteRepository
 import com.example.camply.campsite.view.CampsiteBrowseView
 import com.example.camply.campsite.view.CampsiteDetailView
@@ -169,6 +172,15 @@ fun CamplyApp() {
     val reservationRepository = remember { FirestoreReservationRepository() }
     val bookingService = remember { BookingService() }
     val notificationService = remember { NotificationService(FirestoreNotificationRepository()) }
+    val campsiteRemovalModel = remember { CampsiteRemovalModel() }
+    val campsiteRemovalController = remember {
+        CampsiteRemovalController(
+            campsiteRemovalModel,
+            FirestoreCampsiteRemovalRepository(),
+            campsiteRepository,
+            notificationService
+        )
+    }
     val reservationBookingController = remember {
         ReservationBookingController(
             bookingService = bookingService,
@@ -644,6 +656,18 @@ fun CamplyApp() {
                                         },
                                         loadPhoto = { campsiteId, photoId ->
                                             campsiteRepository.getCampsitePhoto(campsiteId, photoId)
+                                        },
+                                        onRemoveCampsite = { campsiteId ->
+                                            val removed = campsiteRemovalController.removeCampsite(campsiteId)
+                                            if (removed) {
+                                                adminPanelModel.selectedOwner?.getUid()?.let { ownerId ->
+                                                    adminController.loadCampsitesFor(ownerId)
+                                                }
+                                                adminController.loadCampsiteCounts()
+                                                null
+                                            } else {
+                                                campsiteRemovalModel.error ?: "Could not remove the campsite."
+                                            }
                                         }
                                     )
                                 }

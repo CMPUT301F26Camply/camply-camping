@@ -33,6 +33,7 @@ class AdminCampsiteBrowseView {
      * @param onBackFromDetails Returns from campsite details to that owner's campsites.
      * @param loadPhotoPreview Loads a small campsite photo.
      * @param loadPhoto Loads a full campsite photo.
+     * @param onRemoveCampsite Passed to campsite details. The trash icon calls it with the open campsite id.
      */
     @Composable
     fun Display(
@@ -48,7 +49,9 @@ class AdminCampsiteBrowseView {
         onBackFromDetails: () -> Unit,
         loadPhotoPreview: suspend (String, String) -> ByteArray?,
         loadPhoto: suspend (String, String) -> ByteArray?,
-        onBackFromOwners: () -> Unit
+        onBackFromOwners: () -> Unit,
+        onRemoveCampsite: (suspend (String) -> String?)? = null
+
     ) {
         val scope = rememberCoroutineScope()
 
@@ -56,6 +59,7 @@ class AdminCampsiteBrowseView {
             detailCampsiteId != null -> {
                 BackHandler { onBackFromDetails() }
                 detailView.Display(
+                    onRemove = onRemoveCampsite,
                     campsiteId = detailCampsiteId,
                     onBack = onBackFromDetails,
                     currentUserId = currentUserId,

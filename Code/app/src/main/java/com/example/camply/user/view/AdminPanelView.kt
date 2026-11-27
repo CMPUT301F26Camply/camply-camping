@@ -69,7 +69,9 @@ class AdminPanelView {
         detailView: CampsiteDetailView,
         currentUserId: String,
         loadPhotoPreview: suspend (String, String) -> ByteArray?,
-        loadPhoto: suspend (String, String) -> ByteArray?
+        loadPhoto: suspend (String, String) -> ByteArray?,
+        onRemoveCampsite: (suspend (String) -> String?)? = null
+
     ) {
         when (model.page) {
             null -> {
@@ -115,7 +117,8 @@ class AdminPanelView {
                     onBackFromDetails = { controller.backFromDetails() },
                     loadPhotoPreview = loadPhotoPreview,
                     loadPhoto = loadPhoto,
-                    onBackFromOwners = { controller.backToMenu() }
+                    onBackFromOwners = { controller.backToMenu() },
+                    onRemoveCampsite = onRemoveCampsite
                 )
             }
         }

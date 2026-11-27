@@ -46,6 +46,8 @@ data class SentNotification(
         NotificationType.RESERVATION_CONFIRMED -> "Reservation confirmed"
         NotificationType.RESERVATION_CANCELLED -> "Reservation cancelled"
         NotificationType.OWNER_MESSAGE -> "Owner message"
+        NotificationType.LOTTERY_CANCELLED -> "Lottery cancelled"
+        NotificationType.CAMPSITE_REMOVED_FROM_LOTTERY -> "Campsite removed from lottery"
     }
 }
 

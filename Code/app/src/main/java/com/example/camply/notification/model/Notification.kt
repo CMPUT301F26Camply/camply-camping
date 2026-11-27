@@ -4,7 +4,19 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentId
 
 enum class NotificationType {
-    LOTTERY_WIN, LOTTERY_LOSE, RESERVATION_CONFIRMED, RESERVATION_CANCELLED, OWNER_MESSAGE
+    LOTTERY_WIN,
+    LOTTERY_LOSE,
+    /**
+     * Kind of inbox record.
+     *
+     * [LOTTERY_CANCELLED] and [CAMPSITE_REMOVED_FROM_LOTTERY] are sent when an
+     * administrator removes a campsite (US 03.01.01).
+     */
+    LOTTERY_CANCELLED,
+    CAMPSITE_REMOVED_FROM_LOTTERY,
+    RESERVATION_CONFIRMED,
+    RESERVATION_CANCELLED,
+    OWNER_MESSAGE
 }
 
 enum class NotificationOrigin { SYSTEM, OWNER }

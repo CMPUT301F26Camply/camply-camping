@@ -198,7 +198,9 @@ class SentNotificationTest {
                 NotificationType.LOTTERY_LOSE to "Lottery result: lost",
                 NotificationType.RESERVATION_CONFIRMED to "Reservation confirmed",
                 NotificationType.RESERVATION_CANCELLED to "Reservation cancelled",
-                NotificationType.OWNER_MESSAGE to "Owner message"
+                NotificationType.OWNER_MESSAGE to "Owner message",
+                NotificationType.LOTTERY_CANCELLED to  "Lottery cancelled",
+                NotificationType.CAMPSITE_REMOVED_FROM_LOTTERY to  "Campsite removed from lottery"
             ),
             labels
         )

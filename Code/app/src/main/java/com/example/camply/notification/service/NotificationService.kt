@@ -128,4 +128,52 @@ class NotificationService(private val repository: NotificationRepository) {
         content = "Your reservation at $campsiteName from ${dates.from} to ${dates.to} has been cancelled.",
         reservationId = reservationId
     ))
+    suspend fun sendLotteryCancelled(
+        ownerId: String,
+        entrantId: String,
+        lotteryId: String,
+        campsiteId: String
+    ): SendResult = send(NewNotification(
+        eventId = "lottery-cancelled:$lotteryId:campsite:$campsiteId",
+        senderId = ownerId,
+        recipientId = entrantId,
+        origin = NotificationOrigin.SYSTEM,
+        type = NotificationType.LOTTERY_CANCELLED,
+        title = "Lottery cancelled",
+        content = "The lottery has been canceled due to the campsite being taken down.",
+        lotteryId = lotteryId
+    ))
+
+    suspend fun sendCampsiteRemovedFromLottery(
+        ownerId: String,
+        entrantId: String,
+        lotteryId: String,
+        campsiteId: String
+    ): SendResult = send(NewNotification(
+        eventId = "lottery-campsite-removed:$lotteryId:campsite:$campsiteId",
+        senderId = ownerId,
+        recipientId = entrantId,
+        origin = NotificationOrigin.SYSTEM,
+        type = NotificationType.CAMPSITE_REMOVED_FROM_LOTTERY,
+        title = "Campsite removed",
+        content = "One of the campsites has been removed.",
+        lotteryId = lotteryId
+    ))
+
+    suspend fun sendReservationRemovedForCampsite(
+        ownerId: String,
+        entrantId: String,
+        reservationId: String,
+        campsiteName: String,
+        dates: com.example.camply.campsite.model.DateRange
+    ): SendResult = send(NewNotification(
+        eventId = "reservation-removed:$reservationId",
+        senderId = ownerId,
+        recipientId = entrantId,
+        origin = NotificationOrigin.SYSTEM,
+        type = NotificationType.RESERVATION_CANCELLED,
+        title = "Reservation cancelled",
+        content = "Your reservation at $campsiteName from ${dates.from} to ${dates.to} has been canceled because the campsite was removed.",
+        reservationId = reservationId
+    ))
 }

@@ -53,6 +53,12 @@ import com.example.camply.shared.view.OrangeCard
 import com.example.camply.shared.view.SecondaryButton
 import kotlinx.coroutines.launch
 import kotlin.math.floor
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.example.camply.shared.view.DestructiveConfirmationDialog
 
 // CampsiteDetailView.kt - Campsite Details Redesign
 //
@@ -119,12 +125,51 @@ class CampsiteDetailView(
         loadPhotoPreview: suspend (String, String) -> ByteArray? = { _, _ -> null },
         loadPhoto: suspend (String, String) -> ByteArray? = { _, _ -> null },
         currentUserId: String? = null,
-        onEdit: ((Campsite) -> Unit)? = null
+        onEdit: ((Campsite) -> Unit)? = null,
+        onRemove: (suspend (String) -> String?)? = null
     ) {
         val scope = rememberCoroutineScope()
+        var confirmRemoval by remember { mutableStateOf(false) }
+        var removalError by remember { mutableStateOf<String?>(null) }
         LaunchedEffect(campsiteId) { controller.loadCampsite(campsiteId) }
 
-        CamplyScreen(title = "Campsite details") {
+        if (confirmRemoval) {
+            DestructiveConfirmationDialog(
+                title = "Remove campsite",
+                message = "Remove this campsite? This cannot be undone. Entrants in its lotteries will be notified, and future reservations will be canceled.",
+                confirmText = "Remove campsite",
+                onConfirm = {
+                    confirmRemoval = false
+                    val remove = onRemove ?: return@DestructiveConfirmationDialog
+                    scope.launch {
+                        removalError = remove(campsiteId)
+                        if (removalError == null) onBack()
+                    }
+                },
+                onDismiss = { confirmRemoval = false }
+            )
+        }
+        CamplyScreen(
+            title = "Campsite details",
+            trailing = if (onRemove != null) {
+                {
+                    IconButton(
+                        onClick = { confirmRemoval = true },
+                        modifier = Modifier
+                            .size(52.dp)
+                            .background(MaterialTheme.colorScheme.error, RoundedCornerShape(14.dp))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Remove campsite",
+                            tint = MaterialTheme.colorScheme.onError
+                        )
+                    }
+                }
+            } else {
+                null
+            }
+        ) {
             // Avoid displaying details for the previous campsite while a new one loads.
             val campsite = model.campsite?.takeIf { it.id == campsiteId }
 
