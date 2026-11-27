@@ -4,10 +4,6 @@ Camply is a campsite reservation application developed for CMPUT 301 at the Univ
 
 This README is a work in progress and will be updated as the project develops. Additional project information, documentation, and setup instructions will be added as they become available.
 
-## Admin message logs
-
-Merge [the messaging rules](doc/messaging-firestore.rules) into the active Firestore rules. Exclude `conversations` from any broad development rule that grants app users access. The admin's Camply profile must have the `admin` role. Grant its Firebase Auth UID the separate `messageLogAdmin: true` custom claim through the [Firebase Admin SDK](https://firebase.google.com/docs/auth/admin/custom-claims). Preserve the account's existing claims when setting it. The admin can then open **Message logs** in Camply.
-
 ## AI Usage Disclosure
 
 This section documents the use of generative AI tools during the development of Camply. Usage is recorded by project part and deliverable, including the tools used, their purpose, and the extent of their contribution.
