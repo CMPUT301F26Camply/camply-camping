@@ -29,6 +29,7 @@ import com.example.camply.R
 import com.example.camply.shared.view.CamplyScreen
 import com.example.camply.shared.view.CardLabel
 import com.example.camply.shared.view.OrangeCard
+import com.example.camply.shared.view.SecondaryButton
 import com.example.camply.user.model.User
 /**
  * Displays every campsite owner so an admin can choose whose campsites to inspect.
@@ -47,7 +48,8 @@ class AdminOwnerListView {
     fun Display(
         owners: List<User>,
         campsiteCounts: Map<String, Int>,
-        onOwnerClick: (User) -> Unit
+        onOwnerClick: (User) -> Unit,
+        onBack: ()-> Unit
     ) {
         val totalCampsites = campsiteCounts.values.sum()
 
@@ -84,6 +86,8 @@ class AdminOwnerListView {
                     }
                 }
             }
+            Spacer(Modifier.height(12.dp))
+            SecondaryButton(text = "Back", onClick = onBack)
         }
     }
 

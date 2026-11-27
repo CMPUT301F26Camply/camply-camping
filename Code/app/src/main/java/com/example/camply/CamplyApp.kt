@@ -90,7 +90,13 @@ import com.example.camply.user.view.UserProfileView
 import com.example.camply.user.view.UserSignUpView
 import kotlinx.coroutines.launch
 import com.example.camply.user.controller.AdminController
+import com.example.camply.user.controller.AdminPanelController
+import com.example.camply.user.controller.AdminProfileController
+import com.example.camply.user.model.AdminPanelModel
+import com.example.camply.user.model.AdminProfileModel
 import com.example.camply.user.view.AdminCampsiteBrowseView
+import com.example.camply.user.view.AdminPanelView
+import com.example.camply.user.view.AdminProfileBrowseView
 
 /**
  * Displays the Camply application and manages its startup screens
@@ -228,13 +234,20 @@ fun CamplyApp() {
     var ownerSaving by remember { mutableStateOf(false) }
     // Which owner the admin opened, that owner's campsites, and a campsite opened from that list.
     // Separate from ownerDetailCampsiteId so an admin browsing someone else does not reuse the owner editor state.
-    var adminSelectedOwner by remember { mutableStateOf<User?>(null) }
-    var adminDetailCampsiteId by remember { mutableStateOf<String?>(null) }
     val adminModel = remember { AdminModel() }
     val adminController = remember {
         AdminController(adminModel, UserRepository(), campsiteRepository)
     }
+    //These are for the profile viewing
     val adminCampsiteBrowseView = remember { AdminCampsiteBrowseView() }
+    val adminProfileModel = remember { AdminProfileModel() }
+    val adminProfileController = remember {
+        AdminProfileController(adminProfileModel, UserRepository())
+    }
+    val adminPanelModel = remember { AdminPanelModel() }
+    val adminPanelController = remember { AdminPanelController(adminPanelModel) }
+    val adminPanelView = remember { AdminPanelView() }
+    val adminProfileBrowseView = remember { AdminProfileBrowseView() }
     // Shared notifications
     val notificationsModel = remember { NotificationsModel() }
     val notificationsController = remember {
@@ -310,13 +323,12 @@ fun CamplyApp() {
                     ownerController.loadCampsite()
                 }
             }
-            // An admin is not a CampsiteOwnerUser, so the effect above does nothing for them.
-            // Open Campsites and load every user whose Firestore role is still "owner".
             LaunchedEffect(currentUser) {
                 if (currentUser is AdminUser) {
-                    navigationModel.navigateTo(Screen.CAMPSITE_LIST)
+                    navigationModel.navigateTo(Screen.PANEL)
                     adminController.loadOwners()
                     adminController.loadCampsiteCounts()
+                    adminProfileController.loadProfiles()
                 }
             }
             if (currentUser != null)
@@ -440,26 +452,7 @@ fun CamplyApp() {
                             Screen.RESERVATIONS -> activeReservationsView.Display(currentUser.getUid())
 
                             Screen.CAMPSITE_LIST -> {
-                                if (currentUser is AdminUser) {
-                                    adminCampsiteBrowseView.Display(
-                                        controller = adminController,
-                                        model = adminModel,
-                                        detailView = campsiteDetailView,
-                                        currentUserId = currentUser.getUid(),
-                                        selectedOwner = adminSelectedOwner,
-                                        detailCampsiteId = adminDetailCampsiteId,
-                                        onOwnerSelected = { adminSelectedOwner = it },
-                                        onCampsiteSelected = { adminDetailCampsiteId = it },
-                                        onBackFromCampsites = { adminSelectedOwner = null },
-                                        onBackFromDetails = { adminDetailCampsiteId = null },
-                                        loadPhotoPreview = { campsiteId, photoId ->
-                                            campsiteRepository.getCampsitePreview(campsiteId, photoId)
-                                        },
-                                        loadPhoto = { campsiteId, photoId ->
-                                            campsiteRepository.getCampsitePhoto(campsiteId, photoId)
-                                        }
-                                    )
-                                } else if (ownerController != null) {
+                                if (ownerController != null) {
                                     val detailId = ownerDetailCampsiteId
 
                                     if (ownerShowReservations) {
@@ -618,7 +611,28 @@ fun CamplyApp() {
                             }
 
                             Screen.WAIT_LIST -> ownerWaitlistView.Display(currentUser.getUid())
-
+                            Screen.PANEL -> {
+                                if (currentUser is AdminUser) {
+                                    adminPanelView.Display(
+                                        controller = adminPanelController,
+                                        model = adminPanelModel,
+                                        campsiteController = adminController,
+                                        campsiteModel = adminModel,
+                                        campsiteBrowseView = adminCampsiteBrowseView,
+                                        profileController = adminProfileController,
+                                        profileModel = adminProfileModel,
+                                        profileBrowseView = adminProfileBrowseView,
+                                        detailView = campsiteDetailView,
+                                        currentUserId = currentUser.getUid(),
+                                        loadPhotoPreview = { campsiteId, photoId ->
+                                            campsiteRepository.getCampsitePreview(campsiteId, photoId)
+                                        },
+                                        loadPhoto = { campsiteId, photoId ->
+                                            campsiteRepository.getCampsitePhoto(campsiteId, photoId)
+                                        }
+                                    )
+                                }
+                            }
                             Screen.PROFILE -> userProfileView.Display(currentUser, userController)
 
                             Screen.NOTIFICATIONS -> notificationsView.Display(
