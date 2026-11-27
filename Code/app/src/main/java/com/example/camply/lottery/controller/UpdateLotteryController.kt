@@ -85,7 +85,10 @@ class UpdateLotteryController (
                 model.showError(error)
                 return false
             }
-
+            if (overlapsAnotherLottery(existing, registrationStart, registrationEnd)) {
+                model.showError("Lottery for these dates already exists")
+                return false
+            }
             val edited = existing.copy(
                 registrationStart = regStart,
                 registrationEnd = regEnd,
