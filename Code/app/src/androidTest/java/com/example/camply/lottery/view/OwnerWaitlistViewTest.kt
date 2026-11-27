@@ -1,9 +1,13 @@
 package com.example.camply.lottery.view
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteRepository
 import com.example.camply.campsite.service.PreparedCampsiteImages
@@ -18,6 +22,8 @@ import com.example.camply.notification.model.SendResult
 import com.example.camply.notification.repository.NotificationRepository
 import com.example.camply.notification.repository.RecipientNameRepository
 import com.example.camply.notification.service.NotificationService
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -26,7 +32,8 @@ import java.util.Date
 import java.util.GregorianCalendar
 
 /**
- * Compose UI tests for the owner's waitlist screen (US 02.09.01).
+ * Compose UI tests for the owner's waitlist screen and notifications to its entrants
+ * (US 02.09.01, US 02.10.01).
  */
 class OwnerWaitlistViewTest {
 
@@ -36,6 +43,7 @@ class OwnerWaitlistViewTest {
     private lateinit var waitlistRepository: TestOwnerWaitlistRepository
     private lateinit var campsiteRepository: TestCampsiteRepository
     private lateinit var nameRepository: TestRecipientNameRepository
+    private lateinit var notificationRepository: TestNotificationRepository
 
     private val lottery = Lottery(
         id = "lottery1",
@@ -54,6 +62,7 @@ class OwnerWaitlistViewTest {
         waitlistRepository = TestOwnerWaitlistRepository()
         campsiteRepository = TestCampsiteRepository()
         nameRepository = TestRecipientNameRepository()
+        notificationRepository = TestNotificationRepository()
         campsiteRepository.campsites = listOf(Campsite(id = CAMPSITE_ID, name = "Banff Pines"))
     }
 
@@ -187,6 +196,103 @@ class OwnerWaitlistViewTest {
         compose.onNodeWithText("3 joined").assertIsDisplayed()
     }
 
+    /**
+     * Checks that an empty waitlist has no button to send a notification.
+     */
+    @Test
+    fun emptyWaitlist_hidesSendNotification() {
+        waitlistRepository.lotteries = listOf(lottery)
+
+        showScreen()
+        compose.onNodeWithText("Banff Pines").performClick()
+
+        compose.onNodeWithText("No entrants have joined this waitlist yet.").assertIsDisplayed()
+        compose.onNodeWithText("Send notification").assertDoesNotExist()
+    }
+
+    /**
+     * Checks that sending a message reaches every entrant and shows how many received it.
+     */
+    @Test
+    fun sendNotification_message_sendsToEveryEntrant() {
+        openWaitlistWithTwoEntrants()
+
+        compose.onNodeWithText("Send notification").performClick()
+        compose.onNode(hasSetTextAction()).performTextInput(MESSAGE)
+        compose.onNodeWithText("Send").performClick()
+
+        compose.onNodeWithText("Sent to 2 entrants.").assertIsDisplayed()
+        compose.runOnIdle {
+            assertEquals(listOf("entrant1", "entrant2"), notificationRepository.records.map { it.recipientId })
+            assertEquals(MESSAGE, notificationRepository.records.first().content)
+        }
+    }
+
+    /**
+     * Checks that a blank message cannot be sent.
+     */
+    @Test
+    fun sendNotification_blankMessage_sendIsDisabled() {
+        openWaitlistWithTwoEntrants()
+
+        compose.onNodeWithText("Send notification").performClick()
+
+        compose.onNodeWithText("Send").assertIsNotEnabled()
+        compose.onNode(hasSetTextAction()).performTextInput(MESSAGE)
+        compose.onNodeWithText("Send").assertIsEnabled()
+    }
+
+    /**
+     * Checks that cancelling closes the message box without sending anything.
+     */
+    @Test
+    fun sendNotification_cancel_sendsNothing() {
+        openWaitlistWithTwoEntrants()
+
+        compose.onNodeWithText("Send notification").performClick()
+        compose.onNode(hasSetTextAction()).performTextInput(MESSAGE)
+        compose.onNodeWithText("Cancel").performClick()
+
+        compose.onNodeWithText("Send notification").assertIsDisplayed()
+        compose.onNode(hasSetTextAction()).assertDoesNotExist()
+        compose.runOnIdle { assertTrue(notificationRepository.records.isEmpty()) }
+    }
+
+    /**
+     * Checks that a failed send shows an error, and sending again reaches the missed entrant.
+     */
+    @Test
+    fun sendNotification_partialFailure_showsErrorAndRetries() {
+        openWaitlistWithTwoEntrants()
+        notificationRepository.failingRecipients = setOf("entrant2")
+
+        compose.onNodeWithText("Send notification").performClick()
+        compose.onNode(hasSetTextAction()).performTextInput(MESSAGE)
+        compose.onNodeWithText("Send").performClick()
+
+        compose.onNodeWithText("Could not send to 1 of 2 entrants. Try again.").assertIsDisplayed()
+
+        compose.runOnIdle { notificationRepository.failingRecipients = emptySet() }
+        compose.onNodeWithText("Send").performClick()
+
+        compose.onNodeWithText("Sent to 2 entrants.").assertIsDisplayed()
+        compose.runOnIdle {
+            assertEquals(listOf("entrant1", "entrant2"), notificationRepository.records.map { it.recipientId })
+        }
+    }
+
+    private fun openWaitlistWithTwoEntrants() {
+        waitlistRepository.lotteries = listOf(lottery)
+        waitlistRepository.entrants = listOf(
+            entrant("entrant1", "waiting", joinedOn(2026, Calendar.NOVEMBER, 25)),
+            entrant("entrant2", "waiting", joinedOn(2026, Calendar.NOVEMBER, 26))
+        )
+        nameRepository.names = mapOf("entrant1" to "Alex", "entrant2" to "Sam")
+
+        showScreen()
+        compose.onNodeWithText("Banff Pines").performClick()
+    }
+
     private fun showScreen() {
         val model = OwnerWaitlistModel()
         val controller = OwnerWaitlistController(
@@ -194,7 +300,7 @@ class OwnerWaitlistViewTest {
             waitlistRepository,
             campsiteRepository,
             nameRepository,
-            NotificationService(TestNotificationRepository())
+            NotificationService(notificationRepository)
         )
         val view = OwnerWaitlistView(model, controller)
 
@@ -229,11 +335,19 @@ class OwnerWaitlistViewTest {
     }
 
     /**
-     * Accepts notifications without accessing Firestore.
+     * Records notifications without accessing Firestore, and fails for chosen recipients.
      */
     private class TestNotificationRepository : NotificationRepository {
-        override suspend fun createIfAbsent(id: String, notification: NewNotification): SendResult =
-            SendResult.CREATED
+        val records = mutableListOf<NewNotification>()
+        private val savedIds = mutableSetOf<String>()
+        var failingRecipients: Set<String> = emptySet()
+
+        override suspend fun createIfAbsent(id: String, notification: NewNotification): SendResult {
+            if (notification.recipientId in failingRecipients) throw Exception("Could not save.")
+            if (!savedIds.add(id)) return SendResult.ALREADY_EXISTS
+            records.add(notification)
+            return SendResult.CREATED
+        }
 
         override fun observeReceived(
             recipientId: String,
@@ -292,5 +406,6 @@ class OwnerWaitlistViewTest {
     private companion object {
         const val OWNER_ID = "owner1"
         const val CAMPSITE_ID = "campsite1"
+        const val MESSAGE = "Quiet hours start at 10 PM."
     }
 }
