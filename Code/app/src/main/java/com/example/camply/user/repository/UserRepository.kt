@@ -134,6 +134,31 @@ class UserRepository {
             .addOnFailureListener { onFailure() }
     }
 
+
+    /**
+     * Retrieves all uploaded profile images indexed by user ID.
+     *
+     * @param onSuccess called with a map of user IDs and their image bytes
+     * @param onFailure called if retrieving the images fails
+     */
+    fun getAllProfileImages(
+        onSuccess: (Map<String, ByteArray>) -> Unit,
+        onFailure: () -> Unit
+    ) {
+        db.collection("profileImages").get()
+            .addOnSuccessListener { snapshot ->
+                val images = snapshot.documents.mapNotNull { document ->
+                    val imageBytes = document.getBlob("image")?.toBytes()
+                        ?: return@mapNotNull null
+                    document.id to imageBytes
+                }.toMap()
+
+                onSuccess(images)
+            }
+            .addOnFailureListener { onFailure() }
+    }
+
+
     //https://firebase.google.com/docs/reference/kotlin/com/google/firebase/firestore/Blob
     /**
      * Saves a  profile image in a separate Firestore document.

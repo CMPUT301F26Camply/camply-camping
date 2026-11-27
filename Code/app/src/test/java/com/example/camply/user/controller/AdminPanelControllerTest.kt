@@ -13,7 +13,7 @@ import org.junit.Test
 /**
  * Local tests for the admin panel pages.
  *
- * Covering US 03.04.01 and US 03.05.01
+ * Covering US 03.04.01, US 03.05.01 and US 03.06.01.
  */
 class AdminPanelControllerTest {
 
@@ -81,6 +81,21 @@ class AdminPanelControllerTest {
         assertEquals(AdminPanelPage.PROFILES, model.page)
 
         controller.backToMenu()
+        assertNull(model.page)
+    }
+
+    /**
+     * Verifies that the admin image browser can be opened from the
+     * admin panel and that navigating back returns to the main menu.
+     */
+    @Test
+    fun openImages_opensImageBrowserAndReturnsToMenu() {
+        controller.openImages()
+
+        assertEquals(AdminPanelPage.IMAGES, model.page)
+
+        controller.backToMenu()
+
         assertNull(model.page)
     }
 

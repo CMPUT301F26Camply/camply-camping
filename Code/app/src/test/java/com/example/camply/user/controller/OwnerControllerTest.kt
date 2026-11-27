@@ -15,7 +15,7 @@ import org.junit.Test
 
 
 /**
- * Local unit tests for campsite owner registration and editing.
+ * Local unit tests for campsite owner registration, editing, and campsite list loading.
  *
  * US 02.01.01 - 02.01.03: Uses a fake repository so no Firebase
  * connection is required.
@@ -182,6 +182,104 @@ class OwnerControllerTest {
     }
 
     /**
+     * Successfully loading campsites updates the owner's campsite list and clears the
+     * loading and error states.
+     */
+    @Test
+    fun loadCampsite_success_updatesCampsites() = runBlocking {
+        val campsite = existingCampsite(emptyList())
+        repository.sites.add(campsite)
+
+        controller.loadCampsite()
+
+        assertEquals(listOf(campsite), controller.campsites)
+        assertEquals(listOf(campsite), owner.campsites)
+        assertFalse(controller.loadingCheck)
+        assertFalse(controller.loadingCampsiteListFailed)
+        assertTrue(controller.errors.isEmpty())
+    }
+
+    /**
+     * An empty campsite list returned successfully by the repository should not be
+     * treated as a loading failure.
+     */
+    @Test
+    fun loadCampsite_emptyList_isNotFailure() = runBlocking {
+        controller.loadCampsite()
+
+        assertTrue(controller.campsites.isEmpty())
+        assertTrue(owner.campsites.isEmpty())
+        assertFalse(controller.loadingCheck)
+        assertFalse(controller.loadingCampsiteListFailed)
+        assertTrue(controller.errors.isEmpty())
+    }
+
+    /**
+     * A repository failure should set the loading failure state, record the error and stop loading.
+     */
+    @Test
+    fun loadCampsite_failure_setsErrorState() = runBlocking {
+        repository.failOnLoad = true
+
+        controller.loadCampsite()
+
+        assertTrue(controller.loadingCampsiteListFailed)
+        assertFalse(controller.loadingCheck)
+        assertTrue(controller.campsites.isEmpty())
+        assertEquals(
+            listOf("Simulated load failure"),
+            controller.errors
+        )
+    }
+
+    /**
+     * Successfully retrying a failed campsite load should populate the campsite list
+     * and clear the previous error.
+     */
+    @Test
+    fun loadCampsite_retrySuccess_clearsErrorState() = runBlocking {
+        repository.failOnLoad = true
+
+        controller.loadCampsite()
+
+        assertTrue(controller.loadingCampsiteListFailed)
+
+        val campsite = existingCampsite(emptyList())
+        repository.sites.add(campsite)
+        repository.failOnLoad = false
+
+        controller.loadCampsite()
+
+        assertEquals(listOf(campsite), controller.campsites)
+        assertEquals(listOf(campsite), owner.campsites)
+        assertFalse(controller.loadingCampsiteListFailed)
+        assertFalse(controller.loadingCheck)
+        assertTrue(controller.errors.isEmpty())
+    }
+
+    /**
+     * A failed refresh should preserve previously loaded campsites instead of
+     * clearing the owner's campsite list.
+     */
+    @Test
+    fun loadCampsite_failure_preservesExistingCampsites() = runBlocking {
+        val campsite = existingCampsite(emptyList())
+        repository.sites.add(campsite)
+
+        controller.loadCampsite()
+
+        repository.sites.clear()
+        repository.failOnLoad = true
+
+        controller.loadCampsite()
+
+        assertEquals(listOf(campsite), controller.campsites)
+        assertEquals(listOf(campsite), owner.campsites)
+        assertTrue(controller.loadingCampsiteListFailed)
+        assertFalse(controller.loadingCheck)
+    }
+
+    /**
      * Submits valid registration details with an optional name.
      */
     private suspend fun registerCampsite(
@@ -231,7 +329,7 @@ class OwnerControllerTest {
     }
 
     /**
-     * Creates an existing campsite for editing tests.
+     * Creates an existing campsite for editing and loading tests.
      */
     private fun existingCampsite(images: List<String>): Campsite {
         return Campsite(
@@ -251,8 +349,8 @@ class OwnerControllerTest {
     }
 
     /**
-     * Fake campsite repository that records saves and photo changes.
-     * Does not connect to Firestore.
+     * Fake campsite repository that records saves and photo changes and supports simulated
+     * save and loading failures. Does not connect to Firestore.
      */
     private class FakeCampsiteRepository : CampsiteRepository {
 
@@ -264,11 +362,23 @@ class OwnerControllerTest {
         var lastPhotosToSave: Map<String, PreparedCampsiteImages> = emptyMap()
         var lastPhotosToRemove: List<String> = emptyList()
 
+        // Simulates a failure when loading the owner's campsites.
+        var failOnLoad = false
+
         override suspend fun getCampsites(): List<Campsite> = sites.toList()
 
         override suspend fun getCampsite(id: String): Campsite? = sites.find { it.id == id }
 
-        override suspend fun getCampsitesByOwner(ownerId: String): List<Campsite> = sites.filter { it.ownerId == ownerId }
+        /**
+         * Returns the owner's campsites or simulates a repository failure.
+         */
+        override suspend fun getCampsitesByOwner(ownerId: String): List<Campsite> {
+            if (failOnLoad) {
+                error("Simulated load failure")
+            }
+
+            return sites.filter { it.ownerId == ownerId }
+        }
 
         override suspend fun saveCampsite(
             campsite: Campsite,
