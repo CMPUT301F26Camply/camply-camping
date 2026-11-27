@@ -176,4 +176,57 @@ class NotificationService(private val repository: NotificationRepository) {
         content = "Your reservation at $campsiteName from ${dates.from} to ${dates.to} has been canceled because the campsite was removed.",
         reservationId = reservationId
     ))
+    /**
+     * Tells a lottery owner that an entrant was removed from a lottery that has not ended.
+     *
+     * The entrant is not notified, because their profile is being deleted.
+     *
+     * @param ownerId Owner of the lottery. This is the recipient.
+     * @param entrantId Entrant whose entry was deleted. Stored as the sender.
+     * @param lotteryId Lottery that still exists for its other entrants.
+     * @return [SendResult.CREATED] when a new notification is saved,
+     * or [SendResult.ALREADY_EXISTS] when that event was already sent.
+     */
+    suspend fun sendEntrantRemovedFromLottery(
+        ownerId: String,
+        entrantId: String,
+        lotteryId: String
+    ): SendResult = send(NewNotification(
+        eventId = "entrant-removed-from-lottery:$lotteryId:entrant:$entrantId",
+        senderId = entrantId,
+        recipientId = ownerId,
+        origin = NotificationOrigin.SYSTEM,
+        type = NotificationType.ENTRANT_REMOVED_FROM_LOTTERY,
+        title = "Entrant removed",
+        content = "An entrant has been removed from your lottery.",
+        lotteryId = lotteryId
+    ))
+
+    /**
+     * Tells a campsite owner that a future reservation was cancelled because the entrant was removed (US 03.02.01).
+     *
+     * @param ownerId Owner of the reserved campsite. This is the recipient.
+     * @param entrantId Entrant who held the reservation.
+     * @param reservationId Reservation that was deleted.
+     * @param campsiteName Name shown in the message.
+     * @param dates Stay dates shown in the message.
+     * @return [SendResult.CREATED] when a new notification is saved,
+     * or [SendResult.ALREADY_EXISTS] when that event was already sent.
+     */
+    suspend fun sendReservationRemovedForEntrant(
+        ownerId: String,
+        entrantId: String,
+        reservationId: String,
+        campsiteName: String,
+        dates: com.example.camply.campsite.model.DateRange
+    ): SendResult = send(NewNotification(
+        eventId = "reservation-removed-for-entrant:$reservationId",
+        senderId = entrantId,
+        recipientId = ownerId,
+        origin = NotificationOrigin.SYSTEM,
+        type = NotificationType.RESERVATION_CANCELLED,
+        title = "Reservation cancelled",
+        content = "The reservation at $campsiteName from ${dates.from} to ${dates.to} was cancelled because the entrant was removed.",
+        reservationId = reservationId
+    ))
 }

@@ -19,6 +19,8 @@ import com.example.camply.user.model.AdminModel
 import com.example.camply.user.model.AdminPanelModel
 import com.example.camply.user.model.AdminPanelPage
 import com.example.camply.user.model.AdminProfileModel
+import com.example.camply.user.model.User
+
 /*
  * AI Assistance:
  * Tool: Cursor (Grok 4.7)
@@ -70,7 +72,8 @@ class AdminPanelView {
         currentUserId: String,
         loadPhotoPreview: suspend (String, String) -> ByteArray?,
         loadPhoto: suspend (String, String) -> ByteArray?,
-        onRemoveCampsite: (suspend (String) -> String?)? = null
+        onRemoveCampsite: (suspend (String) -> String?)? = null,
+        onRemoveProfile: (suspend (User) -> String?)? = null
 
     ) {
         when (model.page) {
@@ -96,8 +99,8 @@ class AdminPanelView {
                     selectedProfile = model.selectedProfile,
                     onProfileSelected = { controller.selectProfile(it) },
                     onBack = { controller.backFromProfile() },
-                    onBackFromList = { controller.backToMenu() }
-
+                    onBackFromList = { controller.backToMenu() },
+                    onRemoveProfile = onRemoveProfile
                 )
             }
             AdminPanelPage.CAMPSITES -> {

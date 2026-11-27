@@ -13,6 +13,7 @@ enum class NotificationType {
      * administrator removes a campsite (US 03.01.01).
      */
     LOTTERY_CANCELLED,
+    ENTRANT_REMOVED_FROM_LOTTERY,
     CAMPSITE_REMOVED_FROM_LOTTERY,
     RESERVATION_CONFIRMED,
     RESERVATION_CANCELLED,

@@ -113,6 +113,9 @@ import com.example.camply.user.view.AdminProfileBrowseView
 import com.example.camply.lottery.controller.UpdateLotteryController
 import com.example.camply.lottery.model.UpdateLotteryModel
 import com.example.camply.lottery.view.UpdateLotteryView
+import com.example.camply.user.controller.ProfileRemovalController
+import com.example.camply.user.model.ProfileRemovalModel
+import com.example.camply.user.repository.FirestoreProfileRemovalRepository
 
 /**
  * Displays the Camply application and manages its startup screens
@@ -195,6 +198,19 @@ fun CamplyApp() {
             campsiteRemovalModel,
             FirestoreCampsiteRemovalRepository(),
             campsiteRepository,
+            notificationService
+        )
+    }
+    val profileRemovalModel = remember { ProfileRemovalModel() }
+    val profileRemovalController = remember {
+        ProfileRemovalController(
+            profileRemovalModel,
+            FirestoreProfileRemovalRepository(),
+            campsiteRepository,
+            campsiteRemovalController,
+            campsiteRemovalModel,
+            entrantLotteryRepository,
+            reservationRepository,
             notificationService
         )
     }
@@ -739,6 +755,16 @@ fun CamplyApp() {
                                                 null
                                             } else {
                                                 campsiteRemovalModel.error ?: "Could not remove the campsite."
+                                            }
+                                        },
+                                        onRemoveProfile = { profile ->
+                                            val removed = profileRemovalController.removeProfile(profile)
+                                            if (removed) {
+                                                adminProfileController.loadProfiles()
+                                                adminPanelController.backFromProfile()
+                                                null
+                                            } else {
+                                                profileRemovalModel.error ?: "Could not remove the profile."
                                             }
                                         }
                                     )
