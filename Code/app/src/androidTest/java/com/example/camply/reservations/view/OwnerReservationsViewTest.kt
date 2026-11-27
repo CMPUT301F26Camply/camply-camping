@@ -3,11 +3,15 @@ package com.example.camply.reservations.view
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteRepository
 import com.example.camply.campsite.model.DateRange
@@ -16,6 +20,7 @@ import com.example.camply.reservations.controller.OwnerReservationsController
 import com.example.camply.reservations.model.OwnerReservationsModel
 import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationStatus
+import com.example.camply.reservations.repository.ReservationCancellationResult
 import com.example.camply.reservations.repository.ReservationRepository
 import org.junit.Before
 import org.junit.Rule
@@ -23,7 +28,7 @@ import org.junit.Test
 import kotlin.collections.filter
 
 /**
- * Compose UI tests for owner reservation management (US 02.07.01 and US 02.07.02).
+ * Compose UI tests for owner reservation management (US 02.07.01, US 02.07.02, and US 02.07.03).
  */
 class OwnerReservationsViewTest {
 
@@ -256,7 +261,7 @@ class OwnerReservationsViewTest {
         compose.onNodeWithText("Jasper Lake").assertDoesNotExist()
         compose.onNodeWithText("Banff Pines").performClick()
         compose.onNodeWithText("2027-06-08 to 2027-06-10").assertDoesNotExist()
-        compose.onNodeWithText("Entrant: test-entrant").assertIsDisplayed()
+        compose.onNodeWithText("Entrant: Sam Rivera").assertIsDisplayed()
         compose.onNodeWithText("2027-06-01 to 2027-06-05").performClick()
         compose.onNodeWithText("Reservation ID: completed-stay").assertIsDisplayed()
         compose.onNodeWithText("Back to Reservations").performClick()
@@ -285,23 +290,153 @@ class OwnerReservationsViewTest {
         compose.onNodeWithText("Banff Pines").assertIsDisplayed()
     }
 
-    /**
-     * Displays the screen with in-memory repositories.
-     */
-    private fun showScreen() {
+    @Test
+    fun cancelledCategory_filtersOwnedCampsitesCountsAndReservationDetails() {
+        campsiteRepository.campsites = listOf(
+            campsite("banff", "Banff Pines"),
+            campsite("jasper", "Jasper Lake"),
+            campsite("yoho", "Yoho Falls", owningUserId = "other-owner")
+        )
+        reservationRepository.reservations = listOf(
+            reservation("cancelled-before-stay", "banff", "2027-07-01", "2027-07-05", ReservationStatus.CANCELLED)
+                .copy(entrantId = "cancelled-entrant"),
+            reservation("cancelled-older-stay", "banff", "2027-06-01", "2027-06-05", ReservationStatus.CANCELLED),
+            reservation("active-stay", "banff", "2027-06-12", "2027-06-15"),
+            reservation("jasper-rejected", "jasper", "2027-07-10", "2027-07-12", ReservationStatus.REJECTED),
+            reservation("yoho-cancelled", "yoho", "2027-07-20", "2027-07-25", ReservationStatus.CANCELLED)
+        )
+
+        showScreen()
+        compose.onNode(hasScrollToIndexAction() and hasAnyDescendant(hasText("All")))
+            .performScrollToIndex(3)
+        compose.onNodeWithText("Cancelled").performClick()
+        compose.onNodeWithText("Cancelled").assertIsSelected()
+        compose.onNodeWithText("Cancelled reservations: 2").assertIsDisplayed()
+        compose.onNodeWithText("Jasper Lake").assertDoesNotExist()
+        compose.onNodeWithText("Yoho Falls").assertDoesNotExist()
+
+        compose.onNodeWithText("Banff Pines").performClick()
+        compose.onNodeWithText("2027-06-01 to 2027-06-05").assertIsDisplayed()
+        compose.onNodeWithText("2027-06-12 to 2027-06-15").assertDoesNotExist()
+        compose.onNodeWithText("Entrant: Alex Chen").assertIsDisplayed()
+        compose.onNodeWithText("2027-07-01 to 2027-07-05").performClick()
+
+        compose.onNodeWithText("Reservation Details").assertIsDisplayed()
+        compose.onNodeWithText("Reservation ID: cancelled-before-stay").assertIsDisplayed()
+        compose.onNodeWithText("Entrant: Alex Chen").assertIsDisplayed()
+    }
+
+    /** Cancelling confirmation leaves the reservation active and does not write. */
+    @Test
+    fun rejectReservation_cancelKeepsBooking() {
+        openActiveReservation()
+        compose.onNodeWithText("Reject reservation").performClick()
+        compose.onNodeWithText("Reject this reservation?").assertIsDisplayed()
+        org.junit.Assert.assertEquals(0, reservationRepository.rejectionCalls)
+        compose.onNodeWithText("Keep reservation").performClick()
+        compose.onNodeWithText("Reject this reservation?").assertDoesNotExist()
+        compose.onNodeWithText("Active").assertIsDisplayed()
+        org.junit.Assert.assertEquals(0, reservationRepository.rejectionCalls)
+    }
+
+    /** Rejection moves the reservation out of Active and into Rejected. */
+    @Test
+    fun rejectReservation_confirmUpdatesCategories() {
+        openActiveReservation()
+        compose.onNodeWithText("Reject reservation").performClick()
+        compose.onNodeWithText("Reject").performClick()
+        compose.onNodeWithText("Rejected").assertIsDisplayed()
+        compose.onNodeWithText("Reject reservation").assertDoesNotExist()
+        compose.onNodeWithText("Back to Reservations").performClick()
+        compose.onNodeWithText("Active").performClick()
+        compose.onNodeWithText("No reservations match the selected filters.").assertIsDisplayed()
+        compose.onNodeWithText("All").performClick()
+        compose.onAllNodesWithText("Rejected").onFirst().performClick()
+        compose.onNodeWithText("2027-06-12 to 2027-06-15").assertIsDisplayed()
+        compose.onNodeWithText("Back to Campsites").performClick()
+        compose.onNodeWithText("Rejected reservations: 1").assertIsDisplayed()
+        org.junit.Assert.assertEquals(1, reservationRepository.rejectionCalls)
+        org.junit.Assert.assertEquals(ReservationStatus.REJECTED, reservationRepository.reservations.single().status)
+    }
+
+    /** Failed writes keep the current details and allow a confirmed retry. */
+    @Test
+    fun rejectReservation_failureShowsErrorAndAllowsRetry() {
+        openActiveReservation()
+        reservationRepository.rejectionFailure = IllegalStateException("Could not save rejection.")
+        compose.onNodeWithText("Reject reservation").performClick()
+        compose.onNodeWithText("Reject").performClick()
+        compose.onNodeWithText("Could not save rejection.").assertIsDisplayed()
+        compose.onNodeWithText("Active").assertIsDisplayed()
+        reservationRepository.rejectionFailure = null
+        compose.onNodeWithText("Reject reservation").performClick()
+        compose.onNodeWithText("Reject").performClick()
+        compose.onNodeWithText("Rejected").assertIsDisplayed()
+        compose.onNodeWithText("Could not save rejection.").assertDoesNotExist()
+    }
+
+    /** Completed reservations have no rejection action. */
+    @Test
+    fun rejectReservation_pastStayHasNoAction() {
+        campsiteRepository.campsites = listOf(campsite("banff", "Banff Pines"))
+        reservationRepository.reservations = listOf(
+            reservation("past", "banff", "2027-06-01", "2027-06-05")
+        )
+        showScreen()
+        compose.onNodeWithText("Banff Pines").performClick()
+        compose.onNodeWithText("2027-06-01 to 2027-06-05").performClick()
+        compose.onNodeWithText("Reject reservation").assertDoesNotExist()
+    }
+
+    /** Opens an owned active reservation through the real view navigation. */
+    private fun openActiveReservation() {
+        campsiteRepository.campsites = listOf(campsite("banff", "Banff Pines"))
+        reservationRepository.reservations = listOf(
+            reservation("booking", "banff", "2027-06-12", "2027-06-15")
+        )
+        showScreen()
+        compose.onNodeWithText("Banff Pines").performClick()
+        compose.onNodeWithText("2027-06-12 to 2027-06-15").performClick()
+    }
+
+    /** Opens messaging with the ID of the reservation whose details are displayed. */
+    @Test
+    fun messageEntrantOpensSelectedReservation() {
+        campsiteRepository.campsites = listOf(campsite("banff", "Banff Pines"))
+        reservationRepository.reservations = listOf(
+            reservation("booking", "banff", "2027-06-12", "2027-06-15")
+        )
+        var selectedId: String? = null
+        showScreen { selectedId = it }
+
+        compose.onNodeWithText("Banff Pines").performClick()
+        compose.onNodeWithText("2027-06-12 to 2027-06-15").performClick()
+        compose.onNodeWithText("Message entrant").performClick()
+        compose.runOnIdle { org.junit.Assert.assertEquals("booking", selectedId) }
+    }
+
+    /** Displays the screen with in-memory repositories. */
+    private fun showScreen(onMessageEntrant: ((String) -> Unit)? = null) {
         val model = OwnerReservationsModel()
 
         val controller = OwnerReservationsController(
             model = model,
             campsiteRepository = campsiteRepository,
             reservationRepository = reservationRepository,
+            entrantNameRepository = { id ->
+                when (id) {
+                    "test-entrant" -> "Sam Rivera"
+                    "cancelled-entrant" -> "Alex Chen"
+                    else -> null
+                }
+            },
             today = { "2027-06-10" }
         )
 
         val view = OwnerReservationsView(model, controller)
 
         compose.setContent {
-            view.Display(ownerId = ownerId, onBack = {})
+            view.Display(ownerId = ownerId, onBack = {}, onMessageEntrant = onMessageEntrant)
         }
 
         compose.waitForIdle()
@@ -312,12 +447,13 @@ class OwnerReservationsViewTest {
      */
     private fun campsite(
         id: String,
-        name: String
+        name: String,
+        owningUserId: String = ownerId
     ) = Campsite(
         id = id,
         name = name,
         location = "Alberta",
-        ownerId = ownerId,
+        ownerId = owningUserId,
         rules = "Quiet hours after 10 PM",
         cancellationPolicy = "Cancel seven days ahead"
     )
@@ -386,6 +522,24 @@ class OwnerReservationsViewTest {
      */
     private class FakeReservationRepository : ReservationRepository {
 
+        var rejectionFailure: Exception? = null
+        var rejectionCalls = 0
+        var beforeReject: (suspend () -> Unit)? = null
+
+        override suspend fun rejectReservation(
+            reservationId: String, ownerId: String, today: String
+        ): Reservation {
+            rejectionCalls++
+            beforeReject?.invoke()
+            rejectionFailure?.let { throw it }
+            val current = reservations.first { it.id == reservationId }
+            require(current.isActive(today)) { "Only active reservations can be rejected." }
+            val saved = current.copy(status = ReservationStatus.REJECTED)
+            reservations = reservations.map { if (it.id == reservationId) saved else it }
+            return saved
+        }
+
+
         var reservations: List<Reservation> = emptyList()
 
         override suspend fun getReservationsForEntrant(entrantId: String): List<Reservation> {
@@ -399,5 +553,11 @@ class OwnerReservationsViewTest {
         override suspend fun createReservation(reservation: Reservation): String {
             return reservation.id
         }
+
+        override suspend fun cancelReservation(
+            reservationId: String,
+            entrantId: String,
+            today: String
+        ): ReservationCancellationResult = ReservationCancellationResult.NOT_ELIGIBLE
     }
 }

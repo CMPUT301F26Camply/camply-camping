@@ -7,6 +7,7 @@ import com.example.camply.notification.model.NotificationType
 import com.example.camply.notification.model.NotificationsModel
 import com.example.camply.notification.model.SendResult
 import com.example.camply.notification.model.SentNotification
+import com.example.camply.notification.repository.NotificationLogRepository
 import com.example.camply.notification.repository.NotificationRepository
 import com.example.camply.notification.repository.RecipientNameRepository
 import junit.framework.TestCase.assertEquals
@@ -18,7 +19,7 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Unit tests for keeping the shared notification screen up to date (US 02.10.02).
+ * Unit tests for keeping the shared notification screen up to date (US 02.10.02, US 03.08.01).
  */
 class NotificationsControllerTest {
     @Test
@@ -85,6 +86,8 @@ class NotificationsControllerTest {
     private lateinit var repository: TestNotificationRepository
     private lateinit var nameRepository: TestRecipientNameRepository
     private lateinit var controller: NotificationsController
+    private lateinit var logRepository: TestNotificationLogRepository
+    private lateinit var adminController: NotificationsController
 
     /**
      * Creates the model, repository, and controller before each test.
@@ -95,6 +98,8 @@ class NotificationsControllerTest {
         repository = TestNotificationRepository()
         nameRepository = TestRecipientNameRepository()
         controller = NotificationsController(model, repository, nameRepository)
+        logRepository = TestNotificationLogRepository()
+        adminController = NotificationsController(model, repository, nameRepository, logRepository)
     }
 
     /**
@@ -200,15 +205,114 @@ class NotificationsControllerTest {
     }
 
     /**
-     * Checks that admins get an empty screen without reading any notifications.
+     * Checks that an admin without a notification log gets an empty screen without listening.
      */
     @Test
-    fun startObserving_admin_showsEmptyWithoutListening() {
-        controller.startObserving("admin1", "admin")
+    fun startObserving_adminWithoutLog_showsEmptyWithoutListening() {
+        controller.startObserving(ADMIN_ID, "admin")
 
         assertEquals(0, repository.observeCount)
         assertNull(repository.recipientId)
         assertFalse(model.isLoading)
+    }
+
+    /**
+     * Checks that an admin listens to the notification log and sees loading until it arrives.
+     */
+    @Test
+    fun startObserving_admin_listensToLog() {
+        adminController.startObserving(ADMIN_ID, "admin")
+
+        assertEquals(1, logRepository.observeCount)
+        assertEquals(0, repository.observeCount)
+        assertEquals(0, repository.receivedObserveCount)
+        assertTrue(model.isLoading)
+
+        logRepository.sendUpdate(emptyList())
+
+        assertFalse(model.isLoading)
+    }
+
+    /**
+     * Checks that the log shows every notification, grouped by send, with lottery wins
+     * and losses kept separate.
+     */
+    @Test
+    fun startObserving_adminUpdate_showsGroupedLog() {
+        adminController.startObserving(ADMIN_ID, "admin")
+
+        logRepository.sendUpdate(
+            listOf(
+                record("event1", "entrant1"),
+                record("event1", "entrant2"),
+                record("lottery-result:lottery1", "winner", NotificationOrigin.SYSTEM, NotificationType.LOTTERY_WIN),
+                record("lottery-result:lottery1", "loser", NotificationOrigin.SYSTEM, NotificationType.LOTTERY_LOSE)
+            )
+        )
+
+        val log = model.sentNotifications
+        assertEquals(3, log.size)
+        assertEquals(2, log.single { it.eventId == "event1" }.recipientCount)
+        assertEquals(listOf("winner"), log.single { it.type == NotificationType.LOTTERY_WIN }.recipientIds)
+        assertEquals(listOf("loser"), log.single { it.type == NotificationType.LOTTERY_LOSE }.recipientIds)
+        assertNull(model.errorMessage)
+    }
+
+    /**
+     * Checks that a failed log read shows an error.
+     */
+    @Test
+    fun startObserving_adminLogFails_showsError() {
+        adminController.startObserving(ADMIN_ID, "admin")
+
+        logRepository.sendError(Exception("PERMISSION_DENIED"))
+
+        assertEquals("Could not load the notification log.", model.errorMessage)
+        assertFalse(model.isLoading)
+    }
+
+    /**
+     * Checks that closing the screen stops the log listener.
+     */
+    @Test
+    fun stopObserving_admin_stopsLogListener() {
+        adminController.startObserving(ADMIN_ID, "admin")
+
+        adminController.stopObserving()
+
+        assertEquals(1, logRepository.stopCount)
+    }
+
+    /**
+     * Checks that an update from the previous admin's listener is ignored after the user changes.
+     */
+    @Test
+    fun startObserving_adminChangesUser_ignoresOldLogUpdate() {
+        adminController.startObserving(ADMIN_ID, "admin")
+        val oldUpdate = logRepository.savedUpdate()
+
+        adminController.startObserving("entrant1", "entrant")
+        oldUpdate(listOf(record("event1", "entrant1")))
+
+        assertTrue(model.sentNotifications.isEmpty())
+        assertEquals(1, logRepository.stopCount)
+    }
+
+    /**
+     * Checks that opening a log entry loads its recipients' names.
+     */
+    @Test
+    fun onNotificationSelected_adminLogEntry_showsNames() = runBlocking {
+        nameRepository.names = mapOf("winner" to "Alex")
+        adminController.startObserving(ADMIN_ID, "admin")
+        logRepository.sendUpdate(
+            listOf(record("lottery-result:lottery1", "winner", NotificationOrigin.SYSTEM, NotificationType.LOTTERY_WIN))
+        )
+
+        adminController.onNotificationSelected(model.sentNotifications.single())
+
+        assertEquals(listOf("Alex"), model.recipientNames)
+        assertFalse(model.isLoadingRecipients)
     }
 
     /**
@@ -266,14 +370,15 @@ class NotificationsControllerTest {
     private fun record(
         eventId: String,
         recipientId: String,
-        origin: NotificationOrigin = NotificationOrigin.OWNER
+        origin: NotificationOrigin = NotificationOrigin.OWNER,
+        type: NotificationType = NotificationType.OWNER_MESSAGE
     ) = Notification(
         id = "$eventId-$recipientId",
         eventId = eventId,
         senderId = OWNER_ID,
         recipientId = recipientId,
         origin = origin,
-        type = NotificationType.OWNER_MESSAGE,
+        type = type,
         title = "Title",
         content = "Message"
     )
@@ -330,6 +435,30 @@ class NotificationsControllerTest {
     }
 
     /**
+     * Lets tests trigger notification log updates and errors without accessing Firestore.
+     */
+    private class TestNotificationLogRepository : NotificationLogRepository {
+        var observeCount = 0
+        var stopCount = 0
+        private var onUpdate: (List<Notification>) -> Unit = {}
+        private var onError: (Exception) -> Unit = {}
+
+        fun sendUpdate(records: List<Notification>) = onUpdate(records)
+        fun savedUpdate(): (List<Notification>) -> Unit = onUpdate
+        fun sendError(error: Exception) = onError(error)
+
+        override fun observeAll(
+            onUpdate: (List<Notification>) -> Unit,
+            onError: (Exception) -> Unit
+        ): () -> Unit {
+            this.onUpdate = onUpdate
+            this.onError = onError
+            observeCount++
+            return { stopCount++ }
+        }
+    }
+
+    /**
      * Provides recipient names without accessing Firestore.
      */
     private class TestRecipientNameRepository : RecipientNameRepository {
@@ -344,5 +473,6 @@ class NotificationsControllerTest {
 
     private companion object {
         const val OWNER_ID = "owner1"
+        const val ADMIN_ID = "admin1"
     }
 }

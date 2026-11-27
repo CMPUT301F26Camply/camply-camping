@@ -14,6 +14,7 @@ import com.example.camply.notification.model.NotificationOrigin
 import com.example.camply.notification.model.NotificationType
 import com.example.camply.notification.model.NotificationsModel
 import com.example.camply.notification.model.SendResult
+import com.example.camply.notification.repository.NotificationLogRepository
 import com.example.camply.notification.repository.NotificationRepository
 import com.example.camply.notification.repository.RecipientNameRepository
 import com.google.firebase.Timestamp
@@ -25,7 +26,7 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * Compose UI tests for the shared notification screen (US 02.10.02).
+ * Compose UI tests for the shared notification screen (US 02.10.02, US 03.08.01).
  */
 class NotificationsViewTest {
     @Test
@@ -60,6 +61,7 @@ class NotificationsViewTest {
 
     private lateinit var repository: TestNotificationRepository
     private lateinit var nameRepository: TestRecipientNameRepository
+    private lateinit var logRepository: TestNotificationLogRepository
     private lateinit var view: NotificationsView
 
     /**
@@ -69,10 +71,11 @@ class NotificationsViewTest {
     fun setUp() {
         repository = TestNotificationRepository()
         nameRepository = TestRecipientNameRepository()
+        logRepository = TestNotificationLogRepository()
         val model = NotificationsModel()
         view = NotificationsView(
             model,
-            NotificationsController(model, repository, nameRepository)
+            NotificationsController(model, repository, nameRepository, logRepository)
         )
     }
 
@@ -237,6 +240,95 @@ class NotificationsViewTest {
         compose.onNodeWithText("System notifications").assertDoesNotExist()
     }
 
+    /**
+     * Checks that an admin sees every notification with its source and number of recipients.
+     */
+    @Test
+    fun display_admin_showsLogWithSources() {
+        logRepository.records = listOf(
+            record("entrant1"),
+            record("entrant2"),
+            systemRecord("reservation-confirmed:reservation1", "entrant1",
+                NotificationType.RESERVATION_CONFIRMED, "Your reservation is confirmed.")
+        )
+
+        showScreen("admin")
+
+        compose.onNodeWithText("Notification Log").assertIsDisplayed()
+        compose.onNodeWithText("OWNER MESSAGE").assertIsDisplayed()
+        compose.onNodeWithText(MESSAGE).assertIsDisplayed()
+        compose.onNodeWithText("2 recipients").assertIsDisplayed()
+        compose.onNodeWithText("RESERVATION CONFIRMED").assertIsDisplayed()
+        compose.onNodeWithText("Your reservation is confirmed.").assertIsDisplayed()
+        compose.onNodeWithText("1 recipient").assertIsDisplayed()
+    }
+
+    /**
+     * Checks that a lottery's win and loss notifications are shown as separate entries.
+     */
+    @Test
+    fun display_adminLotteryResults_showsWinAndLossSeparately() {
+        logRepository.records = listOf(
+            systemRecord(LOTTERY_EVENT, "winner", NotificationType.LOTTERY_WIN, "You won the lottery."),
+            systemRecord(LOTTERY_EVENT, "loser1", NotificationType.LOTTERY_LOSE, "You did not win."),
+            systemRecord(LOTTERY_EVENT, "loser2", NotificationType.LOTTERY_LOSE, "You did not win.")
+        )
+
+        showScreen("admin")
+
+        compose.onNodeWithText("LOTTERY RESULT: WON").assertIsDisplayed()
+        compose.onNodeWithText("You won the lottery.").assertIsDisplayed()
+        compose.onNodeWithText("1 recipient").assertIsDisplayed()
+        compose.onNodeWithText("LOTTERY RESULT: LOST").assertIsDisplayed()
+        compose.onNodeWithText("You did not win.").assertIsDisplayed()
+        compose.onNodeWithText("2 recipients").assertIsDisplayed()
+    }
+
+    /**
+     * Checks that opening a log entry shows its source, full message, and recipients.
+     */
+    @Test
+    fun adminLogEntry_click_showsSourceMessageAndRecipients() {
+        logRepository.records = listOf(
+            systemRecord(LOTTERY_EVENT, "loser1", NotificationType.LOTTERY_LOSE, "You did not win."),
+            systemRecord(LOTTERY_EVENT, "loser2", NotificationType.LOTTERY_LOSE, "You did not win.")
+        )
+        nameRepository.names = mapOf("loser1" to "Alex", "loser2" to "Sam")
+
+        showScreen("admin")
+        compose.onNodeWithText("You did not win.").performClick()
+
+        compose.onNodeWithText("Notification details").assertIsDisplayed()
+        compose.onNodeWithText("LOTTERY RESULT: LOST").assertIsDisplayed()
+        compose.onNodeWithText("You did not win.").assertIsDisplayed()
+        compose.onNodeWithText("RECIPIENTS (2)").assertIsDisplayed()
+        compose.onNodeWithText("Alex").assertIsDisplayed()
+        compose.onNodeWithText("Sam").assertIsDisplayed()
+    }
+
+    /**
+     * Checks that an admin with an empty log sees the admin's empty message.
+     */
+    @Test
+    fun display_adminWithEmptyLog_showsAdminMessage() {
+        showScreen("admin")
+
+        compose.onNodeWithText("No notifications have been sent yet.").assertIsDisplayed()
+    }
+
+    /**
+     * Checks that an owner's sent notifications do not show a source.
+     */
+    @Test
+    fun display_owner_doesNotShowSource() {
+        repository.records = listOf(record("entrant1"))
+
+        showScreen("owner")
+
+        compose.onNodeWithText(MESSAGE).assertIsDisplayed()
+        compose.onNodeWithText("OWNER MESSAGE").assertDoesNotExist()
+    }
+
     private fun showScreen(role: String) {
         compose.setContent { view.Display(OWNER_ID, role) }
     }
@@ -255,6 +347,23 @@ class NotificationsViewTest {
         title = "Title",
         content = content,
         createdAt = sentAt
+    )
+
+    private fun systemRecord(
+        eventId: String,
+        recipientId: String,
+        type: NotificationType,
+        content: String
+    ) = Notification(
+        id = "$eventId-$recipientId",
+        eventId = eventId,
+        senderId = OWNER_ID,
+        recipientId = recipientId,
+        origin = NotificationOrigin.SYSTEM,
+        type = type,
+        title = "Title",
+        content = content,
+        createdAt = Timestamp(1_800_000_000, 0)
     )
 
     private fun receivedRecord(origin: NotificationOrigin, title: String, content: String) = Notification(
@@ -309,6 +418,21 @@ class NotificationsViewTest {
     }
 
     /**
+     * Delivers the notification log without Firestore for testing purpose.
+     */
+    private class TestNotificationLogRepository : NotificationLogRepository {
+        var records: List<Notification> = emptyList()
+
+        override fun observeAll(
+            onUpdate: (List<Notification>) -> Unit,
+            onError: (Exception) -> Unit
+        ): () -> Unit {
+            onUpdate(records)
+            return {}
+        }
+    }
+
+    /**
      * Provides recipient names without Firestore for testing purpose.
      */
     private class TestRecipientNameRepository : RecipientNameRepository {
@@ -320,5 +444,6 @@ class NotificationsViewTest {
     private companion object {
         const val OWNER_ID = "owner1"
         const val MESSAGE = "Quiet hours start at 10 PM."
+        const val LOTTERY_EVENT = "lottery-result:lottery1"
     }
 }

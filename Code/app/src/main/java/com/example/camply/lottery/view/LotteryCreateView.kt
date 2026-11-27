@@ -57,14 +57,14 @@ class LotteryCreateView (
     private val model: LotteryCreateModel,
     private val controller: LotteryCreateController
 ){
- /**
- * Shows the form for this owner.
- *
- * Loads that owner's campsites, then shows page 1, page 2, or the saved message.
- *
- * @param ownerId Firebase uid stored on the lottery
- * @param onDone called when the owner leaves the saved screen
- */ 
+    /**
+     * Shows the form for this owner.
+     *
+     * Loads that owner's campsites, then shows page 1, page 2, or the saved message.
+     *
+     * @param ownerId Firebase uid stored on the lottery
+     * @param onDone called when the owner leaves the saved screen
+     */
     @Composable
     fun Display(ownerId: String,onDone:() -> Unit) {
         val scope = rememberCoroutineScope()
@@ -92,7 +92,7 @@ class LotteryCreateView (
             }
         }
     }
-/** Campsite, lottery range, and registration range. Next opens the second page. */
+    /** Campsite, lottery range, and registration range. Next opens the second page. */
 
     @Composable
     private fun FirstHalf(onNext: ()-> Unit){
@@ -104,7 +104,7 @@ class LotteryCreateView (
                 Text("Unable to load campsites, or you have no campsites yet", color = CamplyPalette.Ink)
             }else{
                 model.ownedCampsites.forEach { campsite ->
-                    val selected = campsite.id == model.selectedCampsiteId
+                    val selected = campsite.id in model.selectedCampsiteIds
                     Text(
                         text = if (selected) ". ${campsite.name}" else campsite.name,
                         color = CamplyPalette.Ink,
@@ -138,12 +138,12 @@ class LotteryCreateView (
         }
 
         Spacer(Modifier.height(12.dp))
-        val ready = model.selectedCampsiteId != null &&
+        val ready = model.selectedCampsiteIds.isNotEmpty() &&
                 model.stayFrom.isNotBlank() && model.stayTo.isNotBlank()&&model.registrationEnd.isNotBlank()&&model.registrationStart.isNotBlank()
         PrimaryButton("Next", onClick = onNext, enabled = ready)
 
     }
-/** Booking range, winner count, and Confirm. Back returns to the first page. */
+    /** Booking range, winner count, and Confirm. Back returns to the first page. */
 
     @Composable
     private fun SecondHalf(onBack: () -> Unit, saving: Boolean, onConfirm: () -> Unit) {
@@ -174,7 +174,7 @@ class LotteryCreateView (
 // Ignore extra taps until Firestore returns, so one Confirm creates one lottery.
         PrimaryButton("Confirm", onClick = onConfirm, enabled = !saving)
     }
-/** Start and end date boxes for one range. */
+    /** Start and end date boxes for one range. */
 
     @Composable
     private fun DateRow(
@@ -189,10 +189,10 @@ class LotteryCreateView (
             DataField("End Date",end,onEnd, Modifier.weight(1f))
         }
     }
-/**
- * A read-only date box. Tapping it opens the calendar.
- * The chosen day is written back as YYYY-MM-DD.
- */
+    /**
+     * A read-only date box. Tapping it opens the calendar.
+     * The chosen day is written back as YYYY-MM-DD.
+     */
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     private fun DataField(
@@ -230,12 +230,12 @@ class LotteryCreateView (
             ) { DatePicker(state = pickerState) }
         }
     }
-/**
- * Turns the calendar's UTC midnight millis into YYYY-MM-DD.
- *
- * @param millis the instant selected in the date picker
- * @return that calendar day
- */
+    /**
+     * Turns the calendar's UTC midnight millis into YYYY-MM-DD.
+     *
+     * @param millis the instant selected in the date picker
+     * @return that calendar day
+     */
     private fun millisToIso(millis: Long) : String {
         val  calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         calendar.timeInMillis = millis

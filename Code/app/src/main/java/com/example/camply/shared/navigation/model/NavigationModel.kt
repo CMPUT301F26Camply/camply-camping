@@ -19,6 +19,7 @@ enum class Screen {
     WAIT_LIST,
     INBOX,
     PROFILE,
+    PANEL,
     NOTIFICATIONS,
     SETTINGS // entrant settings and app policy (US 01.11.01)
 }
@@ -41,6 +42,7 @@ class NavigationModel {
         NavBarItem(Screen.BROWSE, "Browse", R.drawable.campsite_icon),
         NavBarItem(Screen.LOTTERIES, "Lotteries", R.drawable.lottery_icon),
         NavBarItem(Screen.RESERVATIONS, "Reservations", R.drawable.reservation_icon),
+        NavBarItem(Screen.INBOX, "Inbox", R.drawable.inbox_icon),
         // TODO :In here for now but need to change flow of notifications to be inside inbox...
         NavBarItem(Screen.NOTIFICATIONS, "Notifications", R.drawable.inbox_icon)
     )
@@ -57,7 +59,10 @@ class NavigationModel {
 
     private val adminNavBarItems = listOf(
         // TODO: In here for now but need to change flow of notifications to be inside inbox...
-        NavBarItem(Screen.NOTIFICATIONS, "Inbox", R.drawable.inbox_icon)
+        NavBarItem(Screen.PROFILE, "Profile", R.drawable.profile_icon),
+        NavBarItem(Screen.PANEL, "Panel", R.drawable.admin_panel),
+        NavBarItem(Screen.INBOX, "Inbox", R.drawable.inbox_icon),
+        NavBarItem(Screen.NOTIFICATIONS, "Notifications", R.drawable.inbox_icon)
     )
 
     /**

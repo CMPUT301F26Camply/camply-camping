@@ -6,6 +6,7 @@ import com.example.camply.lottery.repository.DeclineResult
 import com.example.camply.lottery.repository.LotteryEntryRepository
 import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationStatus
+import com.example.camply.reservations.repository.ReservationCancellationResult
 import com.example.camply.reservations.repository.ReservationRepository
 import com.example.camply.reservations.service.BookingService
 import junit.framework.TestCase.assertEquals
@@ -304,6 +305,11 @@ class LotteryOpportunityControllerTest {
      * Provides reservations for controller tests without accessing Firestore.
      */
     private class TestReservationRepository : ReservationRepository {
+
+        override suspend fun rejectReservation(
+            reservationId: String, ownerId: String, today: String
+        ): Reservation = error("Rejection is not used by this test.")
+
         var reservations: List<Reservation> = emptyList()
 
         override suspend fun getReservationsForEntrant(entrantId: String): List<Reservation> =
@@ -313,6 +319,12 @@ class LotteryOpportunityControllerTest {
             reservations.filter { it.campsiteId == campsiteId }
 
         override suspend fun createReservation(reservation: Reservation): String = "testReservationId"
+
+        override suspend fun cancelReservation(
+            reservationId: String,
+            entrantId: String,
+            today: String
+        ): ReservationCancellationResult = ReservationCancellationResult.NOT_ELIGIBLE
     }
 
     private companion object {

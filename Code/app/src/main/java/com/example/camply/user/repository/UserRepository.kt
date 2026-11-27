@@ -1,5 +1,10 @@
 package com.example.camply.user.repository
 
+import androidx.compose.ui.semantics.Role
+import com.example.camply.user.model.AdminUser
+import com.example.camply.user.model.CampsiteOwnerUser
+import com.example.camply.user.model.EntrantUser
+import com.example.camply.user.model.Profile
 import com.example.camply.user.model.User
 import com.google.firebase.Firebase
 import com.google.firebase.firestore.Blob
@@ -166,5 +171,67 @@ class UserRepository {
         db.collection("profileImages").document(uid).delete()
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { onFailure() }
+    }
+    /**
+     * Retrieves every user document whose role field matches the requested role.
+     *
+     * @param role the Firestore role to match, such as "owner"
+     * @param onSuccess called with the matching user documents
+     * @param onFailure called if the query fails
+     */
+    fun getUsersByRole(
+        role: String,
+        onSuccess: (List<User>) -> Unit,
+        onFailure: () -> Unit
+    ) {
+        db.collection("users").whereEqualTo("role", role).get()
+            .addOnSuccessListener { snapshot ->
+                val users = snapshot.documents.mapNotNull { document ->
+                    val name = document.getString("name") ?: return@mapNotNull null
+                    val email = document.getString("email") ?: ""
+                    val phone = document.getString("phoneNumber") ?: ""
+                    CampsiteOwnerUser(document.id, Profile(name, email, phone))
+                }
+                onSuccess(users)
+            }
+            .addOnFailureListener { onFailure() }
+    }
+
+    /**
+     * Retrieves every user document and builds the matching user object.
+     *
+     * @param onSuccess called with entrant, owner, and admin users
+     * @param onFailure called if the query fails
+     */
+    fun getAllUsers(
+        onSuccess: (List<User>) -> Unit,
+        onFailure: () -> Unit
+    ) {
+        db.collection("users").get()
+            .addOnSuccessListener { snapshot ->
+                onSuccess(snapshot.documents.mapNotNull { toUser(it) })
+            }
+            .addOnFailureListener { onFailure() }
+    }
+    /**
+     * Builds the user object stored in one Firestore document.
+     *
+     * A document with no name, or with a role other than entrant, owner, or admin,
+     * returns null and is left out of the list.
+     *
+     * @param document one document from the users collection.
+     * @return the matching user, or null when the document cannot be shown.
+     */
+    private fun toUser(document: DocumentSnapshot): User? {
+        val name = document.getString("name") ?: return null
+        val email = document.getString("email") ?: ""
+        val phone = document.getString("phoneNumber") ?: ""
+        val profile = Profile(name, email, phone)
+        return when (document.getString("role")) {
+            "entrant" -> EntrantUser(document.id, profile)
+            "owner" -> CampsiteOwnerUser(document.id, profile)
+            "admin" -> AdminUser(document.id, profile)
+            else -> null
+        }
     }
 }

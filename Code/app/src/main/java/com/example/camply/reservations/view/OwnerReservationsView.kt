@@ -15,7 +15,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
@@ -34,6 +36,8 @@ import com.example.camply.reservations.model.Reservation
 import com.example.camply.shared.view.CamplyPalette
 import com.example.camply.shared.view.CamplyScreen
 import com.example.camply.shared.view.CenteredMessage
+import com.example.camply.shared.view.DangerButton
+import com.example.camply.shared.view.ErrorMessage
 import com.example.camply.shared.view.FilterChips
 import com.example.camply.shared.view.OrangeCard
 import com.example.camply.shared.view.SecondaryButton
@@ -42,7 +46,7 @@ import kotlinx.coroutines.launch
 /**
  * Displays the owner's campsites and their reservations.
  *
- * US 02.07.01 and US 02.07.02.
+ * US 02.07.01, US 02.07.02, and US 02.08.01.
  */
 class OwnerReservationsView(
     private val model: OwnerReservationsModel,
@@ -54,10 +58,33 @@ class OwnerReservationsView(
      *
      * @param ownerId The current owner's user ID.
      * @param onBack Called when returning to the owner campsite screen.
+     * @param onMessageEntrant Opens the selected reservation's conversation.
      */
     @Composable
-    fun Display(ownerId: String, onBack: () -> Unit) {
+    fun Display(
+        ownerId: String,
+        onBack: () -> Unit,
+        onMessageEntrant: ((String) -> Unit)? = null
+    ) {
         val scope = rememberCoroutineScope()
+
+        model.pendingRejection?.let { reservation ->
+            AlertDialog(
+                onDismissRequest = controller::dismissRejection,
+                title = { Text("Reject this reservation?") },
+                text = {
+                    Text("Reject the reservation for ${reservation.dates.from} to ${reservation.dates.to}? It will no longer be active.")
+                },
+                confirmButton = {
+                    TextButton(onClick = { scope.launch { controller.confirmRejection() } }) {
+                        Text("Reject")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = controller::dismissRejection) { Text("Keep reservation") }
+                }
+            )
+        }
 
         LaunchedEffect(ownerId) {
             controller.loadAllReservations(ownerId)
@@ -115,7 +142,8 @@ class OwnerReservationsView(
                 model.selectedReservation != null -> {
                     ReservationDetails(
                         model.selectedReservation!!,
-                        selectedCampsite?.campsite
+                        selectedCampsite?.campsite,
+                        onMessageEntrant
                     )
                 }
 
@@ -272,7 +300,7 @@ class OwnerReservationsView(
         }
 
         Text(
-            "Entrant: ${reservation.entrantId}",
+            "Entrant: ${model.entrantNames[reservation.entrantId] ?: "Name unavailable"}",
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             color = CamplyPalette.Ink
@@ -301,14 +329,21 @@ class OwnerReservationsView(
     @Composable
     private fun ColumnScope.ReservationDetails(
         reservation: Reservation,
-        campsite: Campsite?
+        campsite: Campsite?,
+        onMessageEntrant: ((String) -> Unit)?
     ) {
         Column(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {            OrangeCard {
+        ) {
+            if (onMessageEntrant != null && reservation.id.isNotBlank() &&
+                reservation.entrantId.isNotBlank() && !model.isRejecting
+            ) {
+                SecondaryButton("Message entrant", { onMessageEntrant(reservation.id) })
+            }
+            OrangeCard {
                 Text(
                     "Campsite",
                     fontSize = 16.sp,
@@ -372,6 +407,15 @@ class OwnerReservationsView(
                     )
                 }
             }
+        }
+
+        model.rejectionError?.let { ErrorMessage(it) }
+
+        if (model.isRejecting) {
+            Text("Rejecting reservation...")
+        } else if (controller.canRejectSelectedReservation()) {
+            DangerButton("Reject reservation", controller::requestRejection)
+            Spacer(Modifier.height(12.dp))
         }
 
         SecondaryButton(

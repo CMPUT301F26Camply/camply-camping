@@ -5,7 +5,8 @@ import junit.framework.TestCase.assertEquals
 import org.junit.Test
 
 /**
- * Unit tests for grouping and previewing an owner's sent notifications (US 02.10.02).
+ * Unit tests for grouping and previewing sent notifications and the notification log
+ * (US 02.10.02, US 03.08.01).
  */
 class SentNotificationTest {
 
@@ -105,10 +106,109 @@ class SentNotificationTest {
         assertEquals("a".repeat(80) + "…", sentNotification(message).preview())
     }
 
+    /**
+     * Checks that a notification sent to several users is one log entry with all its recipients.
+     */
+    @Test
+    fun groupNotificationLog_sameEvent_groupsIntoOneEntry() {
+        val records = listOf(
+            record("event1", recipientId = "entrant1"),
+            record("event1", recipientId = "entrant2"),
+            record("event1", recipientId = "entrant3")
+        )
+
+        val entry = groupNotificationLog(records).single()
+
+        assertEquals(listOf("entrant1", "entrant2", "entrant3"), entry.recipientIds)
+        assertEquals(3, entry.recipientCount)
+    }
+
+    /**
+     * Checks that system notifications are included in the log.
+     */
+    @Test
+    fun groupNotificationLog_systemNotification_isIncluded() {
+        val records = listOf(
+            record("owner-event"),
+            record(
+                "reservation-confirmed:reservation1",
+                origin = NotificationOrigin.SYSTEM,
+                type = NotificationType.RESERVATION_CONFIRMED
+            )
+        )
+
+        val log = groupNotificationLog(records)
+
+        assertEquals(
+            setOf("owner-event", "reservation-confirmed:reservation1"),
+            log.map { it.eventId }.toSet()
+        )
+    }
+
+    /**
+     * Checks that a lottery's win and loss notifications are separate entries.
+     */
+    @Test
+    fun groupNotificationLog_lotteryWinAndLoss_areSeparateEntries() {
+        val records = listOf(
+            record("lottery-result:lottery1", "winner", NotificationOrigin.SYSTEM, NotificationType.LOTTERY_WIN, "You won"),
+            record("lottery-result:lottery1", "loser1", NotificationOrigin.SYSTEM, NotificationType.LOTTERY_LOSE, "You lost"),
+            record("lottery-result:lottery1", "loser2", NotificationOrigin.SYSTEM, NotificationType.LOTTERY_LOSE, "You lost")
+        )
+
+        val log = groupNotificationLog(records)
+
+        val won = log.single { it.type == NotificationType.LOTTERY_WIN }
+        val lost = log.single { it.type == NotificationType.LOTTERY_LOSE }
+        assertEquals(2, log.size)
+        assertEquals("You won", won.content)
+        assertEquals(listOf("winner"), won.recipientIds)
+        assertEquals("You lost", lost.content)
+        assertEquals(listOf("loser1", "loser2"), lost.recipientIds)
+    }
+
+    /**
+     * Checks that the newest log entry comes first.
+     */
+    @Test
+    fun groupNotificationLog_differentEvents_sortsNewestFirst() {
+        val records = listOf(
+            record("older", createdAt = Timestamp(100, 0)),
+            record("newest", createdAt = Timestamp(300, 0)),
+            record("middle", createdAt = Timestamp(200, 0))
+        )
+
+        val log = groupNotificationLog(records)
+
+        assertEquals(listOf("newest", "middle", "older"), log.map { it.eventId })
+    }
+
+    /**
+     * Checks that each notification type has a readable source.
+     */
+    @Test
+    fun source_eachType_returnsLabel() {
+        val labels = NotificationType.entries.associateWith {
+            sentNotification("Message").copy(type = it).source()
+        }
+
+        assertEquals(
+            mapOf(
+                NotificationType.LOTTERY_WIN to "Lottery result: won",
+                NotificationType.LOTTERY_LOSE to "Lottery result: lost",
+                NotificationType.RESERVATION_CONFIRMED to "Reservation confirmed",
+                NotificationType.RESERVATION_CANCELLED to "Reservation cancelled",
+                NotificationType.OWNER_MESSAGE to "Owner message"
+            ),
+            labels
+        )
+    }
+
     private fun record(
         eventId: String,
         recipientId: String = "entrant1",
         origin: NotificationOrigin = NotificationOrigin.OWNER,
+        type: NotificationType = NotificationType.OWNER_MESSAGE,
         content: String = "Message",
         createdAt: Timestamp? = Timestamp(100, 0)
     ) = Notification(
@@ -117,7 +217,7 @@ class SentNotificationTest {
         senderId = "owner1",
         recipientId = recipientId,
         origin = origin,
-        type = NotificationType.OWNER_MESSAGE,
+        type = type,
         title = "Title",
         content = content,
         createdAt = createdAt

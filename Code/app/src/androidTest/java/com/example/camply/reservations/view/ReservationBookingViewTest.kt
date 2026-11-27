@@ -25,6 +25,7 @@ import com.example.camply.notification.service.NotificationService
 import com.example.camply.reservations.controller.ReservationBookingController
 import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationBookingModel
+import com.example.camply.reservations.repository.ReservationCancellationResult
 import com.example.camply.reservations.repository.ReservationRepository
 import com.example.camply.reservations.service.BookingService
 import org.junit.Before
@@ -184,11 +185,22 @@ class ReservationBookingViewTest {
      */
     private class TestReservationRepository : ReservationRepository {
 
+        override suspend fun rejectReservation(
+            reservationId: String, ownerId: String, today: String
+        ): Reservation = error("Rejection is not used by this test.")
+
+
         override suspend fun getReservationsForEntrant(entrantId: String): List<Reservation> = emptyList()
 
         override suspend fun getReservationsForCampsite(campsiteId: String): List<Reservation> = emptyList()
 
         override suspend fun createReservation(reservation: Reservation): String = "testReservationId"
+
+        override suspend fun cancelReservation(
+            reservationId: String,
+            entrantId: String,
+            today: String
+        ): ReservationCancellationResult = ReservationCancellationResult.NOT_ELIGIBLE
     }
 
     /**

@@ -1,29 +1,33 @@
 package com.example.camply.reservations.controller
 
 import com.example.camply.campsite.model.CampsiteRepository
+import com.example.camply.notification.service.NotificationService
 import com.example.camply.reservations.model.ActiveReservationItem
 import com.example.camply.reservations.model.ActiveReservationsModel
 import com.example.camply.reservations.model.Reservation
 import com.example.camply.reservations.model.ReservationStatus
+import com.example.camply.reservations.repository.ReservationCancellationResult
 import com.example.camply.reservations.repository.ReservationRepository
 import java.time.LocalDate
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Handles the entrant's reservations screen (US 01.06.01, US 01.06.02).
+ * Handles the entrant's reservations screen (US 01.06.01, US 01.06.02, US 01.07.01).
  *
- * Loads reservations, filters them by status, and handles reservation selection.
+ * Loads reservations, filters them by status, and handles reservation selection and cancellation.
  * Preserves the original active only reservation functionality.
  *
  * @param model The model storing the screen state.
- * @param reservationRepository The repository used to retrieve reservations.
+ * @param reservationRepository The repository used to retrieve and cancel reservations.
  * @param campsiteRepository The repository used to retrieve reserved campsites.
+ * @param notificationService The service used to send reservation cancellation confirmations.
  * @param today Provides today's date as an ISO string, like "2027-06-01".
  */
 class ActiveReservationsController(
     private val model: ActiveReservationsModel,
     private val reservationRepository: ReservationRepository,
     private val campsiteRepository: CampsiteRepository,
+    private val notificationService: NotificationService,
     private val today: () -> String = { LocalDate.now().toString() }
 ) {
 
@@ -68,6 +72,68 @@ class ActiveReservationsController(
         }
     }
 
+    /**
+     * Cancels the selected reservation and updates the reservation screen.
+     *
+     * @param entrantId The entrant's Firebase user ID.
+     */
+    suspend fun cancelReservation(entrantId: String) {
+        val selected = model.selectedReservation ?: return
+
+        if (model.isCancelling) return
+
+        model.startCancellation()
+
+        try {
+            val currentDate = today()
+            val reservationId = selected.reservation.id
+
+            when (reservationRepository.cancelReservation(reservationId, entrantId, currentDate)) {
+                ReservationCancellationResult.CANCELLED -> {
+                    model.updateCancelledReservation(reservationId, currentDate)
+                    applyFilters()
+                    model.finishCancellation()
+                    notifyReservationCancelled(selected)
+                }
+
+                ReservationCancellationResult.NOT_ELIGIBLE -> {
+                    model.showCancellationError("This reservation can no longer be cancelled.")
+                }
+            }
+        } catch (e: CancellationException) {
+            model.finishCancellation()
+            throw e
+        } catch (e: Exception) {
+            model.showCancellationError(e.message ?: "Could not cancel reservation.")
+        }
+    }
+
+    /**
+     * Sends the entrant a confirmation after their reservation has been cancelled (US 01.07.02).
+     *
+     * A failed notification does not affect the cancellation, because the reservation status has
+     * already been updated.
+     *
+     * @param item The cancelled reservation and its associated campsite.
+     */
+    private suspend fun notifyReservationCancelled(item: ActiveReservationItem) {
+        val campsite = item.campsite ?: return
+        val reservation = item.reservation
+
+        try {
+            notificationService.sendReservationCancellation(
+                campsite.ownerId,
+                reservation.entrantId,
+                reservation.id,
+                campsite.name,
+                reservation.dates
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // The reservation is already cancelled, so a failed notification is not a cancellation error
+        }
+    }
 
     /**
      * Selects or deselects a reservation category.

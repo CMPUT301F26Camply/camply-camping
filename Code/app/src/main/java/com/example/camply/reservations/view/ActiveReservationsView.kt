@@ -17,7 +17,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,15 +36,18 @@ import com.example.camply.shared.view.CamplyPalette
 import com.example.camply.shared.view.CamplyScreen
 import com.example.camply.shared.view.CardLabel
 import com.example.camply.shared.view.CenteredMessage
+import com.example.camply.shared.view.DangerButton
+import com.example.camply.shared.view.DestructiveConfirmationDialog
+import com.example.camply.shared.view.ErrorMessage
 import com.example.camply.shared.view.OrangeCard
 import com.example.camply.shared.view.SecondaryButton
 import kotlinx.coroutines.launch
 
 /**
- * Displays and filters the entrant's reservations (US 01.06.01, US 01.06.02).
+ * Displays, filters and allows cancellation of the entrant's reservations (US 01.06.01, US 01.06.02, US 01.07.01).
  *
  * @param model The model containing the screen state.
- * @param controller The controller used to load and filter reservations.
+ * @param controller The controller used to load, filter and cancel reservations.
  */
 class ActiveReservationsView(
     private val model: ActiveReservationsModel,
@@ -51,9 +58,10 @@ class ActiveReservationsView(
      * Loads and displays an entrant's reservations, or the selected reservation's details.
      *
      * @param entrantId The entrant's Firebase user ID.
+     * @param onMessageOwner Opens the selected reservation's conversation.
      */
     @Composable
-    fun Display(entrantId: String) {
+    fun Display(entrantId: String, onMessageOwner: ((String) -> Unit)? = null) {
         val scope = rememberCoroutineScope()
         val error = model.errorMessage
         val selected = model.selectedReservation
@@ -74,7 +82,7 @@ class ActiveReservationsView(
                     scope.launch { controller.loadReservations(entrantId) }
                 }
 
-                selected != null -> ReservationDetails(selected)
+                selected != null -> ReservationDetails(selected, entrantId, onMessageOwner)
 
 
                 else -> {
@@ -122,14 +130,28 @@ class ActiveReservationsView(
 
     // Shows one reservation's full details, with the campsite's rules and policy if it still exists.
     @Composable
-    private fun ReservationDetails(item: ActiveReservationItem) {
-        BackHandler { controller.onBackToList() }
+    private fun ReservationDetails(
+        item: ActiveReservationItem,
+        entrantId: String,
+        onMessageOwner: ((String) -> Unit)?
+    ) {
+
+        val scope = rememberCoroutineScope()
+        var showCancellationDialog by remember(item.reservation.id) { mutableStateOf(false) }
+
+        BackHandler { if (!model.isCancelling) controller.onBackToList() }
 
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OrangeCard { ReservationSummary(item) }
+
+            if (onMessageOwner != null && item.reservation.id.isNotBlank() &&
+                item.reservation.entrantId == entrantId && !model.isCancelling
+            ) {
+                SecondaryButton("Message owner", { onMessageOwner(item.reservation.id) })
+            }
 
             item.campsite?.let { campsite ->
                 OrangeCard {
@@ -140,7 +162,42 @@ class ActiveReservationsView(
                 }
             }
 
-            SecondaryButton("Back", controller::onBackToList)
+            model.cancellationError?.let { ErrorMessage(it) }
+
+            if (controller.getReservationCategory(item.reservation) == "Active") {
+                if (model.isCancelling) {
+                    Box(
+                        Modifier.fillMaxWidth().padding(12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = Color.White)
+                    }
+                } else {
+                    DangerButton("Cancel reservation", {
+                        showCancellationDialog = true
+                    })
+                }
+            }
+
+            if (!model.isCancelling) {
+                SecondaryButton("Back", controller::onBackToList)
+            }
+        }
+
+        if (showCancellationDialog) {
+            DestructiveConfirmationDialog(
+                title = "Cancel reservation?",
+                message = "Are you sure you want to cancel this reservation? This action cannot be undone.",
+                confirmText = "Cancel reservation",
+                dismissText = "Keep reservation",
+                onConfirm = {
+                    showCancellationDialog = false
+                    scope.launch { controller.cancelReservation(entrantId) }
+                },
+                onDismiss = {
+                    showCancellationDialog = false
+                }
+            )
         }
     }
 
