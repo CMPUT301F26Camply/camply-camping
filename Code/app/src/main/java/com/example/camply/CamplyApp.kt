@@ -20,10 +20,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.camply.campsite.controller.CampsiteBrowseController
 import com.example.camply.campsite.controller.CampsiteDetailController
+import com.example.camply.campsite.controller.CampsiteRemovalController
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.CampsiteBrowseModel
 import com.example.camply.campsite.model.CampsiteDetailModel
+import com.example.camply.campsite.model.CampsiteRemovalModel
 import com.example.camply.campsite.model.DateRange
+import com.example.camply.campsite.model.FirestoreCampsiteRemovalRepository
 import com.example.camply.campsite.model.FirestoreCampsiteRepository
 import com.example.camply.campsite.view.CampsiteBrowseView
 import com.example.camply.campsite.view.CampsiteDetailView
@@ -110,6 +113,9 @@ import com.example.camply.user.view.AdminProfileBrowseView
 import com.example.camply.lottery.controller.UpdateLotteryController
 import com.example.camply.lottery.model.UpdateLotteryModel
 import com.example.camply.lottery.view.UpdateLotteryView
+import com.example.camply.user.controller.ProfileRemovalController
+import com.example.camply.user.model.ProfileRemovalModel
+import com.example.camply.user.repository.FirestoreProfileRemovalRepository
 import com.example.camply.user.controller.AdminImageBrowseController
 import com.example.camply.user.controller.AdminImageRemovalController
 import com.example.camply.user.repository.FirestoreAdminImageRepository
@@ -191,6 +197,28 @@ fun CamplyApp() {
     val reservationRepository = remember { FirestoreReservationRepository() }
     val bookingService = remember { BookingService() }
     val notificationService = remember { NotificationService(FirestoreNotificationRepository()) }
+    val campsiteRemovalModel = remember { CampsiteRemovalModel() }
+    val campsiteRemovalController = remember {
+        CampsiteRemovalController(
+            campsiteRemovalModel,
+            FirestoreCampsiteRemovalRepository(),
+            campsiteRepository,
+            notificationService
+        )
+    }
+    val profileRemovalModel = remember { ProfileRemovalModel() }
+    val profileRemovalController = remember {
+        ProfileRemovalController(
+            profileRemovalModel,
+            FirestoreProfileRemovalRepository(),
+            campsiteRepository,
+            campsiteRemovalController,
+            campsiteRemovalModel,
+            entrantLotteryRepository,
+            reservationRepository,
+            notificationService
+        )
+    }
     val reservationBookingController = remember {
         ReservationBookingController(
             bookingService = bookingService,
@@ -711,6 +739,19 @@ fun CamplyApp() {
                                     ({ navigationController.navigateTo(Screen.SETTINGS) })
                                 } else {
                                     null
+                                },
+                                onDeleteProfile = if (currentUser.getRole() == "entrant") {
+                                    { entrant ->
+                                        val removed = profileRemovalController.removeProfile(entrant)
+                                        if (removed) {
+                                            userModel.leaveDeletedAccount()
+                                            null
+                                        } else {
+                                            profileRemovalModel.error ?: "Could not remove the profile."
+                                        }
+                                    }
+                                } else {
+                                    null
                                 }
                             )
 
@@ -741,6 +782,28 @@ fun CamplyApp() {
                                         },
                                         loadPhoto = { campsiteId, photoId ->
                                             campsiteRepository.getCampsitePhoto(campsiteId, photoId)
+                                        },
+                                        onRemoveCampsite = { campsiteId ->
+                                            val removed = campsiteRemovalController.removeCampsite(campsiteId)
+                                            if (removed) {
+                                                adminPanelModel.selectedOwner?.getUid()?.let { ownerId ->
+                                                    adminController.loadCampsitesFor(ownerId)
+                                                }
+                                                adminController.loadCampsiteCounts()
+                                                null
+                                            } else {
+                                                campsiteRemovalModel.error ?: "Could not remove the campsite."
+                                            }
+                                        },
+                                        onRemoveProfile = { profile ->
+                                            val removed = profileRemovalController.removeProfile(profile)
+                                            if (removed) {
+                                                adminProfileController.loadProfiles()
+                                                adminPanelController.backFromProfile()
+                                                null
+                                            } else {
+                                                profileRemovalModel.error ?: "Could not remove the profile."
+                                            }
                                         },
                                         onRemoveCampsitePhoto = adminImageRemovalController::removeCampsitePhoto,
                                         onRemoveProfileImage = adminImageRemovalController::removeProfileImage

@@ -43,4 +43,25 @@ class DeviceIdentityService {
                 onComplete(task.isSuccessful)
             }
     }
+    /**
+     * Deletes the signed-in anonymous account, then signs in as a new one.
+     *
+     * A removed profile still has the old account on this device. Signing up again
+     * with that account would reuse its UID, which past reservations may still name.
+     * Deleting it first makes the next sign-in a different UID. If deletion fails,
+     * the local session is still signed out before the new sign-in.
+     *
+     * @param onComplete Called with true when a new anonymous account is signed in.
+     */
+    fun replaceIdentity(onComplete: (Boolean) -> Unit) {
+        val user = auth.currentUser
+        if (user == null) {
+            signInAnonymously(onComplete)
+            return
+        }
+        user.delete().addOnCompleteListener {
+            if (auth.currentUser != null) auth.signOut()
+            signInAnonymously(onComplete)
+        }
+    }
 }

@@ -97,8 +97,7 @@ class UserModel {
      *
      * @param uid the Firebase UID used to find the user's profile
      */
-    private fun checkAndLoadUserProfile(uid: String) {
-
+    private fun checkAndLoadUserProfile(uid: String, replaceIfMissing: Boolean) {
         // Store the UID so it is available if the user needs to sign up
         firebaseUid = uid
 
@@ -139,10 +138,21 @@ class UserModel {
                         currentStartupState = "error"
                     }
 
+                } else if (replaceIfMissing) {
+            // The account on this device no longer has a profile. Replace it
+            // before signup so the old UID is not used again.
+            deviceIdentityService.replaceIdentity { successful ->
+                val newUid = deviceIdentityService.getCurrentUserId()
+                if (successful && newUid != null) {
+                    checkAndLoadUserProfile(newUid, replaceIfMissing = false)
                 } else {
-                    // No profile exists so the user must complete signup
-                    currentStartupState = "signup"
+                    currentStartupState = "error"
                 }
+            }
+        } else {
+            // No profile exists so the user must complete signup
+            currentStartupState = "signup"
+        }
             },
             onFailure = {
                 // The Firestore request failed
@@ -163,20 +173,37 @@ class UserModel {
         val uid = deviceIdentityService.getCurrentUserId()
 
         if (uid != null) {
-            checkAndLoadUserProfile(uid)
+            checkAndLoadUserProfile(uid, replaceIfMissing = true)
         } else {
             deviceIdentityService.signInAnonymously { successful ->
                 if (successful) {
                     val newUid = deviceIdentityService.getCurrentUserId()
 
                     if (newUid != null) {
-                        checkAndLoadUserProfile(newUid)
+                        checkAndLoadUserProfile(newUid, replaceIfMissing = false)
                     } else {
                         currentStartupState = "error"
                     }
                 } else {
                     currentStartupState = "error"
                 }
+            }
+        }
+    }
+    /**
+     * Drops the signed-in account after this device deleted its own profile.
+     * The next signup uses the new UID from replaceIdentity.
+     */
+    fun leaveDeletedAccount() {
+        loadedUser = null
+        currentStartupState = "loading"
+        deviceIdentityService.replaceIdentity { successful ->
+            val newUid = deviceIdentityService.getCurrentUserId()
+            if (successful && newUid != null) {
+                firebaseUid = newUid
+                currentStartupState = "signup"
+            } else {
+                currentStartupState = "error"
             }
         }
     }

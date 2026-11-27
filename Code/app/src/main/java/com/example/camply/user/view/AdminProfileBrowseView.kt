@@ -16,13 +16,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,11 +43,13 @@ import androidx.compose.ui.unit.dp
 import com.example.camply.R
 import com.example.camply.shared.view.CamplyScreen
 import com.example.camply.shared.view.CardLabel
+import com.example.camply.shared.view.DestructiveConfirmationDialog
 import com.example.camply.shared.view.OrangeCard
 import com.example.camply.shared.view.SecondaryButton
 import com.example.camply.user.controller.AdminProfileController
 import com.example.camply.user.model.AdminProfileModel
 import com.example.camply.user.model.User
+import kotlinx.coroutines.launch
 
 /**
  * Shows every user profile, then the read-only details for the one the admin opens.
@@ -64,7 +74,8 @@ class AdminProfileBrowseView {
         selectedProfile: User?,
         onProfileSelected: (User) -> Unit,
         onBack: () -> Unit,
-        onBackFromList: () -> Unit
+        onBackFromList: () -> Unit,
+        onRemoveProfile: (suspend (User) -> String?)? = null
     ) {
         if (selectedProfile != null) {
             BackHandler { onBack() }
@@ -72,7 +83,8 @@ class AdminProfileBrowseView {
                 profile = selectedProfile,
                 imageBytes = model.profileImage,
                 isLoadingImage = model.isLoadingImage,
-                onBack = onBack
+                onBack = onBack,
+                onRemoveProfile = onRemoveProfile
             )
         } else {
             ProfileList(
@@ -136,13 +148,52 @@ class AdminProfileBrowseView {
         profile: User,
         imageBytes: ByteArray?,
         isLoadingImage: Boolean,
-        onBack: () -> Unit
+        onBack: () -> Unit,
+        onRemoveProfile: (suspend (User) -> String?)? = null
     ) {
+        val scope = rememberCoroutineScope()
+        var confirmRemoval by remember(profile.getUid()) { mutableStateOf(false) }
+        var removalError by remember(profile.getUid()) { mutableStateOf<String?>(null) }
         val bitmap = remember(imageBytes) {
             imageBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
         }
-
-        CamplyScreen(title = "Profile") {
+        if (confirmRemoval) {
+            DestructiveConfirmationDialog(
+                title = "Remove profile",
+                message = "Remove ${profile.getProfile().getName()}? This cannot be undone.",
+                confirmText = "Remove profile",
+                onConfirm = {
+                    confirmRemoval = false
+                    val remove = onRemoveProfile ?: return@DestructiveConfirmationDialog
+                    scope.launch {
+                        removalError = remove(profile)
+                        if (removalError == null) onBack()
+                    }
+                },
+                onDismiss = { confirmRemoval = false }
+            )
+        }
+        CamplyScreen(
+            title = "Profile",
+            trailing = if (onRemoveProfile != null && profile.getRole() != "admin") {
+                {
+                    IconButton(
+                        onClick = { confirmRemoval = true },
+                        modifier = Modifier
+                            .size(52.dp)
+                            .background(MaterialTheme.colorScheme.error, RoundedCornerShape(14.dp))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Remove profile",
+                            tint = MaterialTheme.colorScheme.onError
+                        )
+                    }
+                }
+            } else {
+                null
+            }
+        ) {
             OrangeCard(modifier = Modifier.weight(1f)) {
                 Column(
                     modifier = Modifier

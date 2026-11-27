@@ -90,6 +90,9 @@ class AdminPanelView {
         currentUserId: String,
         loadPhotoPreview: suspend (String, String) -> ByteArray?,
         loadPhoto: suspend (String, String) -> ByteArray?,
+        onRemoveCampsite: (suspend (String) -> String?)? = null,
+        onRemoveProfile: (suspend (User) -> String?)? = null,
+
         onRemoveCampsitePhoto: suspend (Campsite, String) -> ImageRemovalResult,
         onRemoveProfileImage: suspend (User) -> ImageRemovalResult
     ) {
@@ -122,8 +125,8 @@ class AdminPanelView {
                     selectedProfile = model.selectedProfile,
                     onProfileSelected = { controller.selectProfile(it) },
                     onBack = { controller.backFromProfile() },
-                    onBackFromList = { controller.backToMenu() }
-
+                    onBackFromList = { controller.backToMenu() },
+                    onRemoveProfile = onRemoveProfile
                 )
             }
 
@@ -144,7 +147,8 @@ class AdminPanelView {
                     onBackFromDetails = { controller.backFromDetails() },
                     loadPhotoPreview = loadPhotoPreview,
                     loadPhoto = loadPhoto,
-                    onBackFromOwners = { controller.backToMenu() }
+                    onBackFromOwners = { controller.backToMenu() },
+                    onRemoveCampsite = onRemoveCampsite
                 )
             }
 

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -51,6 +52,7 @@ import androidx.compose.ui.unit.sp
 import com.example.camply.R
 import com.example.camply.shared.view.CamplyPalette
 import com.example.camply.shared.view.CamplyScreen
+import com.example.camply.shared.view.DestructiveConfirmationDialog
 import com.example.camply.shared.view.ErrorMessage
 import com.example.camply.shared.view.OrangeCard
 import com.example.camply.shared.view.PrimaryButton
@@ -82,7 +84,9 @@ class UserProfileView {
     fun Display(
         user: User,
         userController: UserController,
-        onOpenSettings: (() -> Unit)? = null // ▶ NEW
+        onOpenSettings: (() -> Unit)? = null, // ▶ NEW
+        onDeleteProfile: (suspend (User) -> String?)? = null
+
     ) {
         val profile = user.getProfile()
 
@@ -106,7 +110,8 @@ class UserProfileView {
         val isSavingProfile = userController.isSavingProfile()
         val profileSaved = userController.isProfileSaved()
 
-
+        var confirmRemoval by remember(user.getUid()) { mutableStateOf(false) }
+        var removalError by remember(user.getUid()) { mutableStateOf<String?>(null) }
         // US 01.08.02: Profile image state and picker
         val context = LocalContext.current
         val coroutineScope = rememberCoroutineScope()
@@ -171,9 +176,42 @@ class UserProfileView {
         }
 
         val isImageBusy = isLoadingProfileImage || isSavingProfileImage || isProcessingImage
-
-        CamplyScreen("My Profile") {
-            OrangeCard(modifier = Modifier.weight(1f)) {
+        if (confirmRemoval) {
+            DestructiveConfirmationDialog(
+                title = "Delete profile",
+                message = "Delete your profile? This cannot be undone.",
+                confirmText = "Delete profile",
+                onConfirm = {
+                    confirmRemoval = false
+                    val remove = onDeleteProfile ?: return@DestructiveConfirmationDialog
+                    coroutineScope.launch {
+                        removalError = remove(user)
+                    }
+                },
+                onDismiss = { confirmRemoval = false }
+            )
+        }
+        CamplyScreen(
+            title = "My Profile",
+            trailing = if (onDeleteProfile != null) {
+                {
+                    IconButton(
+                        onClick = { confirmRemoval = true },
+                        modifier = Modifier
+                            .size(52.dp)
+                            .background(MaterialTheme.colorScheme.error, RoundedCornerShape(14.dp))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete profile",
+                            tint = MaterialTheme.colorScheme.onError
+                        )
+                    }
+                }
+            } else {
+                null
+            }
+        ) {            OrangeCard(modifier = Modifier.weight(1f)) {
 
                 Column(
                     modifier = Modifier
@@ -370,6 +408,10 @@ class UserProfileView {
 
                 if (profileError != null) {
                     ErrorMessage(profileError)
+                }
+                val message = removalError
+                if (message != null) {
+                    ErrorMessage(message)
                 }
 
                 if (profileSaved) {
