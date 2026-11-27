@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,7 +41,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import com.example.camply.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,10 +53,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import com.example.camply.R
 import com.example.camply.campsite.model.Campsite
 import com.example.camply.campsite.model.DateRange
 import com.example.camply.shared.view.DestructiveConfirmationDialog
+import com.example.camply.shared.view.ErrorMessage
 import com.example.camply.shared.view.PrimaryButton
 import com.example.camply.shared.view.SecondaryButton
 import com.example.camply.ui.theme.CamplyTheme
@@ -143,6 +144,9 @@ class CampsiteListView {
      * @param loadPhotoPreview Loads the Firestore preview image bytes for a given campsite ID and photo ID, or null if unavailable.
      * @param readOnly Hides creation, editing, reservations, and lottery controls. Used when an admin is viewing another owner's campsites.
      * @param onBack Returns to the previous screen. The Back button is shown only when this is provided.
+     * @param isLoadingCampsiteList Whether the owner's campsite list is currently loading.
+     * @param loadingCampsiteListFailed Whether loading the owner's campsite list failed.
+     * @param onRetryLoadingCampsiteList Called when retrying to load the owner's campsite list.
      */
     @Composable
     fun Display(
@@ -158,7 +162,10 @@ class CampsiteListView {
         // Admin browse reuses this page. readOnly hides create, edit, and lottery controls
         // because an admin-only account is looking at someone else's campsites.
         readOnly: Boolean = false,
-        onBack: (()-> Unit)?=null
+        onBack: (()-> Unit)?=null,
+        isLoadingCampsiteList: Boolean = false,
+        loadingCampsiteListFailed: Boolean = false,
+        onRetryLoadingCampsiteList: () -> Unit = {}
     ) {
         Column(
             modifier = Modifier
@@ -248,13 +255,38 @@ class CampsiteListView {
             Spacer(modifier = Modifier.height(12.dp))
 
             // Campsite list
-            if (campsites.isEmpty()) {
+            if (isLoadingCampsiteList) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            } else if (loadingCampsiteListFailed) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ErrorMessage("Failed to load your campsites. Please try again.")
+
+                    SecondaryButton(
+                        text = "Try Again",
+                        onClick = onRetryLoadingCampsiteList
+                    )
+                }
+            } else if (campsites.isEmpty()) {
                 Text(
                     text = if (readOnly) {
                         "This owner has no campsites."
                     } else {
                         "No Registered Campsites. Press the '+' button to add campsites"
-                    },                    style = MaterialTheme.typography.bodyMedium,
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 20.dp)
                 )

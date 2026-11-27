@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.camply.campsite.model.Campsite
+import com.example.camply.shared.view.DangerButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
@@ -67,7 +70,9 @@ import kotlin.coroutines.cancellation.CancellationException
 // existing Firestore photo storage system. Assistance included loading image
 // previews and full resolution photos, displaying selectable thumbnails,
 // implementing zoom gestures, and designing full screen photo navigation
-// controls using the existing Camply theme.
+// controls using the existing Camply theme. AI was also used to extend the
+// component to support optional image removal controls and direct viewing of
+// individual profile images for admin image browsing (US 03.06.01 and US 03.03.01).
 //
 // Starting Prompt:
 // "I want to create a reusable CampsitePhotoGallery.kt component for displaying campsite photos.
@@ -81,11 +86,22 @@ import kotlin.coroutines.cancellation.CancellationException
 // rather than hardcoded colors. Keep the component independent so it can be reused across
 // different screens."
 
+/**
+ * Displays campsite promotional images with selectable previews and a full screen photo viewer.
+ *
+ * @param campsite campsite containing the promotional photo IDs
+ * @param loadPhotoPreview loads a preview using the campsite and photo IDs
+ * @param loadPhoto loads a full-resolution photo using the campsite and photo IDs
+ * @param onRemovePhoto optional removal action for the selected photo ID
+ * @param isRemoving whether an image removal operation is in progress
+ */
 @Composable
 fun CampsitePhotoGallery(
     campsite: Campsite,
     loadPhotoPreview: suspend (String, String) -> ByteArray?,
-    loadPhoto: suspend (String, String) -> ByteArray?
+    loadPhoto: suspend (String, String) -> ByteArray?,
+    onRemovePhoto: ((String) -> Unit)? = null,
+    isRemoving: Boolean = false
 ) {
     // Images are Firestore document IDs, not URLs, and the first photo is the cover.
     val photoIds = campsite.images
@@ -119,7 +135,7 @@ fun CampsitePhotoGallery(
                 .aspectRatio(16f / 10f)
                 .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                .clickable { showingFullPhoto = true },
+                .clickable(enabled = !isRemoving) { showingFullPhoto = true },
             contentAlignment = Alignment.Center
         ) {
             val preview = previews[selectedPhotoId]
@@ -137,6 +153,15 @@ fun CampsitePhotoGallery(
                     "Photo unavailable. Tap to view full image.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Display the removal control when a removal action is provided.
+            if (onRemovePhoto != null) {
+                RemovePhotoIcon(
+                    onClick = { onRemovePhoto(selectedPhotoId) },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                    enabled = !isRemoving
                 )
             }
 
@@ -163,7 +188,7 @@ fun CampsitePhotoGallery(
                     Column(
                         modifier = Modifier
                             .width(64.dp)
-                            .clickable { selectedPhotoId = photoId },
+                            .clickable(enabled = !isRemoving) { selectedPhotoId = photoId },
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Box(
@@ -207,31 +232,83 @@ fun CampsitePhotoGallery(
 
     if (showingFullPhoto) {
         FullPhotoDialog(
-            campsite = campsite,
+            imageOwnerId = campsite.id,
+            imageDescription = "Enlarged photo of ${campsite.name}",
             photoIds = photoIds,
             selectedPhotoId = selectedPhotoId,
             onSelectPhoto = { selectedPhotoId = it },
             onClose = { showingFullPhoto = false },
             previews = previews,
             fullPhotos = fullPhotos,
-            loadPhoto = loadPhoto
+            loadPhoto = loadPhoto,
+            onRemovePhoto = onRemovePhoto,
+            isRemoving = isRemoving
         )
     }
 }
 
+/**
+ * Displays an optional removal control for a gallery photo.
+ *
+ * @param onClick requests removal of the associated photo
+ * @param modifier controls placement of the removal button
+ * @param enabled whether the removal button can be pressed
+ */
+@Composable
+private fun RemovePhotoIcon(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.55f),
+        shape = CircleShape
+    ) {
+        IconButton(onClick = onClick, enabled = enabled) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = "Remove image",
+                tint = MaterialTheme.colorScheme.inverseOnSurface.copy(
+                    alpha = if (enabled) 1f else 0.38f
+                )
+            )
+        }
+    }
+}
+
+/**
+ * Displays a full-screen image viewer with zoom, photo navigation
+ * and an optional image removal action.
+ *
+ * @param imageOwnerId ID associated with the image collection
+ * @param imageDescription accessibility description of the image
+ * @param photoIds ordered IDs of the available photos
+ * @param selectedPhotoId ID of the currently displayed photo
+ * @param onSelectPhoto selects another photo
+ * @param onClose closes the viewer
+ * @param previews cached preview images indexed by photo ID
+ * @param fullPhotos cached full-resolution images indexed by photo ID
+ * @param loadPhoto loads image bytes using the owner and photo IDs
+ * @param onRemovePhoto optional removal action for the displayed photo ID
+ * @param isRemoving whether an image removal operation is in progress
+ */
 @Composable
 private fun FullPhotoDialog(
-    campsite: Campsite,
+    imageOwnerId: String,
+    imageDescription: String,
     photoIds: List<String>,
     selectedPhotoId: String,
     onSelectPhoto: (String) -> Unit,
     onClose: () -> Unit,
     previews: Map<String, ImageBitmap>,
     fullPhotos: MutableMap<String, ImageBitmap>,
-    loadPhoto: suspend (String, String) -> ByteArray?
+    loadPhoto: suspend (String, String) -> ByteArray?,
+    onRemovePhoto: ((String) -> Unit)? = null,
+    isRemoving: Boolean = false
 ) {
-    var loadingPhoto by remember(campsite.id, selectedPhotoId) { mutableStateOf(false) }
-    var finishedLoading by remember(campsite.id, selectedPhotoId) { mutableStateOf(false) }
+    var loadingPhoto by remember(imageOwnerId, selectedPhotoId) { mutableStateOf(false) }
+    var finishedLoading by remember(imageOwnerId, selectedPhotoId) { mutableStateOf(false) }
     var photoScale by remember(selectedPhotoId) { mutableStateOf(1f) }
     var photoOffset by remember(selectedPhotoId) { mutableStateOf(Offset.Zero) }
     val transformState = rememberTransformableState { zoomChange, panChange, _ ->
@@ -240,11 +317,11 @@ private fun FullPhotoDialog(
         photoScale = newScale
     }
 
-    LaunchedEffect(campsite.id, selectedPhotoId) {
+    LaunchedEffect(imageOwnerId, selectedPhotoId) {
         if (fullPhotos[selectedPhotoId] == null) {
             loadingPhoto = true
             try {
-                val bitmap = decodePhoto(loadPhoto(campsite.id, selectedPhotoId))
+                val bitmap = decodePhoto(loadPhoto(imageOwnerId, selectedPhotoId))
                 if (bitmap != null) fullPhotos[selectedPhotoId] = bitmap
             } catch (e: CancellationException) {
                 throw e
@@ -261,8 +338,14 @@ private fun FullPhotoDialog(
 
     val position = photoIds.indexOf(selectedPhotoId)
     Dialog(
-        onDismissRequest = onClose,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        onDismissRequest = {
+            if (!isRemoving) onClose()
+        },
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = !isRemoving,
+            dismissOnClickOutside = !isRemoving
+        )
     ) {
         Box(
             modifier = Modifier
@@ -274,7 +357,7 @@ private fun FullPhotoDialog(
             if (image != null) {
                 Image(
                     bitmap = image,
-                    contentDescription = "Enlarged photo of ${campsite.name}",
+                    contentDescription = imageDescription,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxSize()
@@ -284,12 +367,17 @@ private fun FullPhotoDialog(
                             translationX = photoOffset.x
                             translationY = photoOffset.y
                         }
-                        .transformable(state = transformState)
-                        .pointerInput(selectedPhotoId) {
-                            detectTapGestures(onDoubleTap = {
-                                photoScale = if (photoScale > 1f) 1f else 2f
-                                photoOffset = Offset.Zero
-                            })
+                        .transformable(
+                            state = transformState,
+                            enabled = !isRemoving
+                        )
+                        .pointerInput(selectedPhotoId, isRemoving) {
+                            if (!isRemoving) {
+                                detectTapGestures(onDoubleTap = {
+                                    photoScale = if (photoScale > 1f) 1f else 2f
+                                    photoOffset = Offset.Zero
+                                })
+                            }
                         }
                 )
             } else if (finishedLoading) {
@@ -318,31 +406,46 @@ private fun FullPhotoDialog(
                 }
             }
 
-            PhotoControlButton(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Close photo viewer",
-                onClick = onClose,
-                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
-            )
+            // Hide viewer controls while an image removal operation is running.
+            if (!isRemoving) {
+                PhotoControlButton(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close photo viewer",
+                    onClick = onClose,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
+                )
 
-            if (photoIds.size > 1 && photoScale == 1f) {
-                if (position > 0) {
-                    PhotoControlButton(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = "Previous photo",
-                        onClick = { onSelectPhoto(photoIds[position - 1]) },
-                        modifier = Modifier.align(Alignment.CenterStart).padding(12.dp)
+                if (onRemovePhoto != null) {
+                    DangerButton(
+                        text = "Remove image",
+                        onClick = { onRemovePhoto(selectedPhotoId) },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .padding(20.dp)
                     )
                 }
-                if (position < photoIds.lastIndex) {
-                    PhotoControlButton(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "Next photo",
-                        onClick = { onSelectPhoto(photoIds[position + 1]) },
-                        modifier = Modifier.align(Alignment.CenterEnd).padding(12.dp)
-                    )
+
+                if (photoIds.size > 1 && photoScale == 1f) {
+                    if (position > 0) {
+                        PhotoControlButton(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = "Previous photo",
+                            onClick = { onSelectPhoto(photoIds[position - 1]) },
+                            modifier = Modifier.align(Alignment.CenterStart).padding(12.dp)
+                        )
+                    }
+                    if (position < photoIds.lastIndex) {
+                        PhotoControlButton(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Next photo",
+                            onClick = { onSelectPhoto(photoIds[position + 1]) },
+                            modifier = Modifier.align(Alignment.CenterEnd).padding(12.dp)
+                        )
+                    }
                 }
             }
+
         }
     }
 }
@@ -367,6 +470,51 @@ private fun PhotoControlButton(
             )
         }
     }
+}
+
+/**
+ * Opens a single image directly in the full screen photo viewer, without displaying a gallery or thumbnail selection.
+ *
+ * Used by the admin image browser to inspect user profile images. Reuses the existing full screen viewer.
+ *
+ * The image is loaded from previously retrieved bytes rather than making an additional Firestore request.
+ *
+ * @param imageId unique identifier of the image
+ * @param imageDescription accessibility description of the image
+ * @param imageBytes compressed image data to display
+ * @param onClose called when the viewer is dismissed
+ * @param onRemoveImage optional removal action; if null, the removal button is hidden
+ * @param isRemoving whether an image removal operation is in progress
+ */
+@Composable
+fun SingleImageViewer(
+    imageId: String,
+    imageDescription: String,
+    imageBytes: ByteArray,
+    onClose: () -> Unit,
+    onRemoveImage: (() -> Unit)? = null,
+    isRemoving: Boolean = false
+) {
+    val photoIds = remember(imageId) { listOf(imageId) }
+    val fullPhotos = remember(imageId, imageBytes) {
+        mutableStateMapOf<String, ImageBitmap>()
+    }
+
+    FullPhotoDialog(
+        imageOwnerId = imageId,
+        imageDescription = imageDescription,
+        photoIds = photoIds,
+        selectedPhotoId = imageId,
+        onSelectPhoto = {},
+        onClose = onClose,
+        previews = emptyMap(),
+        fullPhotos = fullPhotos,
+        loadPhoto = { _, _ -> imageBytes },
+        onRemovePhoto = onRemoveImage?.let { action ->
+            { _: String -> action() }
+        },
+        isRemoving = isRemoving
+    )
 }
 
 /** Decodes photo bytes off the main thread to keep the gallery responsive. */

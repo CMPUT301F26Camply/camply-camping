@@ -7,7 +7,11 @@ import androidx.compose.runtime.setValue
  * The admin tool currently open from the panel.
  *
  */
-enum class AdminPanelPage { CAMPSITES, PROFILES }
+enum class AdminPanelPage {
+    CAMPSITES,
+    PROFILES,
+    IMAGES,
+}
 /**
  * Stores which admin tool is open and which owner, campsite, or profile is selected.
  *
