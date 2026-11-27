@@ -211,14 +211,15 @@ fun CamplyApp() {
     val inboxView = remember { InboxView(FirestoreConversationRepository(), FirestoreRecipientNameRepository()) }
     var inboxReservationId by remember { mutableStateOf<String?>(null) }
 
-    // Owner lottery waitlists (US 02.09.01)
+    // Owner lottery waitlists and notifications to their entrants (US 02.09.01, US 02.10.01)
     val ownerWaitlistModel = remember { OwnerWaitlistModel() }
     val ownerWaitlistController = remember {
         OwnerWaitlistController(
             ownerWaitlistModel,
             FirestoreOwnerWaitlistRepository(),
             campsiteRepository,
-            FirestoreRecipientNameRepository()
+            FirestoreRecipientNameRepository(),
+            notificationService
         )
     }
     val ownerWaitlistView = remember { OwnerWaitlistView(ownerWaitlistModel, ownerWaitlistController) }

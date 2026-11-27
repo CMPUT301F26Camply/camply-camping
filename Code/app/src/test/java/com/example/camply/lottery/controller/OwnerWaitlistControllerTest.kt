@@ -8,7 +8,14 @@ import com.example.camply.lottery.model.OwnerWaitlistLottery
 import com.example.camply.lottery.model.OwnerWaitlistModel
 import com.example.camply.lottery.model.WaitlistEntrant
 import com.example.camply.lottery.repository.OwnerWaitlistRepository
+import com.example.camply.notification.model.NewNotification
+import com.example.camply.notification.model.Notification
+import com.example.camply.notification.model.NotificationOrigin
+import com.example.camply.notification.model.NotificationType
+import com.example.camply.notification.model.SendResult
+import com.example.camply.notification.repository.NotificationRepository
 import com.example.camply.notification.repository.RecipientNameRepository
+import com.example.camply.notification.service.NotificationService
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertNull
@@ -19,7 +26,8 @@ import org.junit.Test
 import java.util.Date
 
 /**
- * Unit tests for loading the owner's waitlist screen (US 02.09.01).
+ * Unit tests for the owner's waitlist screen and notifications to its entrants
+ * (US 02.09.01, US 02.10.01).
  */
 class OwnerWaitlistControllerTest {
 
@@ -27,6 +35,7 @@ class OwnerWaitlistControllerTest {
     private lateinit var waitlistRepository: TestOwnerWaitlistRepository
     private lateinit var campsiteRepository: TestCampsiteRepository
     private lateinit var nameRepository: TestRecipientNameRepository
+    private lateinit var notificationRepository: TestNotificationRepository
     private lateinit var controller: OwnerWaitlistController
 
     /**
@@ -38,8 +47,13 @@ class OwnerWaitlistControllerTest {
         waitlistRepository = TestOwnerWaitlistRepository()
         campsiteRepository = TestCampsiteRepository()
         nameRepository = TestRecipientNameRepository()
+        notificationRepository = TestNotificationRepository()
         controller = OwnerWaitlistController(
-            model, waitlistRepository, campsiteRepository, nameRepository
+            model,
+            waitlistRepository,
+            campsiteRepository,
+            nameRepository,
+            NotificationService(notificationRepository)
         )
     }
 
@@ -211,6 +225,123 @@ class OwnerWaitlistControllerTest {
         assertTrue(model.entrants.isEmpty())
     }
 
+    /**
+     * Checks that every entrant on the waitlist gets the owner's message.
+     */
+    @Test
+    fun onSendNotification_sendsToEveryEntrant() = runBlocking {
+        openWaitlist(entrant("entrant1"), entrant("entrant2"))
+        controller.onStartMessage()
+        controller.onMessageChanged("  Quiet hours start at 10 PM.  ")
+
+        controller.onSendNotification(OWNER_ID)
+
+        val sent = notificationRepository.records
+        assertEquals(listOf("entrant1", "entrant2"), sent.map { it.recipientId })
+        assertEquals(1, sent.map { it.eventId }.distinct().size)
+        sent.forEach {
+            assertEquals(OWNER_ID, it.senderId)
+            assertEquals(NotificationOrigin.OWNER, it.origin)
+            assertEquals(NotificationType.OWNER_MESSAGE, it.type)
+            assertEquals("lottery1", it.lotteryId)
+            assertEquals("Lakeside waitlist update", it.title)
+            assertEquals("Quiet hours start at 10 PM.", it.content)
+        }
+        assertEquals(2, model.sentCount)
+        assertNull(model.sendError)
+    }
+
+    /**
+     * Checks that an entrant listed twice only gets the message once.
+     */
+    @Test
+    fun onSendNotification_repeatedEntrant_sendsOnce() = runBlocking {
+        openWaitlist(entrant("entrant1"), entrant("entrant1"))
+        controller.onMessageChanged("Quiet hours start at 10 PM.")
+
+        controller.onSendNotification(OWNER_ID)
+
+        assertEquals(1, notificationRepository.records.size)
+        assertEquals(1, model.sentCount)
+    }
+
+    /**
+     * Checks that one failed entrant does not stop the others and shows how many failed.
+     */
+    @Test
+    fun onSendNotification_oneEntrantFails_sendsToOthersAndShowsError() = runBlocking {
+        openWaitlist(entrant("entrant1"), entrant("entrant2"), entrant("entrant3"))
+        controller.onMessageChanged("Quiet hours start at 10 PM.")
+        notificationRepository.failingRecipients = setOf("entrant2")
+
+        controller.onSendNotification(OWNER_ID)
+
+        assertEquals(listOf("entrant1", "entrant3"), notificationRepository.records.map { it.recipientId })
+        assertEquals("Could not send to 1 of 3 entrants. Try again.", model.sendError)
+        assertNull(model.sentCount)
+        assertFalse(model.isSending)
+    }
+
+    /**
+     * Checks that trying again reuses the event ID, so entrants who got it are not sent it twice.
+     */
+    @Test
+    fun onSendNotification_retry_reusesEventId() = runBlocking {
+        openWaitlist(entrant("entrant1"), entrant("entrant2"))
+        controller.onMessageChanged("Quiet hours start at 10 PM.")
+        notificationRepository.failingRecipients = setOf("entrant2")
+        controller.onSendNotification(OWNER_ID)
+        val firstEventId = notificationRepository.records.single().eventId
+
+        notificationRepository.failingRecipients = emptySet()
+        controller.onSendNotification(OWNER_ID)
+
+        assertEquals(setOf(firstEventId), notificationRepository.attempts.map { it.eventId }.toSet())
+        assertEquals(listOf("entrant1", "entrant2"), notificationRepository.records.map { it.recipientId })
+        assertEquals(2, model.sentCount)
+    }
+
+    /**
+     * Checks that an edited message is sent with a new event ID.
+     */
+    @Test
+    fun onSendNotification_editedMessage_usesNewEventId() = runBlocking {
+        openWaitlist(entrant("entrant1"))
+        controller.onMessageChanged("Quiet hours start at 10 PM.")
+        notificationRepository.failingRecipients = setOf("entrant1")
+        controller.onSendNotification(OWNER_ID)
+
+        notificationRepository.failingRecipients = emptySet()
+        controller.onMessageChanged("Quiet hours start at 11 PM.")
+        controller.onSendNotification(OWNER_ID)
+
+        assertEquals(2, notificationRepository.attempts.map { it.eventId }.distinct().size)
+        assertEquals("Quiet hours start at 11 PM.", notificationRepository.records.single().content)
+    }
+
+    /**
+     * Checks that nothing is sent when the message is blank or the waitlist is empty.
+     */
+    @Test
+    fun onSendNotification_blankMessageOrNoEntrants_sendsNothing() = runBlocking {
+        openWaitlist(entrant("entrant1"))
+        controller.onMessageChanged("   ")
+        controller.onSendNotification(OWNER_ID)
+
+        openWaitlist()
+        controller.onMessageChanged("Quiet hours start at 10 PM.")
+        controller.onSendNotification(OWNER_ID)
+
+        assertTrue(notificationRepository.attempts.isEmpty())
+        assertNull(model.sentCount)
+    }
+
+    // Opens the waitlist of "lottery1" with the given entrants.
+    private suspend fun openWaitlist(vararg entrants: WaitlistEntrant) {
+        waitlistRepository.entrants = entrants.toList()
+        controller.onLotterySelected(item("lottery1"))
+    }
+
     private fun lottery(id: String, campsiteId: String, registrationStart: String = "2026-11-01") =
         lottery(id, listOf(campsiteId), registrationStart)
 
@@ -258,6 +389,39 @@ class OwnerWaitlistControllerTest {
             if (shouldFail) throw Exception("Could not read entrants.")
             return entrants
         }
+    }
+
+    /**
+     * Records saved notifications without accessing Firestore, and fails for chosen recipients.
+     */
+    private class TestNotificationRepository : NotificationRepository {
+        val attempts = mutableListOf<NewNotification>()
+        val records = mutableListOf<NewNotification>()
+        private val savedIds = mutableSetOf<String>()
+        var failingRecipients: Set<String> = emptySet()
+
+        override suspend fun createIfAbsent(id: String, notification: NewNotification): SendResult {
+            attempts.add(notification)
+            if (notification.recipientId in failingRecipients) throw Exception("Could not save.")
+            if (!savedIds.add(id)) return SendResult.ALREADY_EXISTS
+            records.add(notification)
+            return SendResult.CREATED
+        }
+
+        override fun observeReceived(
+            recipientId: String,
+            onUpdate: (List<Notification>) -> Unit,
+            onError: (Exception) -> Unit
+        ): () -> Unit = error("Not used by waitlist tests")
+
+        override fun observeSent(
+            senderId: String,
+            onUpdate: (List<Notification>) -> Unit,
+            onError: (Exception) -> Unit
+        ): () -> Unit = error("Not used by waitlist tests")
+
+        override suspend fun markAsRead(notificationId: String, recipientId: String) =
+            error("Not used by waitlist tests")
     }
 
     /**

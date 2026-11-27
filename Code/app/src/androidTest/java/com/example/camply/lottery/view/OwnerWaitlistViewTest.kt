@@ -12,7 +12,12 @@ import com.example.camply.lottery.model.Lottery
 import com.example.camply.lottery.model.OwnerWaitlistModel
 import com.example.camply.lottery.model.WaitlistEntrant
 import com.example.camply.lottery.repository.OwnerWaitlistRepository
+import com.example.camply.notification.model.NewNotification
+import com.example.camply.notification.model.Notification
+import com.example.camply.notification.model.SendResult
+import com.example.camply.notification.repository.NotificationRepository
 import com.example.camply.notification.repository.RecipientNameRepository
+import com.example.camply.notification.service.NotificationService
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -185,7 +190,11 @@ class OwnerWaitlistViewTest {
     private fun showScreen() {
         val model = OwnerWaitlistModel()
         val controller = OwnerWaitlistController(
-            model, waitlistRepository, campsiteRepository, nameRepository
+            model,
+            waitlistRepository,
+            campsiteRepository,
+            nameRepository,
+            NotificationService(TestNotificationRepository())
         )
         val view = OwnerWaitlistView(model, controller)
 
@@ -217,6 +226,29 @@ class OwnerWaitlistViewTest {
         }
 
         override suspend fun getEntrants(lotteryId: String): List<WaitlistEntrant> = entrants
+    }
+
+    /**
+     * Accepts notifications without accessing Firestore.
+     */
+    private class TestNotificationRepository : NotificationRepository {
+        override suspend fun createIfAbsent(id: String, notification: NewNotification): SendResult =
+            SendResult.CREATED
+
+        override fun observeReceived(
+            recipientId: String,
+            onUpdate: (List<Notification>) -> Unit,
+            onError: (Exception) -> Unit
+        ): () -> Unit = error("Not used by waitlist view tests")
+
+        override fun observeSent(
+            senderId: String,
+            onUpdate: (List<Notification>) -> Unit,
+            onError: (Exception) -> Unit
+        ): () -> Unit = error("Not used by waitlist view tests")
+
+        override suspend fun markAsRead(notificationId: String, recipientId: String) =
+            error("Not used by waitlist view tests")
     }
 
     /**
