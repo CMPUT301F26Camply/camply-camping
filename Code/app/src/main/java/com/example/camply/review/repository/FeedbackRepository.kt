@@ -1,6 +1,7 @@
 package com.example.camply.review.repository
 
 import com.example.camply.review.model.Rating
+import com.example.camply.review.model.RatingSummary
 import com.example.camply.review.model.Review
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -9,8 +10,8 @@ import kotlinx.coroutines.tasks.await
 
 // FeedbackRepository.kt - Where campsite ratings and reviews are read and written (US 01.13.01, 01.13.02).
 // Controllers depend on the interface, not on Firebase, so tests can use a fake.
-// Outstanding issues: the average is recomputed from all ratings after each save, which is
-// fine at this scale but would move to a Cloud Function for a large number of ratings.
+// Outstanding issues: campsites rated before the ratingSummary document existed need their old
+// ratings removed (test data only), because the summary starts empty.
 
 /**
  * Defines storage operations for campsite ratings and reviews.
@@ -41,7 +42,8 @@ interface FeedbackRepository {
     suspend fun getRatings(campsiteId: String): List<Rating>
 
     /**
-     * Saves an entrant's rating (replacing their earlier one) and updates the campsite's average.
+     * Atomically saves an entrant's rating (replacing their earlier one) and updates the campsite's
+     * average, so a failure never leaves the rating and the average out of step.
      *
      * @param campsiteId The campsite's Firestore document ID.
      * @param rating The rating to save.
@@ -49,9 +51,12 @@ interface FeedbackRepository {
     suspend fun saveRating(campsiteId: String, rating: Rating)
 }
 
-/** Firestore-backed implementation. Collection: "campsites", subcollections "reviews" and "ratings". */
+/**
+ * Firestore-backed implementation. Collection: "campsites", subcollections "reviews", "ratings"
+ * and "ratingSummary".
+ */
 class FirestoreFeedbackRepository(
-    db: FirebaseFirestore = FirebaseFirestore.getInstance()
+    private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) : FeedbackRepository {
     private val campsites = db.collection("campsites")
 
@@ -82,16 +87,37 @@ class FirestoreFeedbackRepository(
             .get().await().toObjects(Rating::class.java)
     }
 
+    /**
+     * Saves the rating, the updated rating summary and the campsite's average in one transaction,
+     * so either all three change or none do. A missing campsite fails the whole transaction.
+     */
     override suspend fun saveRating(campsiteId: String, rating: Rating) {
         requireDocumentId(campsiteId)
         requireDocumentId(rating.entrantId)
         require(Rating.isValidValue(rating.value)) { "Rating must be from 1 to 5." }
 
         val campsiteRef = campsites.document(campsiteId)
-        campsiteRef.collection("ratings").document(rating.entrantId).set(rating).await()
-        campsiteRef.update("rating", Rating.average(getRatings(campsiteId))).await()
+        val ratingRef = campsiteRef.collection("ratings").document(rating.entrantId)
+        val summaryRef = campsiteRef.collection("ratingSummary").document(SUMMARY_ID)
+
+        db.runTransaction { transaction ->
+            // Firestore transactions require every read to come before any write.
+            val previous = transaction.get(ratingRef).toObject(Rating::class.java)?.value
+            val summary = transaction.get(summaryRef).toObject(RatingSummary::class.java)
+                ?: RatingSummary()
+
+            val updated = summary.withRating(previous, rating.value)
+
+            transaction.set(ratingRef, rating)
+            transaction.set(summaryRef, updated)
+            transaction.update(campsiteRef, "rating", updated.average())
+        }.await()
     }
 
     private fun requireDocumentId(value: String) =
         require(value.isNotBlank() && '/' !in value) { "Invalid ID." }
+
+    private companion object {
+        const val SUMMARY_ID = "summary"
+    }
 }
