@@ -4,6 +4,10 @@ Camply is a campsite reservation application developed for CMPUT 301 at the Univ
 
 This README is a work in progress and will be updated as the project develops. Additional project information, documentation, and setup instructions will be added as they become available.
 
+## Admin message logs
+
+Merge [the messaging rules](doc/messaging-firestore.rules) into the active Firestore rules. Exclude `conversations` from any broad development rule that grants app users access. The admin's Camply profile must have the `admin` role. Grant its Firebase Auth UID the separate `messageLogAdmin: true` custom claim through the [Firebase Admin SDK](https://firebase.google.com/docs/auth/admin/custom-claims). Preserve the account's existing claims when setting it. The admin can then open **Message logs** in Camply.
+
 ## AI Usage Disclosure
 
 This section documents the use of generative AI tools during the development of Camply. Usage is recorded by project part and deliverable, including the tools used, their purpose, and the extent of their contribution.
@@ -21,6 +25,12 @@ This section documents the use of generative AI tools during the development of 
 
 - **Purpose:** Assisted with implementing category filtering on the owner campsite overview, matching reservation counts, and preserving filters through reservation navigation.
 - **Extent of Use:** Generated changes to the reservation controller, model, and Compose view, plus unit and UI tests for past reservations, empty categories, and navigation.
+
+#### Owner Reservations and Reservation Messaging
+
+- **Stories:** US 02.07.03, US 02.08.01, US 02.12.01, US 01.14.01, and US 03.12.01.
+- **Purpose:** Used OpenAI Codex in November 2026 to support owner reservation filtering and rejection, two-way reservation messaging, and read-only admin message logs.
+- **Extent of Use:** Assisted with Kotlin controllers, models, repositories, and Compose views, Firestore rules for message access, and unit and UI tests. The cancelled-reservation story reused the reservation category filters, with dedicated UI coverage.
 
 **Contributor:** Filip Kosmajac (`fkosmajac`)  
 **AI Provider:** OpenAI  
